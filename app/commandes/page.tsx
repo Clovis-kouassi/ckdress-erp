@@ -15,6 +15,7 @@ type Commande = {
   frais_livraison: number
   statut: string
   source: string
+  nom_client: string
   note: string
   created_at: string
   livreur_id?: string
@@ -26,263 +27,230 @@ type Livreur = {
   code: string
 }
 
-const STATUTS: Record<string, { label: string; color: string; bg: string }> = {
-  nouveau: { label: 'Nouveau', color: '#92400e', bg: '#fef3c7' },
-  en_preparation: { label: 'En préparation', color: '#1e40af', bg: '#dbeafe' },
-  en_livraison: { label: 'En livraison', color: '#5b21b6', bg: '#ede9fe' },
-  livre: { label: 'Livré', color: '#065f46', bg: '#d1fae5' },
-  annule: { label: 'Annulé', color: '#991b1b', bg: '#fee2e2' },
+const STATUTS: Record<string, { label: string; color: string; bg: string; textColor: string }> = {
+  nouveau: { label: 'Nouvelles', color: '#E24B4A', bg: 'rgba(226,75,74,0.12)', textColor: '#A32D2D' },
+  en_preparation: { label: 'Validées', color: '#185FA5', bg: 'rgba(55,138,221,0.12)', textColor: '#185FA5' },
+  en_livraison: { label: 'En livraison', color: '#BA7517', bg: 'rgba(239,159,39,0.12)', textColor: '#854F0B' },
+  livre: { label: 'Livrées', color: '#0F6E56', bg: 'rgba(29,158,117,0.12)', textColor: '#085041' },
 }
 
 export default function CommandesPage() {
   const router = useRouter()
   const [commandes, setCommandes] = useState<Commande[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filtre, setFiltre] = useState('tous')
   const [livreurs, setLivreurs] = useState<Livreur[]>([])
-  const [assignModal, setAssignModal] = useState<string | null>(null)
-  const [livreurChoisi, setLivreurChoisi] = useState<string>('')
-  const [assignant, setAssignant] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [livreurChoisi, setLivreurChoisi] = useState<Record<string, string>>({})
+  const [success, setSuccess] = useState('')
 
   useEffect(() => {
-    fetchCommandes()
-    fetchLivreurs()
+    fetchData()
   }, [])
 
-  async function fetchCommandes() {
+  async function fetchData() {
     setLoading(true)
-    const { data } = await supabase
+    const { data: cmds } = await supabase
       .from('commandes_catalogue')
       .select('*')
+      .neq('statut', 'annule')
       .order('created_at', { ascending: false })
-    if (data) setCommandes(data)
-    setLoading(false)
-  }
 
-  async function fetchLivreurs() {
-    const { data } = await supabase
+    const { data: livs } = await supabase
       .from('livreurs')
       .select('*')
       .eq('actif', true)
       .order('nom')
-    if (data) setLivreurs(data)
+
+    setCommandes(cmds || [])
+    setLivreurs(livs || [])
+    setLoading(false)
   }
 
-  async function changerStatut(id: string, statut: string) {
-    await supabase.from('commandes_catalogue').update({ statut }).eq('id', id)
-    fetchCommandes()
+  async function changerStatut(id: string, statut: string, livreurId?: string) {
+    const update: any = { statut }
+    if (livreurId) update.livreur_id = livreurId
+    await supabase.from('commandes_catalogue').update(update).eq('id', id)
+    setSuccess('✅ Mis à jour !')
+    fetchData()
+    setTimeout(() => setSuccess(''), 2000)
   }
 
-  async function assignerLivreur() {
-    if (!assignModal) return
-    setAssignant(true)
-    await supabase
-      .from('commandes_catalogue')
-      .update({ livreur_id: livreurChoisi || null })
-      .eq('id', assignModal)
-    setAssignant(false)
-    setAssignModal(null)
-    setLivreurChoisi('')
-    fetchCommandes()
+  const getLivreurNom = (id: string | null | undefined) => {
+    if (!id) return null
+    return livreurs.find(l => l.id === id)?.nom || null
   }
-
-  const commandesFiltrees = filtre === 'tous'
-    ? commandes
-    : commandes.filter(c => c.statut === filtre)
 
   const stats = {
     total: commandes.length,
     nouveau: commandes.filter(c => c.statut === 'nouveau').length,
     en_livraison: commandes.filter(c => c.statut === 'en_livraison').length,
     livre: commandes.filter(c => c.statut === 'livre').length,
+    ca: commandes.filter(c => c.statut === 'livre').reduce((s, c) => s + (c.montant_total || 0), 0),
   }
 
+  const colonnes = [
+    { key: 'nouveau', label: 'Nouvelles', color: '#E24B4A', bg: 'rgba(226,75,74,0.12)', textColor: '#A32D2D' },
+    { key: 'en_preparation', label: 'Validées', color: '#185FA5', bg: 'rgba(55,138,221,0.12)', textColor: '#185FA5' },
+    { key: 'en_livraison', label: 'En livraison', color: '#BA7517', bg: 'rgba(239,159,39,0.12)', textColor: '#854F0B' },
+    { key: 'livre', label: 'Livrées', color: '#0F6E56', bg: 'rgba(29,158,117,0.12)', textColor: '#085041' },
+  ]
+
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9fa', fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: 'sans-serif', color: 'white' }}>
 
-      {/* Modal assigner livreur */}
-      {assignModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 400 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>🚚 Assigner un livreur</h3>
-            <select
-              value={livreurChoisi}
-              onChange={e => setLivreurChoisi(e.target.value)}
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, marginBottom: 16, color: '#1a1a1a' }}
-            >
-              <option value="">— Aucun livreur —</option>
-              {livreurs.map(l => (
-                <option key={l.id} value={l.id}>{l.nom} ({l.code})</option>
-              ))}
-            </select>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => { setAssignModal(null); setLivreurChoisi('') }}
-                style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontSize: 14 }}
-              >
-                Annuler
-              </button>
-              <button
-                onClick={assignerLivreur}
-                disabled={assignant}
-                style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: '#1a1a1a', color: 'white', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
-              >
-                {assignant ? '...' : '✅ Assigner'}
-              </button>
+      {/* TOPBAR */}
+      <div style={{ background: '#111', borderBottom: '0.5px solid #222', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ color: '#1D9E75', fontSize: '16px', fontWeight: 500 }}>CK Dress ERP</span>
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+          {[
+            { label: 'Dashboard', path: '/dashboard' },
+            { label: 'Commandes', path: '/commandes' },
+            { label: 'Livraisons', path: '/livraisons' },
+            { label: 'Stock', path: '/stock' },
+          ].map(nav => (
+            <a key={nav.path} href={nav.path} style={{ color: nav.path === '/commandes' ? '#1D9E75' : '#666', fontSize: '12px', textDecoration: 'none', fontWeight: nav.path === '/commandes' ? 500 : 400 }}>
+              {nav.label}
+            </a>
+          ))}
+          <button onClick={fetchData} style={{ background: 'none', border: '0.5px solid #1D9E75', borderRadius: '6px', color: '#1D9E75', padding: '5px 10px', fontSize: '11px', cursor: 'pointer' }}>
+            ↺ Actualiser
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding: '16px' }}>
+
+        {/* KPIs */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '10px', marginBottom: '16px' }}>
+          {[
+            { label: 'Total commandes', value: stats.total, color: 'white' },
+            { label: 'Nouvelles', value: stats.nouveau, color: '#E24B4A' },
+            { label: 'En livraison', value: stats.en_livraison, color: '#BA7517' },
+            { label: 'Livrées', value: stats.livre, color: '#1D9E75' },
+            { label: 'CA livré', value: stats.ca.toLocaleString('fr-FR') + ' F', color: '#1D9E75' },
+          ].map((k, i) => (
+            <div key={i} style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '12px 14px' }}>
+              <div style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{k.label}</div>
+              <div style={{ fontSize: '20px', fontWeight: 500, color: k.color }}>{k.value}</div>
             </div>
+          ))}
+        </div>
+
+        {success && (
+          <div style={{ background: '#0a2a1a', border: '1px solid #1D9E75', borderRadius: '8px', padding: '10px 16px', color: '#1D9E75', fontSize: '13px', marginBottom: '12px' }}>
+            {success}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Header */}
-      <header style={{ background: '#1a1a1a', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 20 }}>←</button>
-          <span style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>Commandes Catalogue</span>
-        </div>
-        <button
-          onClick={fetchCommandes}
-          style={{ background: '#d4a853', color: '#1a1a1a', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-        >
-          Actualiser
-        </button>
-      </header>
-
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px' }}>
-
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
-          {[
-            { label: 'Total commandes', value: stats.total, color: '#1a1a1a' },
-            { label: 'Nouvelles', value: stats.nouveau, color: '#d97706' },
-            { label: 'En livraison', value: stats.en_livraison, color: '#7c3aed' },
-            { label: 'Livrées', value: stats.livre, color: '#059669' },
-          ].map(s => (
-            <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '16px', border: '1px solid #e5e7eb' }}>
-              <p style={{ margin: 0, fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</p>
-              <p style={{ margin: '4px 0 0', fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Filtres */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-          {[
-            { key: 'tous', label: 'Toutes' },
-            { key: 'nouveau', label: 'Nouvelles' },
-            { key: 'en_preparation', label: 'En préparation' },
-            { key: 'en_livraison', label: 'En livraison' },
-            { key: 'livre', label: 'Livrées' },
-            { key: 'annule', label: 'Annulées' },
-          ].map(f => (
-            <button
-              key={f.key}
-              onClick={() => setFiltre(f.key)}
-              style={{
-                padding: '8px 16px', borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                background: filtre === f.key ? '#1a1a1a' : '#fff',
-                color: filtre === f.key ? '#fff' : '#555',
-                border: filtre === f.key ? '1.5px solid #1a1a1a' : '1.5px solid #e5e7eb',
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Liste commandes */}
+        {/* KANBAN */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>Chargement...</div>
-        ) : commandesFiltrees.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
-            <p>Aucune commande {filtre !== 'tous' ? 'dans cette catégorie' : ''}</p>
-          </div>
+          <div style={{ textAlign: 'center', color: '#555', padding: '60px' }}>Chargement...</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {commandesFiltrees.map(cmd => {
-              const livreurCmd = livreurs.find(l => l.id === cmd.livreur_id)
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px' }}>
+            {colonnes.map(col => {
+              const cmdCol = commandes.filter(c => c.statut === col.key)
               return (
-                <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', padding: '16px 20px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                <div key={col.key} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '12px' }}>
 
-                    {/* Infos commande */}
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 12, color: '#aaa' }}>#{cmd.id.slice(0, 8).toUpperCase()}</span>
-                        <span style={{
-                          fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20,
-                          background: STATUTS[cmd.statut]?.bg || '#f3f4f6',
-                          color: STATUTS[cmd.statut]?.color || '#555',
-                        }}>
-                          {STATUTS[cmd.statut]?.label || cmd.statut}
-                        </span>
-                        <span style={{ fontSize: 11, color: '#bbb' }}>
-                          via {cmd.source === 'whatsapp' ? '📱 WhatsApp' : '🌐 Formulaire'}
-                        </span>
-                        {livreurCmd && (
-                          <span style={{ fontSize: 11, background: '#f0fdf4', color: '#065f46', padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>
-                            🚚 {livreurCmd.nom}
+                  {/* Header colonne */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', color: col.color }}>
+                      {col.label}
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: 500, padding: '1px 7px', borderRadius: '8px', background: col.bg, color: col.textColor }}>
+                      {cmdCol.length}
+                    </span>
+                  </div>
+
+                  {/* Cartes */}
+                  {cmdCol.length === 0 ? (
+                    <div style={{ color: '#444', fontSize: '11px', textAlign: 'center', padding: '20px 0' }}>Aucune</div>
+                  ) : (
+                    cmdCol.map(cmd => (
+                      <div key={cmd.id} style={{ background: '#1a1a1a', border: '0.5px solid #2a2a2a', borderRadius: '10px', padding: '10px', marginBottom: '8px' }}>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '10px', color: '#555' }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
+                          <span style={{ fontSize: '12px', fontWeight: 500, color: '#1D9E75' }}>
+                            {cmd.montant_total?.toLocaleString('fr-FR')} F
                           </span>
-                        )}
-                      </div>
+                        </div>
 
-                      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1a1a1a' }}>
-                        {cmd.produit_ref} — Taille {cmd.taille}
-                      </p>
-                      <p style={{ margin: '2px 0', fontSize: 13, color: '#666' }}>Couleurs : {cmd.variantes}</p>
-                      <p style={{ margin: '4px 0 0', fontSize: 13, color: '#888' }}>📞 {cmd.telephone} · 📍 {cmd.adresse}</p>
-                      <p style={{ margin: '2px 0 0', fontSize: 12, color: '#bbb' }}>
-                        {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
+                        <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '2px' }}>{cmd.nom_client || '—'}</div>
+                        <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>📞 {cmd.telephone}</div>
+                        <div style={{ fontSize: '11px', color: '#555', marginBottom: '4px' }}>📍 {cmd.adresse}</div>
+                        <div style={{ fontSize: '11px', color: '#555', marginBottom: '8px' }}>
+                          🛍️ {cmd.produit_ref} — Taille {cmd.taille}
+                        </div>
 
-                    {/* Montant + actions */}
-                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-                      <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a1a1a' }}>
-                        {cmd.montant_total?.toLocaleString('fr-FR')} F
-                      </p>
-                      <p style={{ margin: 0, fontSize: 12, color: '#aaa' }}>
-                        dont {cmd.frais_livraison?.toLocaleString('fr-FR')} F livraison
-                      </p>
-
-                      <select
-                        value={cmd.statut}
-                        onChange={e => changerStatut(cmd.id, e.target.value)}
-                        style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12, cursor: 'pointer', background: '#f9fafb', color: '#1a1a1a' }}
-                      >
-                        <option value="nouveau">Nouveau</option>
-                        <option value="en_preparation">En préparation</option>
-                        <option value="en_livraison">En livraison</option>
-                        <option value="livre">Livré</option>
-                        <option value="annule">Annulé</option>
-                      </select>
-
-                      {/* Boutons */}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          onClick={() => { setAssignModal(cmd.id); setLivreurChoisi(cmd.livreur_id || '') }}
-                          style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#555' }}
-                        >
-                          🚚 Livreur
-                        </button>
+                        {/* Bouton voir détail */}
                         <button
                           onClick={() => router.push(`/commandes/${cmd.id}`)}
-                          style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#1a1a1a', color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                          style={{ width: '100%', padding: '5px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', background: 'transparent', color: '#666', border: '0.5px solid #333', marginBottom: '6px' }}
                         >
                           Voir détail →
                         </button>
+
+                        {/* Actions selon colonne */}
+                        {col.key === 'nouveau' && (
+                          <button
+                            onClick={() => changerStatut(cmd.id, 'en_preparation')}
+                            style={{ width: '100%', padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', background: 'rgba(55,138,221,0.1)', color: '#378ADD', border: '0.5px solid rgba(55,138,221,0.3)' }}
+                          >
+                            ✓ Valider
+                          </button>
+                        )}
+
+                        {col.key === 'en_preparation' && (
+                          <>
+                            <select
+                              value={livreurChoisi[cmd.id] || ''}
+                              onChange={e => setLivreurChoisi(prev => ({ ...prev, [cmd.id]: e.target.value }))}
+                              style={{ width: '100%', padding: '5px', borderRadius: '6px', border: '0.5px solid #333', background: '#111', color: '#888', fontSize: '11px', marginBottom: '6px' }}
+                            >
+                              <option value="">Assigner un livreur...</option>
+                              {livreurs.map(l => (
+                                <option key={l.id} value={l.id}>{l.nom} ({l.code})</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => changerStatut(cmd.id, 'en_livraison', livreurChoisi[cmd.id])}
+                              style={{ width: '100%', padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', background: 'rgba(239,159,39,0.1)', color: '#BA7517', border: '0.5px solid rgba(239,159,39,0.3)' }}
+                            >
+                              🚚 Envoyer en livraison
+                            </button>
+                          </>
+                        )}
+
+                        {col.key === 'en_livraison' && (
+                          <>
+                            {getLivreurNom(cmd.livreur_id) && (
+                              <div style={{ fontSize: '11px', color: '#1D9E75', marginBottom: '6px' }}>
+                                🚚 {getLivreurNom(cmd.livreur_id)}
+                              </div>
+                            )}
+                            <button
+                              onClick={() => changerStatut(cmd.id, 'livre')}
+                              style={{ width: '100%', padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', background: 'rgba(29,158,117,0.1)', color: '#0F6E56', border: '0.5px solid rgba(29,158,117,0.3)' }}
+                            >
+                              ✅ Confirmer livraison
+                            </button>
+                          </>
+                        )}
+
+                        {col.key === 'livre' && (
+                          <div style={{ color: '#1D9E75', fontSize: '10px', textAlign: 'center', padding: '4px' }}>
+                            ✓ Livraison confirmée
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </div>
+                    ))
+                  )}
                 </div>
               )
             })}
           </div>
         )}
       </div>
-
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     </div>
   )
 }
