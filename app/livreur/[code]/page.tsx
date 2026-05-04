@@ -41,19 +41,20 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
   const fetchData = async () => {
     setLoading(true)
 
-    const { data: livreurData, error } = await supabase
+    const { data: livreurs, error } = await supabase
       .from('livreurs')
       .select('*')
       .eq('code', params.code.toUpperCase())
       .eq('actif', true)
-      .single()
+      .limit(1)
 
-    if (error || !livreurData) {
+    if (error || !livreurs || livreurs.length === 0) {
       setNotFound(true)
       setLoading(false)
       return
     }
 
+    const livreurData = livreurs[0]
     setLivreur(livreurData)
 
     const { data: commandesData } = await supabase
