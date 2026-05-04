@@ -17,6 +17,7 @@ type Commande = {
   source: string
   note: string
   created_at: string
+  livreur_id?: string
 }
 
 type StockItem = {
@@ -33,6 +34,13 @@ type Produit = {
   prix_vente: number
   reference: string
   image_url?: string
+}
+
+type Livreur = {
+  id: string
+  nom: string
+  code: string
+  telephone: string
 }
 
 const STATUTS: Record<string, { label: string; color: string; bg: string }> = {
@@ -52,6 +60,10 @@ export default function CommandeDetailPage() {
   const [produit, setProduit] = useState<Produit | null>(null)
   const [variantes, setVariantes] = useState<StockItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [livreurs, setLivreurs] = useState<Livreur[]>([])
+  const [livreurId, setLivreurId] = useState<string>('')
+  const [assignant, setAssignant] = useState(false)
+  const [assignSuccess, setAssignSuccess] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
@@ -63,6 +75,8 @@ export default function CommandeDetailPage() {
 
       if (cmd) {
         setCommande(cmd)
+        if (cmd.livreur_id) setLivreurId(cmd.livreur_id)
+
         const { data: prodData } = await supabase
           .from('produits')
           .select('*')
@@ -80,6 +94,13 @@ export default function CommandeDetailPage() {
           if (stockData) setVariantes(stockData)
         }
       }
+
+      const { data: livreursData } = await supabase
+        .from('livreurs')
+        .select('*')
+        .eq('actif', true)
+        .order('nom')
+      setLivreurs(livreursData || [])
       setLoading(false)
     }
     fetchData()
@@ -88,6 +109,18 @@ export default function CommandeDetailPage() {
   async function changerStatut(statut: string) {
     await supabase.from('commandes_catalogue').update({ statut }).eq('id', id)
     setCommande(prev => prev ? { ...prev, statut } : null)
+  }
+
+  async function assignerLivreur() {
+    setAssignant(true)
+    await supabase
+      .from('commandes_catalogue')
+      .update({ livreur_id: livreurId || null })
+      .eq('id', id)
+    setCommande(prev => prev ? { ...prev, livreur_id: livreurId } : null)
+    setAssignant(false)
+    setAssignSuccess(true)
+    setTimeout(() => setAssignSuccess(false), 3000)
   }
 
   if (loading) return (
@@ -103,6 +136,7 @@ export default function CommandeDetailPage() {
   )
 
   const sousTotal = commande.montant_total - (commande.frais_livraison || 1500)
+  const livreurAssigne = livreurs.find(l => l.id === commande.livreur_id)
 
   function appelClient() {
     window.location.href = `tel:${commande!.telephone}`
@@ -133,7 +167,6 @@ export default function CommandeDetailPage() {
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '24px 16px' }}>
 
-        {/* Photos variantes */}
         {variantes.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', padding: '16px', marginBottom: 16 }}>
             <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -158,7 +191,6 @@ export default function CommandeDetailPage() {
           </div>
         )}
 
-        {/* Détails produit */}
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', padding: '16px', marginBottom: 16 }}>
           <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
             Détails produit
@@ -183,7 +215,6 @@ export default function CommandeDetailPage() {
           </div>
         </div>
 
-        {/* Infos client */}
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', padding: '16px', marginBottom: 16 }}>
           <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
             Infos client
@@ -212,7 +243,6 @@ export default function CommandeDetailPage() {
           </div>
         </div>
 
-        {/* Changer statut */}
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', padding: '16px', marginBottom: 16 }}>
           <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
             Changer le statut
@@ -235,18 +265,47 @@ export default function CommandeDetailPage() {
           </div>
         </div>
 
-        {/* Actions */}
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', padding: '16px', marginBottom: 16 }}>
+          <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            🚚 Assigner un livreur
+          </h3>
+          {livreurAssigne && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#065f46' }}>✅ {livreurAssigne.nom}</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#888' }}>{livreurAssigne.code} · {livreurAssigne.telephone}</p>
+              </div>
+              <a href={`/livreur/${livreurAssigne.code}`} target="_blank" style={{ fontSize: 12, color: '#1D9E75', textDecoration: 'none', fontWeight: 600 }}>
+                Voir interface →
+              </a>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <select
+              value={livreurId}
+              onChange={e => setLivreurId(e.target.value)}
+              style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb', color: '#1a1a1a', fontSize: 14 }}
+            >
+              <option value="">— Aucun livreur —</option>
+              {livreurs.map(l => (
+                <option key={l.id} value={l.id}>{l.nom} ({l.code})</option>
+              ))}
+            </select>
+            <button
+              onClick={assignerLivreur}
+              disabled={assignant}
+              style={{ padding: '10px 20px', background: assignSuccess ? '#065f46' : '#1a1a1a', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14, minWidth: 100 }}
+            >
+              {assignant ? '...' : assignSuccess ? '✅ Assigné !' : 'Assigner'}
+            </button>
+          </div>
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <button
-            onClick={appelClient}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >
+          <button onClick={appelClient} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
             📞 Appeler client
           </button>
-          <button
-            onClick={whatsappClient}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#25D366', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >
+          <button onClick={whatsappClient} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#25D366', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
             💬 WhatsApp
           </button>
         </div>
