@@ -157,7 +157,6 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: 'sans-serif', color: 'white' }}>
 
-      {/* HEADER */}
       <div style={{ background: '#111', borderBottom: '0.5px solid #222', padding: '12px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -170,7 +169,6 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
         </div>
       </div>
 
-      {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', padding: '16px 16px 0' }}>
         {[
           { label: 'Articles en stock', value: stock.reduce((s, i) => s + i.quantite, 0), color: '#378ADD' },
@@ -185,7 +183,6 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
         ))}
       </div>
 
-      {/* ONGLETS */}
       <div style={{ display: 'flex', borderBottom: '1px solid #222', background: '#111', margin: '16px 0 0' }}>
         {[
           { key: 'stock', label: '📦 Stock' },
@@ -210,7 +207,6 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
           </div>
         )}
 
-        {/* STOCK */}
         {onglet === 'stock' && (
           <div>
             {stock.length === 0 ? (
@@ -227,10 +223,7 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
                     <p style={{ margin: '0 0 8px', color: '#1D9E75', fontSize: '13px', fontWeight: 600 }}>{item.prix_vente.toLocaleString('fr-FR')} F</p>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: '#666' }}>Stock</span>
-                      <span style={{
-                        fontSize: '14px', fontWeight: 700,
-                        color: item.quantite === 0 ? '#ff6b6b' : item.quantite <= 2 ? '#BA7517' : '#1D9E75'
-                      }}>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: item.quantite === 0 ? '#ff6b6b' : item.quantite <= 2 ? '#BA7517' : '#1D9E75' }}>
                         {item.quantite} pcs
                       </span>
                     </div>
@@ -241,7 +234,6 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
           </div>
         )}
 
-        {/* VENDRE */}
         {onglet === 'vendre' && (
           <div>
             {!venteItem ? (
@@ -249,11 +241,8 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
                 <p style={{ color: '#888', fontSize: '13px', marginBottom: '12px' }}>Sélectionnez un article à vendre :</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {stock.filter(s => s.quantite > 0).map(item => (
-                    <div
-                      key={item.id}
-                      onClick={() => { setVenteItem(item); setVentePrix(item.prix_vente) }}
-                      style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '12px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                    >
+                    <div key={item.id} onClick={() => { setVenteItem(item); setVentePrix(item.prix_vente) }}
+                      style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '12px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{item.nom_produit}</p>
                         <p style={{ margin: '2px 0 0', color: '#888', fontSize: '12px' }}>{item.taille} — {item.couleur} — Stock: {item.quantite}</p>
@@ -267,30 +256,22 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
               <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
                 <h3 style={{ margin: '0 0 16px', fontSize: '16px' }}>💰 Enregistrer une vente</h3>
                 <p style={{ color: '#1D9E75', fontWeight: 600, marginBottom: '16px' }}>{venteItem.nom_produit} — {venteItem.taille} / {venteItem.couleur}</p>
-
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
                   <div>
                     <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Quantité vendue</label>
-                    <input
-                      type="number" min={1} max={venteItem.quantite} value={venteQte}
-                      onChange={e => setVenteQte(Number(e.target.value))}
-                      style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px', boxSizing: 'border-box' }}
-                    />
+                    <input type="number" min={1} max={venteItem.quantite} value={venteQte} onChange={e => setVenteQte(Number(e.target.value))}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px', boxSizing: 'border-box' }} />
                   </div>
                   <div>
                     <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Prix de vente (F)</label>
-                    <input
-                      type="number" value={ventePrix}
-                      onChange={e => setVentePrix(Number(e.target.value))}
-                      style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px', boxSizing: 'border-box' }}
-                    />
+                    <input type="number" value={ventePrix} onChange={e => setVentePrix(Number(e.target.value))}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px', boxSizing: 'border-box' }} />
                   </div>
                   <div style={{ background: '#0a1a12', borderRadius: '8px', padding: '12px', display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#666' }}>Total</span>
                     <span style={{ color: '#1D9E75', fontWeight: 700, fontSize: '16px' }}>{(ventePrix * venteQte).toLocaleString('fr-FR')} F</span>
                   </div>
                 </div>
-
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button onClick={() => setVenteItem(null)} style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'transparent', border: '1px solid #333', color: '#888', cursor: 'pointer' }}>
                     Annuler
@@ -304,7 +285,6 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
           </div>
         )}
 
-        {/* HISTORIQUE */}
         {onglet === 'historique' && (
           <div>
             {ventes.length === 0 ? (
@@ -331,44 +311,23 @@ export default function BoutiquePage({ params }: { params: Promise<{ token: stri
           </div>
         )}
 
-        {/* RÉAPPRO */}
         {onglet === 'reappro' && (
           <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: '16px' }}>🔄 Demande de réapprovisionnement</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-              <input
-                value={reapproItem.nom_produit}
-                onChange={e => setReapproItem(prev => ({ ...prev, nom_produit: e.target.value }))}
-                placeholder="Nom du produit"
-                style={{ padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px' }}
-              />
+              <input value={reapproItem.nom_produit} onChange={e => setReapproItem(prev => ({ ...prev, nom_produit: e.target.value }))}
+                placeholder="Nom du produit" style={{ padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px' }} />
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input
-                  value={reapproItem.taille}
-                  onChange={e => setReapproItem(prev => ({ ...prev, taille: e.target.value }))}
-                  placeholder="Taille"
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px' }}
-                />
-                <input
-                  value={reapproItem.couleur}
-                  onChange={e => setReapproItem(prev => ({ ...prev, couleur: e.target.value }))}
-                  placeholder="Couleur"
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px' }}
-                />
-                <input
-                  type="number" min={1}
-                  value={reapproItem.quantite_demandee}
-                  onChange={e => setReapproItem(prev => ({ ...prev, quantite_demandee: Number(e.target.value) }))}
-                  placeholder="Qté"
-                  style={{ width: '80px', padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px' }}
-                />
+                <input value={reapproItem.taille} onChange={e => setReapproItem(prev => ({ ...prev, taille: e.target.value }))}
+                  placeholder="Taille" style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px' }} />
+                <input value={reapproItem.couleur} onChange={e => setReapproItem(prev => ({ ...prev, couleur: e.target.value }))}
+                  placeholder="Couleur" style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px' }} />
+                <input type="number" min={1} value={reapproItem.quantite_demandee} onChange={e => setReapproItem(prev => ({ ...prev, quantite_demandee: Number(e.target.value) }))}
+                  placeholder="Qté" style={{ width: '80px', padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px' }} />
               </div>
             </div>
-            <button
-              onClick={demanderReappro}
-              disabled={saving}
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', background: '#1D9E75', border: 'none', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
-            >
+            <button onClick={demanderReappro} disabled={saving}
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', background: '#1D9E75', border: 'none', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}>
               {saving ? '...' : '📤 Envoyer la demande'}
             </button>
           </div>
