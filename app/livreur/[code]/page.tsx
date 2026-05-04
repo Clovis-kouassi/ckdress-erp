@@ -8,24 +8,22 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-interface Commande {
+type Commande = {
   id: string
   nom_client: string
   telephone: string
   adresse: string
   quartier: string
-  articles: string
   produit_ref: string
   taille: string
   variantes: string
-  total: number
   montant_total: number
   statut: string
   livreur_id: string | null
   created_at: string
 }
 
-interface Livreur {
+type Livreur = {
   id: string
   nom: string
   telephone: string
@@ -35,16 +33,16 @@ interface Livreur {
 export default function LivreurPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params)
   const [livreur, setLivreur] = useState<Livreur | null>(null)
-  const [commandes, setCommandes] = useState<Commande[]>([])
+  const [disponibles, setDisponibles] = useState<Commande[]>([])
   const [mesLivraisons, setMesLivraisons] = useState<Commande[]>([])
+  const [livrees, setLivrees] = useState<Commande[]>([])
+  const [historique, setHistorique] = useState<Commande[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [onglet, setOnglet] = useState<'disponibles' | 'mes_livraisons'>('disponibles')
   const [updating, setUpdating] = useState<string | null>(null)
+  const [success, setSuccess] = useState('')
 
-  useEffect(() => {
-    fetchData()
-  }, [code])
+  useEffect(() => { fetchData() }, [code])
 
   const fetchData = async () => {
     const { data: livreurs } = await supabase
@@ -63,7 +61,7 @@ export default function LivreurPage({ params }: { params: Promise<{ code: string
     const livreurData = livreurs[0]
     setLivreur(livreurData)
 
-    // Commandes disponibles (en_livraison + pas encore assignées)
+    // Disponibles (en_livraison + pas assignées)
     const { data: dispo } = await supabase
       .from('commandes_catalogue')
       .select('*')
@@ -71,7 +69,7 @@ export default function LivreurPage({ params }: { params: Promise<{ code: string
       .is('livreur_id', null)
       .order('created_at', { ascending: true })
 
-    // Mes livraisons acceptées
+    // Mes livraisons en cours
     const { data: miennes } = await supabase
       .from('commandes_catalogue')
       .select('*')
@@ -79,8 +77,26 @@ export default function LivreurPage({ params }: { params: Promise<{ code: string
       .eq('livreur_id', livreurData.id)
       .order('created_at', { ascending: true })
 
-    setCommandes(dispo || [])
+    // Livrées récentes
+    const { data: livreesData } = await supabase
+      .from('commandes_catalogue')
+      .select('*')
+      .eq('statut', 'livre')
+      .eq('livreur_id', livreurData.id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    // Tout l'historique (livré + en cours)
+    const { data: histData } = await supabase
+      .from('commandes_catalogue')
+      .select('*')
+      .eq('livreur_id', livreurData.id)
+      .order('created_at', { ascending: false })
+
+    setDisponibles(dispo || [])
     setMesLivraisons(miennes || [])
+    setLivrees(livreesData || [])
+    setHistorique(histData || [])
     setLoading(false)
   }
 
@@ -90,10 +106,11 @@ export default function LivreurPage({ params }: { params: Promise<{ code: string
       .from('commandes_catalogue')
       .update({ livreur_id: livreur!.id })
       .eq('id', commandeId)
-      .is('livreur_id', null) // Sécurité : évite double assignation
+      .is('livreur_id', null)
+    setSuccess('✅ Livraison acceptée !')
+    setTimeout(() => setSuccess(''), 2000)
     await fetchData()
     setUpdating(null)
-    setOnglet('mes_livraisons')
   }
 
   const confirmerLivraison = async (commandeId: string) => {
@@ -102,13 +119,15 @@ export default function LivreurPage({ params }: { params: Promise<{ code: string
       .from('commandes_catalogue')
       .update({ statut: 'livre' })
       .eq('id', commandeId)
+    setSuccess('✅ Livraison confirmée !')
+    setTimeout(() => setSuccess(''), 2000)
     await fetchData()
     setUpdating(null)
   }
 
-  const appelClient = (telephone: string) => {
-    window.location.href = `tel:${telephone}`
-  }
+  const totalLivrees = historique.filter(c => c.statut === 'livre').length
+  const totalAcceptees = historique.length
+  const caTotal = historique.filter(c => c.statut === 'livre').reduce((s, c) => s + (c.montant_total || 0), 0)
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0a0a0a' }}>
@@ -125,153 +144,139 @@ export default function LivreurPage({ params }: { params: Promise<{ code: string
     </div>
   )
 
-  return (
-    <div style={{ background: '#0a0a0a', minHeight: '100vh', fontFamily: 'sans-serif', paddingBottom: '40px' }}>
+  const colonnes = [
+    { key: 'disponibles', label: 'Disponibles', color: '#378ADD', bg: 'rgba(55,138,221,0.12)', textColor: '#185FA5', data: disponibles },
+    { key: 'mes_livraisons', label: 'Mes livraisons', color: '#BA7517', bg: 'rgba(239,159,39,0.12)', textColor: '#854F0B', data: mesLivraisons },
+    { key: 'livrees', label: 'Livrées', color: '#0F6E56', bg: 'rgba(29,158,117,0.12)', textColor: '#085041', data: livrees },
+    { key: 'historique', label: 'Historique', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)', textColor: '#5b21b6', data: historique },
+  ]
 
-      {/* Header */}
-      <div style={{ background: '#111', borderBottom: '1px solid #222', padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ color: '#1D9E75', margin: 0, fontSize: '18px', fontWeight: 700 }}>
-              🚚 {livreur?.nom}
-            </h1>
-            <p style={{ color: '#555', margin: '2px 0 0', fontSize: '12px' }}>
-              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </p>
-          </div>
-          <button onClick={fetchData} style={{ background: '#1a2e25', border: '1px solid #1D9E75', borderRadius: '8px', color: '#1D9E75', padding: '6px 12px', cursor: 'pointer', fontSize: '12px' }}>
-            🔄 Actualiser
+  return (
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: 'sans-serif', color: 'white' }}>
+
+      {/* TOPBAR */}
+      <div style={{ background: '#111', borderBottom: '0.5px solid #222', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ color: '#1D9E75', fontSize: '16px', fontWeight: 500 }}>🚚 {livreur?.nom}</span>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <span style={{ color: '#555', fontSize: '12px' }}>
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </span>
+          <button onClick={fetchData} style={{ background: 'none', border: '0.5px solid #1D9E75', borderRadius: '6px', color: '#1D9E75', padding: '5px 10px', fontSize: '11px', cursor: 'pointer' }}>
+            ↺ Actualiser
           </button>
         </div>
       </div>
 
-      {/* Onglets */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #222', background: '#111' }}>
-        <button
-          onClick={() => setOnglet('disponibles')}
-          style={{ flex: 1, padding: '14px', background: 'transparent', border: 'none', color: onglet === 'disponibles' ? '#1D9E75' : '#555', fontSize: '14px', fontWeight: 600, cursor: 'pointer', borderBottom: onglet === 'disponibles' ? '2px solid #1D9E75' : '2px solid transparent' }}
-        >
-          📦 Disponibles ({commandes.length})
-        </button>
-        <button
-          onClick={() => setOnglet('mes_livraisons')}
-          style={{ flex: 1, padding: '14px', background: 'transparent', border: 'none', color: onglet === 'mes_livraisons' ? '#1D9E75' : '#555', fontSize: '14px', fontWeight: 600, cursor: 'pointer', borderBottom: onglet === 'mes_livraisons' ? '2px solid #1D9E75' : '2px solid transparent' }}
-        >
-          🛵 Mes livraisons ({mesLivraisons.length})
-        </button>
-      </div>
-
-      {/* Contenu */}
       <div style={{ padding: '16px' }}>
 
-        {/* Onglet disponibles */}
-        {onglet === 'disponibles' && (
-          <>
-            {commandes.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#555' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '12px' }}>✅</div>
-                <p style={{ fontSize: '16px' }}>Aucune livraison disponible</p>
-                <p style={{ fontSize: '13px', color: '#444' }}>Revenez plus tard 👋</p>
-              </div>
-            ) : (
-              commandes.map((commande, index) => (
-                <div key={commande.id} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '16px', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ color: '#444', fontSize: '12px' }}>#{index + 1}</span>
-                    <span style={{ background: '#1a2e25', border: '1px solid #1D9E75', color: '#1D9E75', fontSize: '11px', padding: '3px 10px', borderRadius: '20px' }}>
-                      Disponible
-                    </span>
-                  </div>
+        {/* KPIs */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', marginBottom: '16px' }}>
+          {[
+            { label: 'Disponibles', value: disponibles.length, color: '#378ADD' },
+            { label: 'En cours', value: mesLivraisons.length, color: '#BA7517' },
+            { label: 'Total livrées', value: totalLivrees, color: '#1D9E75' },
+            { label: 'CA encaissé', value: caTotal.toLocaleString('fr-FR') + ' F', color: '#1D9E75' },
+          ].map((k, i) => (
+            <div key={i} style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '12px 14px' }}>
+              <div style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{k.label}</div>
+              <div style={{ fontSize: '20px', fontWeight: 500, color: k.color }}>{k.value}</div>
+            </div>
+          ))}
+        </div>
 
-                  <div style={{ marginBottom: '12px' }}>
-                    <p style={{ color: 'white', fontWeight: 600, margin: '0 0 4px', fontSize: '15px' }}>
-                      {commande.nom_client || commande.telephone}
-                    </p>
-                    <p style={{ color: '#888', margin: '0 0 2px', fontSize: '13px' }}>
-                      📍 {commande.adresse}{commande.quartier ? ` — ${commande.quartier}` : ''}
-                    </p>
-                    <p style={{ color: '#888', margin: 0, fontSize: '13px' }}>
-                      🛍️ {commande.produit_ref} — Taille {commande.taille}
-                    </p>
-                  </div>
-
-                  <div style={{ background: '#0a1a12', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#666', fontSize: '13px' }}>Montant à encaisser</span>
-                    <span style={{ color: '#1D9E75', fontWeight: 700, fontSize: '15px' }}>
-                      {(commande.montant_total || commande.total)?.toLocaleString()} F
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => accepterLivraison(commande.id)}
-                    disabled={updating === commande.id}
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', background: updating === commande.id ? '#0a5c3f' : '#1D9E75', border: 'none', color: 'white', fontSize: '14px', cursor: updating === commande.id ? 'not-allowed' : 'pointer', fontWeight: 600 }}
-                  >
-                    {updating === commande.id ? 'Acceptation...' : '✅ Accepter cette livraison'}
-                  </button>
-                </div>
-              ))
-            )}
-          </>
+        {success && (
+          <div style={{ background: '#0a2a1a', border: '1px solid #1D9E75', borderRadius: '8px', padding: '10px 16px', color: '#1D9E75', fontSize: '13px', marginBottom: '12px' }}>
+            {success}
+          </div>
         )}
 
-        {/* Onglet mes livraisons */}
-        {onglet === 'mes_livraisons' && (
-          <>
-            {mesLivraisons.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#555' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '12px' }}>📭</div>
-                <p style={{ fontSize: '16px' }}>Vous n'avez pas encore accepté de livraison</p>
+        {/* KANBAN 4 colonnes */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px' }}>
+          {colonnes.map(col => (
+            <div key={col.key} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '12px' }}>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', color: col.color }}>
+                  {col.label}
+                </span>
+                <span style={{ fontSize: '10px', fontWeight: 500, padding: '1px 7px', borderRadius: '8px', background: col.bg, color: col.textColor }}>
+                  {col.data.length}
+                </span>
               </div>
-            ) : (
-              mesLivraisons.map((commande, index) => (
-                <div key={commande.id} style={{ background: '#111', border: '1px solid #333', borderRadius: '12px', padding: '16px', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ color: '#444', fontSize: '12px' }}>#{index + 1}</span>
-                    <span style={{ background: '#1a2416', border: '1px solid #2d4a2d', color: '#4ade80', fontSize: '11px', padding: '3px 10px', borderRadius: '20px' }}>
-                      En cours
-                    </span>
-                  </div>
 
-                  <div style={{ marginBottom: '12px' }}>
-                    <p style={{ color: 'white', fontWeight: 600, margin: '0 0 4px', fontSize: '15px' }}>
-                      {commande.nom_client || commande.telephone}
-                    </p>
-                    <p style={{ color: '#888', margin: '0 0 2px', fontSize: '13px' }}>
-                      📍 {commande.adresse}{commande.quartier ? ` — ${commande.quartier}` : ''}
-                    </p>
-                    <p style={{ color: '#888', margin: 0, fontSize: '13px' }}>
-                      🛍️ {commande.produit_ref} — Taille {commande.taille}
-                    </p>
-                  </div>
+              {col.data.length === 0 ? (
+                <div style={{ color: '#444', fontSize: '11px', textAlign: 'center', padding: '20px 0' }}>Aucune</div>
+              ) : (
+                col.data.map(cmd => (
+                  <div key={cmd.id} style={{ background: '#1a1a1a', border: '0.5px solid #2a2a2a', borderRadius: '10px', padding: '10px', marginBottom: '8px' }}>
 
-                  <div style={{ background: '#0a1a12', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#666', fontSize: '13px' }}>Montant à encaisser</span>
-                    <span style={{ color: '#1D9E75', fontWeight: 700, fontSize: '15px' }}>
-                      {(commande.montant_total || commande.total)?.toLocaleString()} F
-                    </span>
-                  </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '10px', color: '#555' }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 500, color: '#1D9E75' }}>
+                        {cmd.montant_total?.toLocaleString('fr-FR')} F
+                      </span>
+                    </div>
 
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                      onClick={() => appelClient(commande.telephone)}
-                      style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'transparent', border: '1px solid #333', color: '#888', fontSize: '14px', cursor: 'pointer', fontWeight: 500 }}
-                    >
-                      📞 Appeler
-                    </button>
-                    <button
-                      onClick={() => confirmerLivraison(commande.id)}
-                      disabled={updating === commande.id}
-                      style={{ flex: 2, padding: '12px', borderRadius: '8px', background: updating === commande.id ? '#0a5c3f' : '#1D9E75', border: 'none', color: 'white', fontSize: '14px', cursor: updating === commande.id ? 'not-allowed' : 'pointer', fontWeight: 600 }}
-                    >
-                      {updating === commande.id ? 'En cours...' : '✅ Confirmer livraison'}
-                    </button>
+                    <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '2px' }}>{cmd.nom_client || '—'}</div>
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>📞 {cmd.telephone}</div>
+                    <div style={{ fontSize: '11px', color: '#555', marginBottom: '6px' }}>
+                      📍 {cmd.adresse}{cmd.quartier ? ` — ${cmd.quartier}` : ''}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#555', marginBottom: '8px' }}>
+                      🛍️ {cmd.produit_ref} — Taille {cmd.taille}
+                    </div>
+
+                    {/* Bouton selon colonne */}
+                    {col.key === 'disponibles' && (
+                      <button
+                        onClick={() => accepterLivraison(cmd.id)}
+                        disabled={updating === cmd.id}
+                        style={{ width: '100%', padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, cursor: updating === cmd.id ? 'not-allowed' : 'pointer', background: 'rgba(55,138,221,0.1)', color: '#378ADD', border: '0.5px solid rgba(55,138,221,0.3)' }}
+                      >
+                        {updating === cmd.id ? '...' : '✅ Accepter'}
+                      </button>
+                    )}
+
+                    {col.key === 'mes_livraisons' && (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <a href={`tel:${cmd.telephone}`} style={{ flex: 1, padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, background: 'transparent', color: '#666', border: '0.5px solid #333', textAlign: 'center', textDecoration: 'none' }}>
+                          📞 Appeler
+                        </a>
+                        <button
+                          onClick={() => confirmerLivraison(cmd.id)}
+                          disabled={updating === cmd.id}
+                          style={{ flex: 2, padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, cursor: updating === cmd.id ? 'not-allowed' : 'pointer', background: 'rgba(29,158,117,0.1)', color: '#0F6E56', border: '0.5px solid rgba(29,158,117,0.3)' }}
+                        >
+                          {updating === cmd.id ? '...' : '✅ Confirmer'}
+                        </button>
+                      </div>
+                    )}
+
+                    {col.key === 'livrees' && (
+                      <div style={{ color: '#1D9E75', fontSize: '10px', textAlign: 'center', padding: '4px' }}>
+                        ✓ Livraison confirmée
+                      </div>
+                    )}
+
+                    {col.key === 'historique' && (
+                      <div style={{
+                        fontSize: '10px', textAlign: 'center', padding: '4px', borderRadius: '4px',
+                        background: cmd.statut === 'livre' ? 'rgba(29,158,117,0.1)' : 'rgba(239,159,39,0.1)',
+                        color: cmd.statut === 'livre' ? '#1D9E75' : '#BA7517',
+                        border: `0.5px solid ${cmd.statut === 'livre' ? 'rgba(29,158,117,0.3)' : 'rgba(239,159,39,0.3)'}`,
+                      }}>
+                        {cmd.statut === 'livre' ? '✅ Livré' : '🔄 En cours'}
+                        <div style={{ color: '#555', marginTop: '2px' }}>
+                          {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
-            )}
-          </>
-        )}
+                ))
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
