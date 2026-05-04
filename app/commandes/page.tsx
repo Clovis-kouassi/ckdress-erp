@@ -17,6 +17,13 @@ type Commande = {
   source: string
   note: string
   created_at: string
+  livreur_id?: string
+}
+
+type Livreur = {
+  id: string
+  nom: string
+  code: string
 }
 
 const STATUTS: Record<string, { label: string; color: string; bg: string }> = {
@@ -32,9 +39,14 @@ export default function CommandesPage() {
   const [commandes, setCommandes] = useState<Commande[]>([])
   const [loading, setLoading] = useState(true)
   const [filtre, setFiltre] = useState('tous')
+  const [livreurs, setLivreurs] = useState<Livreur[]>([])
+  const [assignModal, setAssignModal] = useState<string | null>(null)
+  const [livreurChoisi, setLivreurChoisi] = useState<string>('')
+  const [assignant, setAssignant] = useState(false)
 
   useEffect(() => {
     fetchCommandes()
+    fetchLivreurs()
   }, [])
 
   async function fetchCommandes() {
@@ -47,8 +59,30 @@ export default function CommandesPage() {
     setLoading(false)
   }
 
+  async function fetchLivreurs() {
+    const { data } = await supabase
+      .from('livreurs')
+      .select('*')
+      .eq('actif', true)
+      .order('nom')
+    if (data) setLivreurs(data)
+  }
+
   async function changerStatut(id: string, statut: string) {
     await supabase.from('commandes_catalogue').update({ statut }).eq('id', id)
+    fetchCommandes()
+  }
+
+  async function assignerLivreur() {
+    if (!assignModal) return
+    setAssignant(true)
+    await supabase
+      .from('commandes_catalogue')
+      .update({ livreur_id: livreurChoisi || null })
+      .eq('id', assignModal)
+    setAssignant(false)
+    setAssignModal(null)
+    setLivreurChoisi('')
     fetchCommandes()
   }
 
@@ -65,6 +99,40 @@ export default function CommandesPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8f9fa', fontFamily: "'DM Sans', sans-serif" }}>
+
+      {/* Modal assigner livreur */}
+      {assignModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 400 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>🚚 Assigner un livreur</h3>
+            <select
+              value={livreurChoisi}
+              onChange={e => setLivreurChoisi(e.target.value)}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, marginBottom: 16, color: '#1a1a1a' }}
+            >
+              <option value="">— Aucun livreur —</option>
+              {livreurs.map(l => (
+                <option key={l.id} value={l.id}>{l.nom} ({l.code})</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => { setAssignModal(null); setLivreurChoisi('') }}
+                style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontSize: 14 }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={assignerLivreur}
+                disabled={assignant}
+                style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: '#1a1a1a', color: 'white', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+              >
+                {assignant ? '...' : '✅ Assigner'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header style={{ background: '#1a1a1a', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -132,67 +200,84 @@ export default function CommandesPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {commandesFiltrees.map(cmd => (
-              <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', padding: '16px 20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+            {commandesFiltrees.map(cmd => {
+              const livreurCmd = livreurs.find(l => l.id === cmd.livreur_id)
+              return (
+                <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
 
-                  {/* Infos commande */}
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, color: '#aaa' }}>
-                        #{cmd.id.slice(0, 8).toUpperCase()}
-                      </span>
-                      <span style={{
-                        fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20,
-                        background: STATUTS[cmd.statut]?.bg || '#f3f4f6',
-                        color: STATUTS[cmd.statut]?.color || '#555',
-                      }}>
-                        {STATUTS[cmd.statut]?.label || cmd.statut}
-                      </span>
-                      <span style={{ fontSize: 11, color: '#bbb' }}>
-                        via {cmd.source === 'whatsapp' ? '📱 WhatsApp' : '🌐 Formulaire'}
-                      </span>
+                    {/* Infos commande */}
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 12, color: '#aaa' }}>#{cmd.id.slice(0, 8).toUpperCase()}</span>
+                        <span style={{
+                          fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20,
+                          background: STATUTS[cmd.statut]?.bg || '#f3f4f6',
+                          color: STATUTS[cmd.statut]?.color || '#555',
+                        }}>
+                          {STATUTS[cmd.statut]?.label || cmd.statut}
+                        </span>
+                        <span style={{ fontSize: 11, color: '#bbb' }}>
+                          via {cmd.source === 'whatsapp' ? '📱 WhatsApp' : '🌐 Formulaire'}
+                        </span>
+                        {livreurCmd && (
+                          <span style={{ fontSize: 11, background: '#f0fdf4', color: '#065f46', padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>
+                            🚚 {livreurCmd.nom}
+                          </span>
+                        )}
+                      </div>
+
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1a1a1a' }}>
+                        {cmd.produit_ref} — Taille {cmd.taille}
+                      </p>
+                      <p style={{ margin: '2px 0', fontSize: 13, color: '#666' }}>Couleurs : {cmd.variantes}</p>
+                      <p style={{ margin: '4px 0 0', fontSize: 13, color: '#888' }}>📞 {cmd.telephone} · 📍 {cmd.adresse}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 12, color: '#bbb' }}>
+                        {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
                     </div>
 
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1a1a1a' }}>
-                      {cmd.produit_ref} — Taille {cmd.taille}
-                    </p>
-                    <p style={{ margin: '2px 0', fontSize: 13, color: '#666' }}>
-                      Couleurs : {cmd.variantes}
-                    </p>
-                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#888' }}>
-                      📞 {cmd.telephone} · 📍 {cmd.adresse}
-                    </p>
-                    <p style={{ margin: '2px 0 0', fontSize: 12, color: '#bbb' }}>
-                      {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
+                    {/* Montant + actions */}
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                      <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a1a1a' }}>
+                        {cmd.montant_total?.toLocaleString('fr-FR')} F
+                      </p>
+                      <p style={{ margin: 0, fontSize: 12, color: '#aaa' }}>
+                        dont {cmd.frais_livraison?.toLocaleString('fr-FR')} F livraison
+                      </p>
 
-                  {/* Montant + actions */}
-                  <div style={{ textAlign: 'right' }}>
-                    <p style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: '#1a1a1a' }}>
-                      {cmd.montant_total?.toLocaleString('fr-FR')} F
-                    </p>
-                    <p style={{ margin: '0 0 12px', fontSize: 12, color: '#aaa' }}>
-                      dont {cmd.frais_livraison?.toLocaleString('fr-FR')} F livraison
-                    </p>
+                      <select
+                        value={cmd.statut}
+                        onChange={e => changerStatut(cmd.id, e.target.value)}
+                        style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12, cursor: 'pointer', background: '#f9fafb', color: '#1a1a1a' }}
+                      >
+                        <option value="nouveau">Nouveau</option>
+                        <option value="en_preparation">En préparation</option>
+                        <option value="en_livraison">En livraison</option>
+                        <option value="livre">Livré</option>
+                        <option value="annule">Annulé</option>
+                      </select>
 
-                    {/* Changer statut */}
-                    <select
-                      value={cmd.statut}
-                      onChange={e => changerStatut(cmd.id, e.target.value)}
-                      style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12, cursor: 'pointer', background: '#f9fafb', color: '#1a1a1a' }}
-                    >
-                      <option value="nouveau">Nouveau</option>
-                      <option value="en_preparation">En préparation</option>
-                      <option value="en_livraison">En livraison</option>
-                      <option value="livre">Livré</option>
-                      <option value="annule">Annulé</option>
-                    </select>
+                      {/* Boutons */}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => { setAssignModal(cmd.id); setLivreurChoisi(cmd.livreur_id || '') }}
+                          style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#555' }}
+                        >
+                          🚚 Livreur
+                        </button>
+                        <button
+                          onClick={() => router.push(`/commandes/${cmd.id}`)}
+                          style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#1a1a1a', color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                        >
+                          Voir détail →
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
