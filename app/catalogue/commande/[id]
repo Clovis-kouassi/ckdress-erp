@@ -1,0 +1,44 @@
+// Ajouter dans les states existants
+const [livreurs, setLivreurs] = useState<any[]>([])
+const [livreurId, setLivreurId] = useState<string>('')
+const [assignant, setAssignant] = useState(false)
+
+// Ajouter dans useEffect
+const { data: livreursData } = await supabase.from('livreurs').select('*').eq('actif', true)
+setLivreurs(livreursData || [])
+if (commande.livreur_id) setLivreurId(commande.livreur_id)
+
+// Fonction assigner
+const assignerLivreur = async () => {
+  setAssignant(true)
+  await supabase
+    .from('commandes_catalogue')
+    .update({ livreur_id: livreurId || null })
+    .eq('id', commande.id)
+  setAssignant(false)
+  alert('Livreur assigné ✅')
+}
+
+// Dans le JSX — ajouter cette section dans le détail commande :
+<div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px', marginTop: '16px' }}>
+  <h3 style={{ color: 'white', margin: '0 0 14px', fontSize: '15px' }}>🚚 Assigner un livreur</h3>
+  <div style={{ display: 'flex', gap: '10px' }}>
+    <select
+      value={livreurId}
+      onChange={e => setLivreurId(e.target.value)}
+      style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '14px' }}
+    >
+      <option value="">— Aucun livreur —</option>
+      {livreurs.map(l => (
+        <option key={l.id} value={l.id}>{l.nom} ({l.code})</option>
+      ))}
+    </select>
+    <button
+      onClick={assignerLivreur}
+      disabled={assignant}
+      style={{ padding: '10px 20px', background: '#1D9E75', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+    >
+      {assignant ? '...' : 'Assigner'}
+    </button>
+  </div>
+</div>
