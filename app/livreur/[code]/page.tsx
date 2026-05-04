@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -26,7 +26,8 @@ interface Livreur {
   code: string
 }
 
-export default function LivreurPage({ params }: { params: { code: string } }) {
+export default function LivreurPage({ params }: { params: Promise<{ code: string }> }) {
+  const { code } = use(params)
   const [livreur, setLivreur] = useState<Livreur | null>(null)
   const [commandes, setCommandes] = useState<Commande[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,15 +36,13 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [code])
 
   const fetchData = async () => {
-    const code = params.code.toUpperCase()
-
     const { data: livreurs } = await supabase
       .from('livreurs')
       .select('*')
-      .eq('code', code)
+      .eq('code', code.toUpperCase())
       .eq('actif', true)
       .limit(1)
 
