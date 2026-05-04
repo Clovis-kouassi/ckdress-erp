@@ -41,14 +41,14 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
   const fetchData = async () => {
     setLoading(true)
 
-    const { data: livreurData } = await supabase
+    const { data: livreurData, error } = await supabase
       .from('livreurs')
       .select('*')
       .eq('code', params.code.toUpperCase())
       .eq('actif', true)
       .single()
 
-    if (!livreurData) {
+    if (error || !livreurData) {
       setNotFound(true)
       setLoading(false)
       return
@@ -56,13 +56,11 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
 
     setLivreur(livreurData)
 
-    const today = new Date().toISOString().split('T')[0]
     const { data: commandesData } = await supabase
       .from('commandes_catalogue')
       .select('*')
       .eq('livreur_id', livreurData.id)
       .neq('statut', 'livré')
-      .gte('created_at', today + 'T00:00:00')
       .order('created_at', { ascending: true })
 
     setCommandes(commandesData || [])
