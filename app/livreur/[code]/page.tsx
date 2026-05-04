@@ -41,7 +41,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
   const fetchData = async () => {
     setLoading(true)
 
-    // Récupérer le livreur
     const { data: livreurData } = await supabase
       .from('livreurs')
       .select('*')
@@ -57,7 +56,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
 
     setLivreur(livreurData)
 
-    // Récupérer ses commandes du jour assignées
     const today = new Date().toISOString().split('T')[0]
     const { data: commandesData } = await supabase
       .from('commandes_catalogue')
@@ -77,7 +75,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
       .from('commandes_catalogue')
       .update({ statut: 'livré' })
       .eq('id', commandeId)
-
     setCommandes(prev => prev.filter(c => c.id !== commandeId))
     setUpdating(null)
   }
@@ -103,7 +100,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
 
   return (
     <div style={{ background: '#0a0a0a', minHeight: '100vh', fontFamily: 'sans-serif', paddingBottom: '40px' }}>
-      {/* Header */}
       <div style={{ background: '#111', borderBottom: '1px solid #222', padding: '16px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
@@ -114,16 +110,12 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
               {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
           </div>
-          <div style={{
-            background: '#1a2e25', border: '1px solid #1D9E75', borderRadius: '20px',
-            padding: '6px 14px', color: '#1D9E75', fontSize: '13px', fontWeight: 600
-          }}>
+          <div style={{ background: '#1a2e25', border: '1px solid #1D9E75', borderRadius: '20px', padding: '6px 14px', color: '#1D9E75', fontSize: '13px', fontWeight: 600 }}>
             {commandes.length} à livrer
           </div>
         </div>
       </div>
 
-      {/* Liste commandes */}
       <div style={{ padding: '16px' }}>
         {commandes.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#555' }}>
@@ -133,68 +125,30 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
           </div>
         ) : (
           commandes.map((commande, index) => (
-            <div key={commande.id} style={{
-              background: '#111', border: '1px solid #222', borderRadius: '12px',
-              padding: '16px', marginBottom: '12px'
-            }}>
-              {/* Numéro + statut */}
+            <div key={commande.id} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '16px', marginBottom: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ color: '#444', fontSize: '12px' }}>#{index + 1}</span>
-                <span style={{
-                  background: '#1a2416', border: '1px solid #2d4a2d',
-                  color: '#4ade80', fontSize: '11px', padding: '3px 10px', borderRadius: '20px'
-                }}>
+                <span style={{ background: '#1a2416', border: '1px solid #2d4a2d', color: '#4ade80', fontSize: '11px', padding: '3px 10px', borderRadius: '20px' }}>
                   En cours
                 </span>
               </div>
 
-              {/* Infos client */}
               <div style={{ marginBottom: '12px' }}>
-                <p style={{ color: 'white', fontWeight: 600, margin: '0 0 4px', fontSize: '16px' }}>
-                  {commande.nom_client}
-                </p>
-                <p style={{ color: '#888', margin: '0 0 2px', fontSize: '13px' }}>
-                  📍 {commande.adresse}{commande.quartier ? ` — ${commande.quartier}` : ''}
-                </p>
-                <p style={{ color: '#888', margin: 0, fontSize: '13px' }}>
-                  🛍️ {commande.articles}
-                </p>
+                <p style={{ color: 'white', fontWeight: 600, margin: '0 0 4px', fontSize: '16px' }}>{commande.nom_client}</p>
+                <p style={{ color: '#888', margin: '0 0 2px', fontSize: '13px' }}>📍 {commande.adresse}{commande.quartier ? ` — ${commande.quartier}` : ''}</p>
+                <p style={{ color: '#888', margin: 0, fontSize: '13px' }}>🛍️ {commande.articles}</p>
               </div>
 
-              {/* Montant */}
-              <div style={{
-                background: '#0a1a12', borderRadius: '8px', padding: '10px 14px',
-                marginBottom: '14px', display: 'flex', justifyContent: 'space-between'
-              }}>
+              <div style={{ background: '#0a1a12', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#666', fontSize: '13px' }}>Montant à encaisser</span>
-                <span style={{ color: '#1D9E75', fontWeight: 700, fontSize: '15px' }}>
-                  {commande.total?.toLocaleString()} F
-                </span>
+                <span style={{ color: '#1D9E75', fontWeight: 700, fontSize: '15px' }}>{commande.total?.toLocaleString()} F</span>
               </div>
 
-              {/* Boutons actions */}
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => appelClient(commande.telephone)}
-                  style={{
-                    flex: 1, padding: '12px', borderRadius: '8px',
-                    background: 'transparent', border: '1px solid #333',
-                    color: '#888', fontSize: '14px', cursor: 'pointer', fontWeight: 500
-                  }}
-                >
+                <button onClick={() => appelClient(commande.telephone)} style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'transparent', border: '1px solid #333', color: '#888', fontSize: '14px', cursor: 'pointer', fontWeight: 500 }}>
                   📞 Appeler
                 </button>
-                <button
-                  onClick={() => marquerLivre(commande.id)}
-                  disabled={updating === commande.id}
-                  style={{
-                    flex: 2, padding: '12px', borderRadius: '8px',
-                    background: updating === commande.id ? '#0a5c3f' : '#1D9E75',
-                    border: 'none', color: 'white', fontSize: '14px',
-                    cursor: updating === commande.id ? 'not-allowed' : 'pointer',
-                    fontWeight: 600
-                  }}
-                >
+                <button onClick={() => marquerLivre(commande.id)} disabled={updating === commande.id} style={{ flex: 2, padding: '12px', borderRadius: '8px', background: updating === commande.id ? '#0a5c3f' : '#1D9E75', border: 'none', color: 'white', fontSize: '14px', cursor: updating === commande.id ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                   {updating === commande.id ? 'En cours...' : '✅ Marquer livré'}
                 </button>
               </div>
