@@ -12,7 +12,7 @@ const STATUTS: Record<string, { label: string; color: string }> = {
   en_preparation: { label: 'En préparation', color: '#378ADD' },
   en_livraison: { label: 'En livraison', color: '#EF9F27' },
   livre: { label: 'Livré', color: '#1D9E75' },
-  annule: { label: 'Annulé', color: '#555' },
+  annule: { label: 'Annulé', color: '#999' },
 }
 
 const CATEGORIES_DEPENSE = ['Achat stock', 'Transport', 'Salaires', 'Loyer', 'Marketing', 'Autre']
@@ -108,28 +108,18 @@ export default function Dashboard() {
     setSaving(false)
   }
 
-  // Calculs comptables
-  const allCmds = commandes
   const caCommandes = stats.total
   const caVentesBoutiques = ventesB.reduce((s, v) => s + (v.total || 0), 0)
   const caTotal = caCommandes + caVentesBoutiques
   const totalDepenses = depenses.reduce((s, d) => s + (d.montant || 0), 0)
   const benefice = caTotal - totalDepenses
-
   const caCKDesign = commandes.filter(c => !c.note?.includes('EXPÉDITION')).reduce((s, c) => s + (c.montant_total || 0), 0)
   const caSuccesDesign = commandes.filter(c => c.note?.includes('EXPÉDITION')).reduce((s, c) => s + (c.montant_total || 0), 0)
-
   const depensesCKDesign = depenses.filter(d => d.activite === 'ck_design').reduce((s, d) => s + (d.montant || 0), 0)
   const depensesSuccesDesign = depenses.filter(d => d.activite === 'succes_design').reduce((s, d) => s + (d.montant || 0), 0)
-
   const caJour = commandes.filter(c => c.created_at?.startsWith(new Date().toISOString().split('T')[0])).reduce((s, c) => s + (c.montant_total || 0), 0)
   const caSemaine = commandes.filter(c => new Date(c.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).reduce((s, c) => s + (c.montant_total || 0), 0)
-
-  const depensesParCategorie = CATEGORIES_DEPENSE.map(cat => ({
-    cat,
-    total: depenses.filter(d => d.categorie === cat).reduce((s, d) => s + (d.montant || 0), 0)
-  })).filter(c => c.total > 0)
-
+  const depensesParCategorie = CATEGORIES_DEPENSE.map(cat => ({ cat, total: depenses.filter(d => d.categorie === cat).reduce((s, d) => s + (d.montant || 0), 0) })).filter(c => c.total > 0)
   const derniers7Jours = Array.from({ length: 7 }, (_, i) => {
     const date = new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000)
     const dateStr = date.toISOString().split('T')[0]
@@ -140,14 +130,14 @@ export default function Dashboard() {
   const maxVal = Math.max(...derniers7Jours.map(d => Math.max(d.ca, d.dep)), 1)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: 'sans-serif', color: 'white' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f4f5', fontFamily: 'sans-serif', color: '#1a1a1a' }}>
 
       {/* TOPBAR */}
-      <div style={{ background: '#111', borderBottom: '1px solid #222', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e5', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <h1 style={{ color: '#1D9E75', fontSize: '1.3rem', margin: 0 }}>CK Dress ERP</h1>
-          <span style={{ color: '#333' }}>|</span>
-          <span style={{ color: '#555', fontSize: '12px' }}>{user?.nom || 'Super Admin'}</span>
+          <span style={{ color: '#ddd' }}>|</span>
+          <span style={{ color: '#999', fontSize: '12px' }}>{user?.nom || 'Super Admin'}</span>
         </div>
         <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
           {[
@@ -158,15 +148,15 @@ export default function Dashboard() {
             { label: 'Livreurs', href: '/livreurs' },
             { label: 'Utilisateurs', href: '/admin/utilisateurs' },
           ].map(l => (
-            <a key={l.href} href={l.href} style={{ color: '#666', fontSize: '12px', textDecoration: 'none' }}
+            <a key={l.href} href={l.href} style={{ color: '#888', fontSize: '12px', textDecoration: 'none' }}
               onMouseEnter={e => (e.currentTarget.style.color = '#1D9E75')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#666')}>
+              onMouseLeave={e => (e.currentTarget.style.color = '#888')}>
               {l.label}
             </a>
           ))}
           <div style={{ position: 'relative' }}>
             <button onClick={() => { setShowNotifs(!showNotifs); setBadge(0) }}
-              style={{ background: 'none', border: '0.5px solid #333', borderRadius: '8px', color: badge > 0 ? '#1D9E75' : '#666', padding: '6px 12px', cursor: 'pointer', fontSize: '16px', position: 'relative' }}>
+              style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: '8px', color: badge > 0 ? '#1D9E75' : '#888', padding: '6px 12px', cursor: 'pointer', fontSize: '16px', position: 'relative' }}>
               🔔
               {badge > 0 && (
                 <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#E24B4A', color: 'white', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -175,19 +165,19 @@ export default function Dashboard() {
               )}
             </button>
             {showNotifs && (
-              <div style={{ position: 'absolute', right: 0, top: '40px', width: '320px', background: '#111', border: '1px solid #222', borderRadius: '12px', zIndex: 1000, maxHeight: '400px', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                <div style={{ padding: '14px 16px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontWeight: 600, fontSize: '14px' }}>Notifications</span>
-                  <button onClick={() => setNotifications([])} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '12px' }}>Effacer</button>
+              <div style={{ position: 'absolute', right: 0, top: '40px', width: '320px', background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', zIndex: 1000, maxHeight: '400px', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>Notifications</span>
+                  <button onClick={() => setNotifications([])} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '12px' }}>Effacer</button>
                 </div>
                 {notifications.length === 0 ? (
-                  <div style={{ padding: '24px', textAlign: 'center', color: '#555', fontSize: '13px' }}>Aucune notification</div>
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#aaa', fontSize: '13px' }}>Aucune notification</div>
                 ) : notifications.map(n => (
-                  <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid #1a1a1a', display: 'flex', gap: '10px' }}>
+                  <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid #f5f5f5', display: 'flex', gap: '10px' }}>
                     <span>{n.statut === 'nouveau' ? '🆕' : n.statut === 'en_livraison' ? '🚚' : '✅'}</span>
                     <div>
-                      <p style={{ margin: 0, fontSize: '13px' }}>{n.message}</p>
-                      <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#555' }}>{n.time}</p>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#1a1a1a' }}>{n.message}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#aaa' }}>{n.time}</p>
                     </div>
                   </div>
                 ))}
@@ -195,20 +185,20 @@ export default function Dashboard() {
             )}
           </div>
           <button onClick={() => { localStorage.removeItem('ck_user'); window.location.href = '/login' }}
-            style={{ background: 'none', border: '0.5px solid #333', borderRadius: '6px', color: '#555', padding: '5px 10px', fontSize: '11px', cursor: 'pointer' }}>
+            style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: '6px', color: '#888', padding: '5px 10px', fontSize: '11px', cursor: 'pointer' }}>
             Déconnexion
           </button>
         </div>
       </div>
 
       {/* ONGLETS */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #222', background: '#111' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #e5e5e5', background: '#fff' }}>
         {[
           { key: 'overview', label: '🏠 Vue générale' },
           { key: 'comptabilite', label: '📊 Comptabilité' },
         ].map(o => (
           <button key={o.key} onClick={() => setOnglet(o.key as any)}
-            style={{ padding: '14px 24px', background: 'transparent', border: 'none', color: onglet === o.key ? '#1D9E75' : '#555', fontSize: '13px', fontWeight: 600, cursor: 'pointer', borderBottom: onglet === o.key ? '2px solid #1D9E75' : '2px solid transparent' }}>
+            style={{ padding: '14px 24px', background: 'transparent', border: 'none', color: onglet === o.key ? '#1D9E75' : '#888', fontSize: '13px', fontWeight: 600, cursor: 'pointer', borderBottom: onglet === o.key ? '2px solid #1D9E75' : '2px solid transparent' }}>
             {o.label}
           </button>
         ))}
@@ -216,23 +206,22 @@ export default function Dashboard() {
 
       <div style={{ padding: '20px 24px' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', color: '#555', padding: '60px' }}>Chargement...</div>
+          <div style={{ textAlign: 'center', color: '#aaa', padding: '60px' }}>Chargement...</div>
         ) : (
           <>
-            {/* ===== VUE GÉNÉRALE ===== */}
             {onglet === 'overview' && (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '20px' }}>
                   {[
                     { label: 'CA Total', value: stats.total.toLocaleString('fr-FR') + ' F', color: '#1D9E75', sub: 'Toutes commandes' },
-                    { label: 'Commandes', value: stats.count.toString(), color: 'white', sub: 'Total enregistrées' },
-                    { label: 'Nouvelles', value: stats.nouvelles.toString(), color: stats.nouvelles > 0 ? '#E24B4A' : '#555', sub: 'À traiter' },
+                    { label: 'Commandes', value: stats.count.toString(), color: '#1a1a1a', sub: 'Total enregistrées' },
+                    { label: 'Nouvelles', value: stats.nouvelles.toString(), color: stats.nouvelles > 0 ? '#E24B4A' : '#aaa', sub: 'À traiter' },
                     { label: 'En livraison', value: stats.enLivraison.toString(), color: '#EF9F27', sub: 'En cours' },
                   ].map((kpi, i) => (
-                    <div key={i} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
-                      <div style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', marginBottom: '8px' }}>{kpi.label}</div>
+                    <div key={i} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', marginBottom: '8px' }}>{kpi.label}</div>
                       <div style={{ fontSize: '24px', fontWeight: '700', color: kpi.color }}>{kpi.value}</div>
-                      <div style={{ fontSize: '12px', color: '#555', marginTop: '4px' }}>{kpi.sub}</div>
+                      <div style={{ fontSize: '12px', color: '#bbb', marginTop: '4px' }}>{kpi.sub}</div>
                     </div>
                   ))}
                 </div>
@@ -247,40 +236,40 @@ export default function Dashboard() {
                     { label: '🌐 Catalogue', href: '/catalogue' },
                     { label: '👤 Utilisateurs', href: '/admin/utilisateurs' },
                   ].map((link, i) => (
-                    <a key={i} href={link.href} style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '14px', textAlign: 'center', textDecoration: 'none', color: '#888', fontSize: '13px', fontWeight: 500, display: 'block' }}
+                    <a key={i} href={link.href} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '14px', textAlign: 'center', textDecoration: 'none', color: '#666', fontSize: '13px', fontWeight: 500, display: 'block', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1D9E75'; (e.currentTarget as HTMLElement).style.color = '#1D9E75' }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#222'; (e.currentTarget as HTMLElement).style.color = '#888' }}>
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#e5e5e5'; (e.currentTarget as HTMLElement).style.color = '#666' }}>
                       {link.label}
                     </a>
                   ))}
                 </div>
 
-                <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
+                <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h2 style={{ fontSize: '14px', color: '#888', margin: 0, textTransform: 'uppercase' }}>Dernières commandes</h2>
+                    <h2 style={{ fontSize: '14px', color: '#aaa', margin: 0, textTransform: 'uppercase' }}>Dernières commandes</h2>
                     <a href="/commandes" style={{ background: '#1D9E75', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', textDecoration: 'none', fontWeight: '600' }}>Voir tout →</a>
                   </div>
                   {commandes.length === 0 ? (
-                    <div style={{ textAlign: 'center', color: '#555', padding: '40px' }}>Aucune commande</div>
+                    <div style={{ textAlign: 'center', color: '#aaa', padding: '40px' }}>Aucune commande</div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {commandes.map((cmd, i) => (
-                        <div key={i} style={{ background: '#1a1a1a', borderRadius: '10px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div key={i} style={{ background: '#f9f9f9', borderRadius: '10px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', border: '1px solid #f0f0f0' }}>
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                              <span style={{ fontSize: '11px', color: '#555' }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
-                              <span style={{ fontSize: '11px', background: (STATUTS[cmd.statut]?.color || '#555') + '22', color: STATUTS[cmd.statut]?.color || '#555', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                              <span style={{ fontSize: '11px', color: '#aaa' }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
+                              <span style={{ fontSize: '11px', background: (STATUTS[cmd.statut]?.color || '#aaa') + '22', color: STATUTS[cmd.statut]?.color || '#aaa', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
                                 {STATUTS[cmd.statut]?.label || cmd.statut}
                               </span>
                             </div>
-                            <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>📞 {cmd.telephone} · 📍 {cmd.adresse}</p>
-                            <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#555' }}>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>📞 {cmd.telephone} · 📍 {cmd.adresse}</p>
+                            <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#aaa' }}>
                               {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                           <div style={{ textAlign: 'right' }}>
                             <p style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</p>
-                            <a href={`/commandes/${cmd.id}`} style={{ fontSize: '11px', color: '#555', textDecoration: 'none' }}>Voir détail →</a>
+                            <a href={`/commandes/${cmd.id}`} style={{ fontSize: '11px', color: '#aaa', textDecoration: 'none' }}>Voir détail →</a>
                           </div>
                         </div>
                       ))}
@@ -290,10 +279,8 @@ export default function Dashboard() {
               </>
             )}
 
-            {/* ===== COMPTABILITÉ ===== */}
             {onglet === 'comptabilite' && (
               <>
-                {/* KPIs comptables */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '20px' }}>
                   {[
                     { label: 'CA Total', value: caTotal.toLocaleString('fr-FR') + ' F', color: '#1D9E75', icon: '💰' },
@@ -301,70 +288,55 @@ export default function Dashboard() {
                     { label: 'Bénéfice net', value: benefice.toLocaleString('fr-FR') + ' F', color: benefice >= 0 ? '#1D9E75' : '#E24B4A', icon: '📈' },
                     { label: 'Marge', value: caTotal > 0 ? Math.round((benefice / caTotal) * 100) + '%' : '0%', color: benefice >= 0 ? '#d4a853' : '#E24B4A', icon: '📊' },
                   ].map((k, i) => (
-                    <div key={i} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '18px' }}>
+                    <div key={i} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                       <div style={{ fontSize: '20px', marginBottom: '8px' }}>{k.icon}</div>
-                      <div style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', marginBottom: '6px' }}>{k.label}</div>
+                      <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', marginBottom: '6px' }}>{k.label}</div>
                       <div style={{ fontSize: '22px', fontWeight: 700, color: k.color }}>{k.value}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* CA par activité */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-                  <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '18px' }}>
-                    <h3 style={{ margin: '0 0 14px', fontSize: '13px', color: '#888', textTransform: 'uppercase' }}>⚙️ CK Design</h3>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ color: '#666', fontSize: '13px' }}>CA</span>
-                      <span style={{ color: '#1D9E75', fontWeight: 700 }}>{caCKDesign.toLocaleString('fr-FR')} F</span>
+                  {[
+                    { title: '⚙️ CK Design', ca: caCKDesign, dep: depensesCKDesign },
+                    { title: '🛍️ Succès Design', ca: caSuccesDesign, dep: depensesSuccesDesign },
+                  ].map((act, i) => (
+                    <div key={i} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      <h3 style={{ margin: '0 0 14px', fontSize: '13px', color: '#aaa', textTransform: 'uppercase' }}>{act.title}</h3>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ color: '#888', fontSize: '13px' }}>CA</span>
+                        <span style={{ color: '#1D9E75', fontWeight: 700 }}>{act.ca.toLocaleString('fr-FR')} F</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ color: '#888', fontSize: '13px' }}>Dépenses</span>
+                        <span style={{ color: '#E24B4A', fontWeight: 700 }}>{act.dep.toLocaleString('fr-FR')} F</span>
+                      </div>
+                      <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#888', fontSize: '13px' }}>Bénéfice</span>
+                        <span style={{ color: (act.ca - act.dep) >= 0 ? '#1D9E75' : '#E24B4A', fontWeight: 700 }}>
+                          {(act.ca - act.dep).toLocaleString('fr-FR')} F
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ color: '#666', fontSize: '13px' }}>Dépenses</span>
-                      <span style={{ color: '#E24B4A', fontWeight: 700 }}>{depensesCKDesign.toLocaleString('fr-FR')} F</span>
-                    </div>
-                    <div style={{ borderTop: '1px solid #222', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#888', fontSize: '13px' }}>Bénéfice</span>
-                      <span style={{ color: (caCKDesign - depensesCKDesign) >= 0 ? '#1D9E75' : '#E24B4A', fontWeight: 700 }}>
-                        {(caCKDesign - depensesCKDesign).toLocaleString('fr-FR')} F
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '18px' }}>
-                    <h3 style={{ margin: '0 0 14px', fontSize: '13px', color: '#888', textTransform: 'uppercase' }}>🛍️ Succès Design</h3>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ color: '#666', fontSize: '13px' }}>CA</span>
-                      <span style={{ color: '#1D9E75', fontWeight: 700 }}>{caSuccesDesign.toLocaleString('fr-FR')} F</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ color: '#666', fontSize: '13px' }}>Dépenses</span>
-                      <span style={{ color: '#E24B4A', fontWeight: 700 }}>{depensesSuccesDesign.toLocaleString('fr-FR')} F</span>
-                    </div>
-                    <div style={{ borderTop: '1px solid #222', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#888', fontSize: '13px' }}>Bénéfice</span>
-                      <span style={{ color: (caSuccesDesign - depensesSuccesDesign) >= 0 ? '#1D9E75' : '#E24B4A', fontWeight: 700 }}>
-                        {(caSuccesDesign - depensesSuccesDesign).toLocaleString('fr-FR')} F
-                      </span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
-                {/* CA jour/semaine */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-                  <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '18px' }}>
-                    <h3 style={{ margin: '0 0 10px', fontSize: '13px', color: '#888', textTransform: 'uppercase' }}>📅 CA aujourd'hui</h3>
+                  <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    <h3 style={{ margin: '0 0 10px', fontSize: '13px', color: '#aaa', textTransform: 'uppercase' }}>📅 CA aujourd'hui</h3>
                     <div style={{ fontSize: '28px', fontWeight: 700, color: '#1D9E75' }}>{caJour.toLocaleString('fr-FR')} F</div>
                   </div>
-                  <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '18px' }}>
-                    <h3 style={{ margin: '0 0 10px', fontSize: '13px', color: '#888', textTransform: 'uppercase' }}>📅 CA cette semaine</h3>
+                  <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    <h3 style={{ margin: '0 0 10px', fontSize: '13px', color: '#aaa', textTransform: 'uppercase' }}>📅 CA cette semaine</h3>
                     <div style={{ fontSize: '28px', fontWeight: 700, color: '#378ADD' }}>{caSemaine.toLocaleString('fr-FR')} F</div>
                   </div>
                 </div>
 
-                {/* Graphique 7 jours */}
-                <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '18px', marginBottom: '20px' }}>
-                  <h3 style={{ margin: '0 0 16px', fontSize: '13px', color: '#888', textTransform: 'uppercase' }}>📊 CA vs Dépenses — 7 derniers jours</h3>
+                <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '18px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: '13px', color: '#aaa', textTransform: 'uppercase' }}>📊 CA vs Dépenses — 7 derniers jours</h3>
                   <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '12px', height: '12px', background: '#1D9E75', borderRadius: '2px' }} /><span style={{ fontSize: '11px', color: '#666' }}>CA</span></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '12px', height: '12px', background: '#E24B4A', borderRadius: '2px' }} /><span style={{ fontSize: '11px', color: '#666' }}>Dépenses</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '12px', height: '12px', background: '#1D9E75', borderRadius: '2px' }} /><span style={{ fontSize: '11px', color: '#aaa' }}>CA</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{ width: '12px', height: '12px', background: '#E24B4A', borderRadius: '2px' }} /><span style={{ fontSize: '11px', color: '#aaa' }}>Dépenses</span></div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '140px' }}>
                     {derniers7Jours.map((d, i) => (
@@ -373,56 +345,54 @@ export default function Dashboard() {
                           <div style={{ flex: 1, background: '#1D9E75', borderRadius: '3px 3px 0 0', height: `${Math.max(2, (d.ca / maxVal) * 120)}px` }} />
                           <div style={{ flex: 1, background: '#E24B4A', borderRadius: '3px 3px 0 0', height: `${Math.max(2, (d.dep / maxVal) * 120)}px` }} />
                         </div>
-                        <span style={{ fontSize: '10px', color: '#555' }}>{d.date.toLocaleDateString('fr-FR', { weekday: 'short' })}</span>
+                        <span style={{ fontSize: '10px', color: '#aaa' }}>{d.date.toLocaleDateString('fr-FR', { weekday: 'short' })}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Dépenses par catégorie */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-                  <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '18px' }}>
-                    <h3 style={{ margin: '0 0 14px', fontSize: '13px', color: '#888', textTransform: 'uppercase' }}>💸 Dépenses par catégorie</h3>
+                  <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    <h3 style={{ margin: '0 0 14px', fontSize: '13px', color: '#aaa', textTransform: 'uppercase' }}>💸 Dépenses par catégorie</h3>
                     {depensesParCategorie.length === 0 ? (
-                      <p style={{ color: '#555', fontSize: '13px' }}>Aucune dépense enregistrée</p>
+                      <p style={{ color: '#aaa', fontSize: '13px' }}>Aucune dépense enregistrée</p>
                     ) : depensesParCategorie.map((c, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1a1a1a' }}>
-                        <span style={{ color: '#888', fontSize: '13px' }}>{c.cat}</span>
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
+                        <span style={{ color: '#666', fontSize: '13px' }}>{c.cat}</span>
                         <span style={{ color: '#E24B4A', fontWeight: 600, fontSize: '13px' }}>{c.total.toLocaleString('fr-FR')} F</span>
                       </div>
                     ))}
                   </div>
 
-                  {/* Dernières dépenses */}
-                  <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '18px' }}>
+                  <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                      <h3 style={{ margin: 0, fontSize: '13px', color: '#888', textTransform: 'uppercase' }}>📋 Dernières dépenses</h3>
+                      <h3 style={{ margin: 0, fontSize: '13px', color: '#aaa', textTransform: 'uppercase' }}>📋 Dernières dépenses</h3>
                       <button onClick={() => setShowDepenseForm(!showDepenseForm)}
                         style={{ background: '#E24B4A', color: 'white', border: 'none', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
                         + Ajouter
                       </button>
                     </div>
                     {showDepenseForm && (
-                      <div style={{ background: '#1a1a1a', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
+                      <div style={{ background: '#f9f9f9', borderRadius: '8px', padding: '12px', marginBottom: '12px', border: '1px solid #f0f0f0' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <input value={depenseForm.libelle} onChange={e => setDepenseForm(p => ({ ...p, libelle: e.target.value }))}
                             placeholder="Libellé *"
-                            style={{ padding: '8px', borderRadius: '6px', background: '#111', border: '1px solid #333', color: 'white', fontSize: '12px' }} />
+                            style={{ padding: '8px', borderRadius: '6px', background: '#fff', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '12px' }} />
                           <input type="number" value={depenseForm.montant} onChange={e => setDepenseForm(p => ({ ...p, montant: Number(e.target.value) }))}
                             placeholder="Montant (F)"
-                            style={{ padding: '8px', borderRadius: '6px', background: '#111', border: '1px solid #333', color: 'white', fontSize: '12px' }} />
+                            style={{ padding: '8px', borderRadius: '6px', background: '#fff', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '12px' }} />
                           <select value={depenseForm.categorie} onChange={e => setDepenseForm(p => ({ ...p, categorie: e.target.value }))}
-                            style={{ padding: '8px', borderRadius: '6px', background: '#111', border: '1px solid #333', color: 'white', fontSize: '12px' }}>
+                            style={{ padding: '8px', borderRadius: '6px', background: '#fff', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '12px' }}>
                             {CATEGORIES_DEPENSE.map(c => <option key={c}>{c}</option>)}
                           </select>
                           <select value={depenseForm.activite} onChange={e => setDepenseForm(p => ({ ...p, activite: e.target.value }))}
-                            style={{ padding: '8px', borderRadius: '6px', background: '#111', border: '1px solid #333', color: 'white', fontSize: '12px' }}>
+                            style={{ padding: '8px', borderRadius: '6px', background: '#fff', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '12px' }}>
                             <option value="ck_design">CK Design</option>
                             <option value="succes_design">Succès Design</option>
                             <option value="general">Général</option>
                           </select>
                           <input type="date" value={depenseForm.date_depense} onChange={e => setDepenseForm(p => ({ ...p, date_depense: e.target.value }))}
-                            style={{ padding: '8px', borderRadius: '6px', background: '#111', border: '1px solid #333', color: 'white', fontSize: '12px' }} />
+                            style={{ padding: '8px', borderRadius: '6px', background: '#fff', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '12px' }} />
                           <button onClick={ajouterDepense} disabled={saving}
                             style={{ padding: '8px', background: '#E24B4A', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>
                             {saving ? '...' : 'Enregistrer'}
@@ -432,10 +402,10 @@ export default function Dashboard() {
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflow: 'auto' }}>
                       {depenses.slice(0, 10).map(d => (
-                        <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1a1a1a' }}>
+                        <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
                           <div>
-                            <p style={{ margin: 0, fontSize: '12px', color: 'white' }}>{d.libelle}</p>
-                            <p style={{ margin: 0, fontSize: '10px', color: '#555' }}>{d.categorie} · {d.date_depense}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#1a1a1a' }}>{d.libelle}</p>
+                            <p style={{ margin: 0, fontSize: '10px', color: '#aaa' }}>{d.categorie} · {d.date_depense}</p>
                           </div>
                           <span style={{ color: '#E24B4A', fontWeight: 600, fontSize: '13px' }}>{d.montant?.toLocaleString('fr-FR')} F</span>
                         </div>
