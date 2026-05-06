@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/app/lib/supabase'
+import { requestNotificationPermission } from '@/app/lib/firebase'
 
 const WHATSAPP_NUMBER = '2250555303010'
 const FRAIS_LIVRAISON_ABIDJAN = 1500
@@ -54,7 +55,7 @@ function CommandeContent() {
 
   async function enregistrerCommande(via: 'whatsapp' | 'formulaire') {
     const ref = Math.random().toString(36).slice(2, 10).toUpperCase()
-    const { error } = await supabase.from('commandes_catalogue').insert({
+    const { data, error } = await supabase.from('commandes_catalogue').insert({
       telephone,
       adresse: typeCommande === 'expedition' ? `Ville: ${ville}` : adresse,
       produit_ref: produitRef,
@@ -65,7 +66,23 @@ function CommandeContent() {
       statut: 'nouveau',
       source: via,
       note: `REF: ${ref} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
-    })
+    }).select().single()
+
+    // Demander permission notification + sauvegarder token
+    if (data) {
+      try {
+        const token = await requestNotificationPermission()
+        if (token) {
+          await supabase.from('push_tokens').insert({
+            commande_id: data.id,
+            token,
+          })
+        }
+      } catch (e) {
+        console.log('Notification non activée')
+      }
+    }
+
     return { ref, error }
   }
 
@@ -138,7 +155,6 @@ function CommandeContent() {
 
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px' }}>
 
-        {/* Choix type livraison */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
           <button onClick={() => setTypeCommande('abidjan')} style={{
             padding: '14px', borderRadius: 12, cursor: 'pointer', fontWeight: 600, fontSize: 14, textAlign: 'center',
@@ -160,7 +176,6 @@ function CommandeContent() {
           </button>
         </div>
 
-        {/* Info */}
         <div style={{
           background: typeCommande === 'abidjan' ? '#f0f7ff' : '#fef9ec',
           borderRadius: 12, padding: '12px 14px', marginBottom: 16,
@@ -173,7 +188,6 @@ function CommandeContent() {
           </p>
         </div>
 
-        {/* Récapitulatif */}
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ece9e3', padding: '16px', marginBottom: 16 }}>
           <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Récapitulatif</h3>
           {variantes.map(v => (
@@ -197,27 +211,24 @@ function CommandeContent() {
             <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>Total</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>{total.toLocaleString('fr-FR')} F</span>
           </div>
-          {typeCommande === 'expedition' && (
+          {typeCommande === 'expedition' ? (
             <div style={{ marginTop: 8, background: '#fef9ec', borderRadius: 8, padding: '8px 12px' }}>
               <p style={{ margin: 0, fontSize: 12, color: '#b45309', fontWeight: 600 }}>
                 ⚠️ {total.toLocaleString('fr-FR')} F à payer avant expédition
               </p>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Infos client */}
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ece9e3', padding: '16px', marginBottom: 16 }}>
           <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            {typeCommande === 'abidjan' ? 'Infos de livraison' : 'Infos d\'expédition'}
+            {typeCommande === 'abidjan' ? 'Infos de livraison' : "Infos d'expédition"}
           </h3>
-
           <div style={{ marginBottom: 14 }}>
             <label style={{ fontSize: 13, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>Téléphone *</label>
             <input type="tel" value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="Ex: 07 00 00 00 00"
               style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #e5e2dc', fontSize: 15, color: '#1a1a1a', background: '#faf9f7', outline: 'none' }} />
           </div>
-
           {typeCommande === 'abidjan' ? (
             <div>
               <label style={{ fontSize: 13, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>Adresse de livraison *</label>
@@ -233,37 +244,38 @@ function CommandeContent() {
           )}
         </div>
 
-        {/* Moyens de paiement (expédition seulement) */}
-        {typeCommande === 'expedition' && (
+        {typeCommande === 'expedition' ? (
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ece9e3', padding: '16px', marginBottom: 20 }}>
             <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
               💳 Moyen de paiement *
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {MOYENS_PAIEMENT.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => setMoyenPaiement(m.id)}
-                  style={{
-                    padding: '12px', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 14,
-                    background: moyenPaiement === m.id ? m.color : '#faf9f7',
-                    color: moyenPaiement === m.id ? '#fff' : '#555',
-                    border: moyenPaiement === m.id ? `2px solid ${m.color}` : '2px solid #ece9e3',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  }}
-                >
+                <button key={m.id} onClick={() => setMoyenPaiement(m.id)} style={{
+                  padding: '12px', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 14,
+                  background: moyenPaiement === m.id ? m.color : '#faf9f7',
+                  color: moyenPaiement === m.id ? '#fff' : '#555',
+                  border: moyenPaiement === m.id ? `2px solid ${m.color}` : '2px solid #ece9e3',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}>
                   <span>{m.icon}</span>
                   <span style={{ fontSize: 13 }}>{m.label}</span>
                 </button>
               ))}
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Boutons */}
+        {/* Notification info */}
+        <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px', marginBottom: 16, border: '1px solid #bbf7d0' }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#065f46', lineHeight: 1.5 }}>
+            🔔 Activez les notifications pour être informé du suivi de votre commande en temps réel.
+          </p>
+        </div>
+
         <button onClick={handleWhatsApp} disabled={loading}
           style={{ width: '100%', background: '#25D366', color: '#fff', border: 'none', borderRadius: 14, padding: '16px', fontSize: 16, fontWeight: 600, cursor: 'pointer', marginBottom: 12 }}>
-          {loading ? 'Enregistrement...' : typeCommande === 'abidjan' ? '💬 Commander via WhatsApp' : '💬 Confirmer l\'expédition via WhatsApp'}
+          {loading ? 'Enregistrement...' : typeCommande === 'abidjan' ? '💬 Commander via WhatsApp' : "💬 Confirmer l'expédition via WhatsApp"}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 12px' }}>
@@ -274,7 +286,7 @@ function CommandeContent() {
 
         <button onClick={handleValider} disabled={loading || !canSubmit}
           style={{ width: '100%', background: !canSubmit ? '#f0ece4' : '#1a1a1a', color: !canSubmit ? '#aaa' : '#fff', border: 'none', borderRadius: 14, padding: '16px', fontSize: 16, fontWeight: 600, cursor: !canSubmit ? 'not-allowed' : 'pointer' }}>
-          {loading ? 'Envoi...' : typeCommande === 'abidjan' ? 'Valider la commande en ligne' : 'Valider l\'expédition en ligne'}
+          {loading ? 'Envoi...' : typeCommande === 'abidjan' ? 'Valider la commande en ligne' : "Valider l'expédition en ligne"}
         </button>
         <p style={{ textAlign: 'center', color: '#aaa', fontSize: 12, marginTop: 8 }}>
           {typeCommande === 'abidjan' ? '🏙️ Livraison Abidjan sous 24h' : '📦 Expédition sous 48h après paiement'}
