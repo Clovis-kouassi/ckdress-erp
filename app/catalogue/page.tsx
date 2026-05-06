@@ -33,7 +33,7 @@ export default function CataloguePage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    supabase.from('produits').select('*').order('nom')
+    supabase.from('produits').select('*').eq('disponible', true).order('nom')
       .then(({ data }) => { if (data) setProduits(data) })
   }, [])
 
@@ -71,6 +71,12 @@ export default function CataloguePage() {
 
   const produitSelectionne = produits.find(p => p.reference === modele)
 
+  // Image à afficher : image du stock en priorité, sinon image du produit
+  const getImage = (v: StockItem) => {
+    if (v.image_url) return v.image_url
+    return produitSelectionne?.image_url || null
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#faf9f7', fontFamily: "'DM Sans', sans-serif", paddingBottom: 100 }}>
 
@@ -93,11 +99,8 @@ export default function CataloguePage() {
             <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               1. Votre taille
             </label>
-            <select
-              value={taille}
-              onChange={e => setTaille(e.target.value)}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: taille ? '1.5px solid #1a1a1a' : '1.5px solid #e5e2dc', fontSize: 15, color: taille ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}
-            >
+            <select value={taille} onChange={e => setTaille(e.target.value)}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: taille ? '1.5px solid #1a1a1a' : '1.5px solid #e5e2dc', fontSize: 15, color: taille ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}>
               <option value="">Choisir...</option>
               {TAILLES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -107,20 +110,23 @@ export default function CataloguePage() {
             <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               2. Le modèle
             </label>
-            <select
-              value={modele}
-              onChange={e => setModele(e.target.value)}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: modele ? '1.5px solid #1a1a1a' : '1.5px solid #e5e2dc', fontSize: 15, color: modele ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}
-            >
+            <select value={modele} onChange={e => setModele(e.target.value)}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: modele ? '1.5px solid #1a1a1a' : '1.5px solid #e5e2dc', fontSize: 15, color: modele ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}>
               <option value="">Choisir...</option>
-              {produits.map(p => <option key={p.reference} value={p.reference}>{p.nom} — {p.prix_vente.toLocaleString('fr-FR')} F</option>)}
+              {produits.map(p => (
+                <option key={p.reference} value={p.reference}>{p.nom} — {p.prix_vente.toLocaleString('fr-FR')} F</option>
+              ))}
             </select>
           </div>
         </div>
 
         {!taille || !modele ? (
           <div style={{ textAlign: 'center', padding: '48px 20px', color: '#bbb' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>👗</div>
+            {produitSelectionne?.image_url ? (
+              <img src={produitSelectionne.image_url} alt="" style={{ width: '120px', height: '160px', objectFit: 'cover', borderRadius: '12px', marginBottom: '12px', opacity: 0.5 }} />
+            ) : (
+              <div style={{ fontSize: 48, marginBottom: 12 }}>👗</div>
+            )}
             <p style={{ margin: 0, fontSize: 15 }}>
               {!taille && !modele ? 'Sélectionnez votre taille et un modèle' :
                !taille ? 'Sélectionnez votre taille' : 'Sélectionnez un modèle'}
@@ -148,10 +154,9 @@ export default function CataloguePage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
               {variantes.map(v => {
                 const selected = selection.includes(v.id)
+                const imageUrl = getImage(v)
                 return (
-                  <button
-                    key={v.id}
-                    onClick={() => toggleSelection(v.id)}
+                  <button key={v.id} onClick={() => toggleSelection(v.id)}
                     style={{
                       background: '#fff',
                       border: selected ? '2.5px solid #1a1a1a' : '1.5px solid #ece9e3',
@@ -159,11 +164,10 @@ export default function CataloguePage() {
                       overflow: 'hidden', position: 'relative',
                       transform: selected ? 'scale(0.96)' : 'scale(1)',
                       transition: 'transform 0.12s, border-color 0.12s',
-                    }}
-                  >
+                    }}>
                     <div style={{ width: '100%', aspectRatio: '3/4', background: 'linear-gradient(135deg, #f0ece4, #e8e1d5)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                      {v.image_url
-                        ? <img src={v.image_url} alt={v.couleur} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {imageUrl
+                        ? <img src={imageUrl} alt={v.couleur} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <div style={{ fontSize: 36, opacity: 0.2 }}>👗</div>
                       }
                     </div>
@@ -190,12 +194,10 @@ export default function CataloguePage() {
             </p>
             <p style={{ margin: 0, fontSize: 12, color: '#888' }}>{produitSelectionne?.nom} — Taille {taille}</p>
           </div>
-          <button
-            onClick={handleCommander}
+          <button onClick={handleCommander}
             style={{ background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px 24px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}
             onMouseEnter={e => (e.currentTarget.style.background = '#d4a853')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#1a1a1a')}
-          >
+            onMouseLeave={e => (e.currentTarget.style.background = '#1a1a1a')}>
             Commander →
           </button>
         </div>
