@@ -17,6 +17,17 @@ const STATUTS: Record<string, { label: string; color: string }> = {
 
 const CATEGORIES_DEPENSE = ['Achat stock', 'Transport', 'Salaires', 'Loyer', 'Marketing', 'Autre']
 
+const MENU_LINKS = [
+  { label: '📦 Commandes', href: '/commandes' },
+  { label: '🚚 Livraisons', href: '/livraisons' },
+  { label: '⚙️ Production', href: '/production' },
+  { label: '🏪 Boutiques', href: '/admin/boutiques' },
+  { label: '👥 Livreurs', href: '/livreurs' },
+  { label: '🌐 Catalogue', href: '/catalogue' },
+  { label: '✨ Succès Design', href: '/succes-design' },
+  { label: '👤 Utilisateurs', href: '/admin/utilisateurs' },
+]
+
 export default function Dashboard() {
   const [commandes, setCommandes] = useState<any[]>([])
   const [depenses, setDepenses] = useState<any[]>([])
@@ -26,18 +37,27 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState<any[]>([])
   const [badge, setBadge] = useState(0)
   const [showNotifs, setShowNotifs] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const [onglet, setOnglet] = useState<'overview' | 'comptabilite'>('overview')
   const [showDepenseForm, setShowDepenseForm] = useState(false)
   const [depenseForm, setDepenseForm] = useState({ libelle: '', montant: 0, categorie: 'Achat stock', activite: 'ck_design', date_depense: new Date().toISOString().split('T')[0] })
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
     setUser(u)
     fetchData()
     setupRealtime()
-    return () => { supabase.removeAllChannels() }
+    // Fermer le menu en cliquant ailleurs
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => { supabase.removeAllChannels(); document.removeEventListener('mousedown', handleClick) }
   }, [])
 
   const playSound = () => {
@@ -139,21 +159,44 @@ export default function Dashboard() {
           <span style={{ color: '#ddd' }}>|</span>
           <span style={{ color: '#999', fontSize: '12px' }}>{user?.nom || 'Super Admin'}</span>
         </div>
-        <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-          {[
-            { label: 'Commandes', href: '/commandes' },
-            { label: 'Livraisons', href: '/livraisons' },
-            { label: 'Production', href: '/production' },
-            { label: 'Boutiques', href: '/admin/boutiques' },
-            { label: 'Livreurs', href: '/livreurs' },
-            { label: 'Utilisateurs', href: '/admin/utilisateurs' },
-          ].map(l => (
-            <a key={l.href} href={l.href} style={{ color: '#888', fontSize: '12px', textDecoration: 'none' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#1D9E75')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#888')}>
-              {l.label}
-            </a>
-          ))}
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+
+          {/* MENU HAMBURGER */}
+          <div ref={menuRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              style={{ background: showMenu ? '#f0fdf4' : 'none', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '18px', height: '2px', background: showMenu ? '#1D9E75' : '#888', borderRadius: '2px', transition: 'all 0.2s' }} />
+              <div style={{ width: '18px', height: '2px', background: showMenu ? '#1D9E75' : '#888', borderRadius: '2px', transition: 'all 0.2s' }} />
+              <div style={{ width: '18px', height: '2px', background: showMenu ? '#1D9E75' : '#888', borderRadius: '2px', transition: 'all 0.2s' }} />
+            </button>
+
+            {/* MENU DÉROULANT */}
+            {showMenu && (
+              <div style={{ position: 'absolute', right: 0, top: '46px', width: '220px', background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#aaa', textTransform: 'uppercase', fontWeight: 600 }}>Navigation</p>
+                </div>
+                {MENU_LINKS.map(l => (
+                  <a key={l.href} href={l.href}
+                    style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', textDecoration: 'none', color: '#555', fontSize: '13px', fontWeight: 500, borderBottom: '1px solid #f9f9f9', transition: 'background 0.1s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f0fdf4'; (e.currentTarget as HTMLElement).style.color = '#1D9E75' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#555' }}>
+                    {l.label}
+                  </a>
+                ))}
+                <div style={{ padding: '8px' }}>
+                  <button onClick={() => { localStorage.removeItem('ck_user'); window.location.href = '/login' }}
+                    style={{ width: '100%', padding: '10px', background: '#fff5f5', border: 'none', borderRadius: '8px', color: '#E24B4A', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                    🚪 Déconnexion
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* NOTIFICATIONS */}
           <div style={{ position: 'relative' }}>
             <button onClick={() => { setShowNotifs(!showNotifs); setBadge(0) }}
               style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: '8px', color: badge > 0 ? '#1D9E75' : '#888', padding: '6px 12px', cursor: 'pointer', fontSize: '16px', position: 'relative' }}>
@@ -184,10 +227,6 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          <button onClick={() => { localStorage.removeItem('ck_user'); window.location.href = '/login' }}
-            style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: '6px', color: '#888', padding: '5px 10px', fontSize: '11px', cursor: 'pointer' }}>
-            Déconnexion
-          </button>
         </div>
       </div>
 
@@ -227,15 +266,7 @@ export default function Dashboard() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', marginBottom: '20px' }}>
-                  {[
-                    { label: '📦 Commandes', href: '/commandes' },
-                    { label: '🚚 Livraisons', href: '/livraisons' },
-                    { label: '🏪 Boutiques', href: '/admin/boutiques' },
-                    { label: '⚙️ Production', href: '/production' },
-                    { label: '👥 Livreurs', href: '/livreurs' },
-                    { label: '🌐 Catalogue', href: '/catalogue' },
-                    { label: '👤 Utilisateurs', href: '/admin/utilisateurs' },
-                  ].map((link, i) => (
+                  {MENU_LINKS.map((link, i) => (
                     <a key={i} href={link.href} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '14px', textAlign: 'center', textDecoration: 'none', color: '#666', fontSize: '13px', fontWeight: 500, display: 'block', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1D9E75'; (e.currentTarget as HTMLElement).style.color = '#1D9E75' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#e5e5e5'; (e.currentTarget as HTMLElement).style.color = '#666' }}>
