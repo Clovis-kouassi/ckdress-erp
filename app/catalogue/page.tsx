@@ -31,11 +31,31 @@ export default function CataloguePage() {
   const [variantes, setVariantes] = useState<StockItem[]>([])
   const [selection, setSelection] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [stockDisponible, setStockDisponible] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     supabase.from('produits').select('*').eq('disponible', true).order('nom')
       .then(({ data }) => { if (data) setProduits(data) })
   }, [])
+
+  // Vérifier quels produits ont du stock disponible
+  useEffect(() => {
+    if (produits.length === 0) return
+    async function checkStock() {
+      const { data } = await supabase
+        .from('stock')
+        .select('produit_id')
+        .gt('quantite', 0)
+      if (data) {
+        const dispo: Record<string, boolean> = {}
+        produits.forEach(p => {
+          dispo[p.reference] = data.some(s => s.produit_id === p.id)
+        })
+        setStockDisponible(dispo)
+      }
+    }
+    checkStock()
+  }, [produits])
 
   useEffect(() => {
     if (!taille || !modele) { setVariantes([]); return }
@@ -71,7 +91,6 @@ export default function CataloguePage() {
 
   const produitSelectionne = produits.find(p => p.reference === modele)
 
-  // Image à afficher : image du stock en priorité, sinon image du produit
   const getImage = (v: StockItem) => {
     if (v.image_url) return v.image_url
     return produitSelectionne?.image_url || null
@@ -114,7 +133,15 @@ export default function CataloguePage() {
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: modele ? '1.5px solid #1a1a1a' : '1.5px solid #e5e2dc', fontSize: 15, color: modele ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}>
               <option value="">Choisir...</option>
               {produits.map(p => (
-                <option key={p.reference} value={p.reference}>{p.nom} — {p.prix_vente.toLocaleString('fr-FR')} F</option>
+                <option
+                  key={p.reference}
+                  value={p.reference}
+                  disabled={stockDisponible[p.reference] === false}
+                  style={{ color: stockDisponible[p.reference] === false ? '#ccc' : '#1a1a1a' }}
+                >
+                  {p.nom} — {p.prix_vente.toLocaleString('fr-FR')} F
+                  {stockDisponible[p.reference] === false ? ' (Rupture de stock)' : ''}
+                </option>
               ))}
             </select>
           </div>

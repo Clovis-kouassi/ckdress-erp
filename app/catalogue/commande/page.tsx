@@ -68,6 +68,24 @@ function CommandeContent() {
       note: `REF: ${ref} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
     }).select().single()
 
+    // ✅ Déduire le stock automatiquement pour chaque variante commandée
+    if (data && !error) {
+      for (const variante of variantes) {
+        const { data: stockItem } = await supabase
+          .from('stock')
+          .select('quantite')
+          .eq('id', variante.id)
+          .single()
+
+        if (stockItem && stockItem.quantite > 0) {
+          await supabase
+            .from('stock')
+            .update({ quantite: stockItem.quantite - 1 })
+            .eq('id', variante.id)
+        }
+      }
+    }
+
     // Demander permission notification + sauvegarder token
     if (data) {
       try {
@@ -211,13 +229,13 @@ function CommandeContent() {
             <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>Total</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>{total.toLocaleString('fr-FR')} F</span>
           </div>
-          {typeCommande === 'expedition' ? (
+          {typeCommande === 'expedition' && (
             <div style={{ marginTop: 8, background: '#fef9ec', borderRadius: 8, padding: '8px 12px' }}>
               <p style={{ margin: 0, fontSize: 12, color: '#b45309', fontWeight: 600 }}>
                 ⚠️ {total.toLocaleString('fr-FR')} F à payer avant expédition
               </p>
             </div>
-          ) : null}
+          )}
         </div>
 
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ece9e3', padding: '16px', marginBottom: 16 }}>
@@ -244,7 +262,7 @@ function CommandeContent() {
           )}
         </div>
 
-        {typeCommande === 'expedition' ? (
+        {typeCommande === 'expedition' && (
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ece9e3', padding: '16px', marginBottom: 20 }}>
             <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
               💳 Moyen de paiement *
@@ -264,9 +282,8 @@ function CommandeContent() {
               ))}
             </div>
           </div>
-        ) : null}
+        )}
 
-        {/* Notification info */}
         <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px', marginBottom: 16, border: '1px solid #bbf7d0' }}>
           <p style={{ margin: 0, fontSize: 12, color: '#065f46', lineHeight: 1.5 }}>
             🔔 Activez les notifications pour être informé du suivi de votre commande en temps réel.
