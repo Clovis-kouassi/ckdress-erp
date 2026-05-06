@@ -46,8 +46,8 @@ export default function LoginPage() {
       super_admin: '/dashboard',
       manager: '/dashboard',
       comptable: '/dashboard',
-      commercial: '/commandes',
-      gestionnaire_stock: '/stock',
+      commercial: '/commercial',
+      gestionnaire_stock: '/gestionnaire-stock',
       livreur: `/livreur/${data.code_ref || 'LIV-001'}`,
       boutique: `/boutique/${data.code_ref || ''}`,
       atelier: `/atelier/${data.code_ref || ''}`,
@@ -61,7 +61,10 @@ export default function LoginPage() {
       <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', padding: '40px', width: '100%', maxWidth: '400px' }}>
 
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{ color: '#1D9E75', fontSize: '2rem', margin: '0 0 4px', fontWeight: 800 }}>CK Dress</h1>
+          <div style={{ width: '60px', height: '60px', background: '#1D9E75', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '24px' }}>
+            👗
+          </div>
+          <h1 style={{ color: '#1D9E75', fontSize: '1.8rem', margin: '0 0 4px', fontWeight: 800 }}>CK Dress</h1>
           <p style={{ color: '#555', fontSize: '13px', margin: 0 }}>Connectez-vous à votre espace</p>
         </div>
 
@@ -72,7 +75,7 @@ export default function LoginPage() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="votre@email.com"
-            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: '14px', boxSizing: 'border-box' }}
+            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }}
           />
         </div>
 
@@ -84,13 +87,13 @@ export default function LoginPage() {
             onChange={e => setPassword(e.target.value)}
             placeholder="••••••••"
             onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: '14px', boxSizing: 'border-box' }}
+            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }}
           />
         </div>
 
         {error && (
           <div style={{ background: '#2a1010', border: '1px solid #5a2020', borderRadius: '8px', padding: '10px 14px', color: '#ff6b6b', fontSize: '13px', marginBottom: '16px' }}>
-            {error}
+            ⚠️ {error}
           </div>
         )}
 
@@ -99,8 +102,12 @@ export default function LoginPage() {
           disabled={loading}
           style={{ width: '100%', padding: '13px', borderRadius: '8px', background: loading ? '#0a5c3f' : '#1D9E75', color: 'white', border: 'none', fontSize: '15px', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer' }}
         >
-          {loading ? 'Connexion...' : 'Se connecter'}
+          {loading ? '⏳ Connexion...' : 'Se connecter →'}
         </button>
+
+        <p style={{ textAlign: 'center', color: '#333', fontSize: '11px', marginTop: '24px' }}>
+          CK Dress ERP — Accès réservé au personnel
+        </p>
       </div>
     </div>
   )
