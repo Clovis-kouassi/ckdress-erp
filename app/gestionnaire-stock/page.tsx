@@ -33,9 +33,14 @@ async function compressImage(file: File): Promise<File> {
 
 async function uploadImage(file: File, path: string): Promise<string | null> {
   const compressed = await compressImage(file)
-  const { error } = await supabase.storage.from('Produits').upload(path, compressed, { upsert: true })
+  // Nettoyer le nom du fichier : supprimer espaces et caractères spéciaux
+  const cleanPath = path
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9\-_.\/]/g, '')
+    .toLowerCase()
+  const { error } = await supabase.storage.from('Produits').upload(cleanPath, compressed, { upsert: true })
   if (error) { console.error(error); return null }
-  const { data } = supabase.storage.from('Produits').getPublicUrl(path)
+  const { data } = supabase.storage.from('Produits').getPublicUrl(cleanPath)
   return data.publicUrl
 }
 
@@ -62,7 +67,6 @@ export default function GestionnaireStockPage() {
   const [saving, setSaving] = useState(false)
   const [approForm, setApproForm] = useState({ boutique_id: '', nom_produit: '', taille: '', couleur: '', quantite: 1, prix_vente: 0 })
 
-  // Formulaire nouveau produit
   const [prodForm, setProdForm] = useState({
     reference: '', nom: '', categorie: '', activite: 'ck_design',
     prix_vente: 0, prix_achat: 0, description: '',
@@ -198,7 +202,6 @@ export default function GestionnaireStockPage() {
         </button>
       </div>
 
-      {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', padding: '16px 16px 0' }}>
         {[
           { label: 'Total articles', value: totalArticles, color: '#0891b2' },
@@ -213,7 +216,6 @@ export default function GestionnaireStockPage() {
         ))}
       </div>
 
-      {/* ONGLETS */}
       <div style={{ display: 'flex', borderBottom: '1px solid #222', background: '#111', margin: '16px 0 0', overflowX: 'auto' }}>
         {[
           { key: 'stock', label: '📦 Stock' },
@@ -236,7 +238,6 @@ export default function GestionnaireStockPage() {
           </div>
         )}
 
-        {/* STOCK CENTRAL */}
         {onglet === 'stock' && (
           <div>
             {stockCritique.length > 0 && (
@@ -268,7 +269,6 @@ export default function GestionnaireStockPage() {
           </div>
         )}
 
-        {/* PRODUITS */}
         {onglet === 'produits' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
             {produits.map(prod => (
@@ -295,7 +295,6 @@ export default function GestionnaireStockPage() {
           </div>
         )}
 
-        {/* NOUVEAU PRODUIT */}
         {onglet === 'nouveau_produit' && (
           <div style={{ maxWidth: '600px' }}>
             <div style={{ background: '#111', border: '1px solid #0891b2', borderRadius: '12px', padding: '20px', marginBottom: '16px' }}>
@@ -352,7 +351,6 @@ export default function GestionnaireStockPage() {
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '13px', boxSizing: 'border-box', resize: 'vertical' }} />
               </div>
 
-              {/* Photo principale */}
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>📷 Photo principale</label>
                 <input type="file" accept="image/*" ref={fileRef} onChange={e => {
@@ -370,7 +368,6 @@ export default function GestionnaireStockPage() {
                 </div>
               </div>
 
-              {/* Couleurs */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={{ color: '#888', fontSize: '12px' }}>COULEURS & TAILLES</label>
@@ -432,7 +429,6 @@ export default function GestionnaireStockPage() {
           </div>
         )}
 
-        {/* APPROVISIONNER BOUTIQUE */}
         {onglet === 'approvisionner' && (
           <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px', maxWidth: '500px' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#0891b2' }}>🏪 Approvisionner une boutique</h3>
@@ -491,7 +487,6 @@ export default function GestionnaireStockPage() {
           </div>
         )}
 
-        {/* HISTORIQUE */}
         {onglet === 'historique' && (
           <div>
             <h3 style={{ margin: '0 0 14px', fontSize: '13px', color: '#888', textTransform: 'uppercase' }}>📋 Dernières ventes boutiques</h3>
