@@ -68,21 +68,10 @@ function CommandeContent() {
       note: `REF: ${ref} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
     }).select().single()
 
-    // ✅ Déduire le stock automatiquement pour chaque variante commandée
+    // ✅ Déduire le stock via fonction SQL sécurisée
     if (data && !error) {
       for (const variante of variantes) {
-        const { data: stockItem } = await supabase
-          .from('stock')
-          .select('quantite')
-          .eq('id', variante.id)
-          .single()
-
-        if (stockItem && stockItem.quantite > 0) {
-          await supabase
-            .from('stock')
-            .update({ quantite: stockItem.quantite - 1 })
-            .eq('id', variante.id)
-        }
+        await supabase.rpc('deduire_stock', { stock_id: variante.id })
       }
     }
 
