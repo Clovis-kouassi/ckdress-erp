@@ -41,7 +41,6 @@ export default function CataloguePage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // Charger catégories et produits
     supabase.from('categories').select('*').order('ordre').then(({ data }) => {
       if (data) setCategories(data)
     })
@@ -56,7 +55,6 @@ export default function CataloguePage() {
     setSelection([])
 
     async function chargerProduits() {
-      // Trouver les produits de cette catégorie
       const produitsFiltres = produits.filter(p =>
         p.categorie?.toLowerCase() === categorie.toLowerCase()
       )
@@ -64,7 +62,6 @@ export default function CataloguePage() {
 
       const ids = produitsFiltres.map(p => p.id)
 
-      // Charger le stock disponible pour la taille choisie
       const { data: stockData } = await supabase
         .from('stock')
         .select('*')
@@ -74,13 +71,12 @@ export default function CataloguePage() {
 
       if (!stockData) { setProduitsAffiches([]); setLoading(false); return }
 
-      // Regrouper par produit
       const result = produitsFiltres
         .map(p => ({
           produit: p,
           stock: stockData.filter(s => s.produit_id === p.id)
         }))
-        .filter(item => item.stock.length > 0) // Garder seulement les produits avec stock
+        .filter(item => item.stock.length > 0)
 
       setProduitsAffiches(result)
       setLoading(false)
@@ -105,7 +101,6 @@ export default function CataloguePage() {
 
   function handleCommander() {
     if (selection.length === 0) return
-    // Grouper par produit pour la commande
     const produitRef = selection[0].produitRef
     const variantes = selection.map(s => s.stockId).join(',')
     const query = new URLSearchParams({
@@ -213,6 +208,13 @@ export default function CataloguePage() {
                         }
                       </div>
 
+                      {/* BADGE STOCK CRITIQUE */}
+                      {s.quantite <= 5 && (
+                        <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
+                          ⚠️ Plus que {s.quantite} !
+                        </div>
+                      )}
+
                       {/* BADGE SÉLECTIONNÉ */}
                       {isSelected && (
                         <div style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#fff', fontWeight: 700 }}>✓</div>
@@ -223,6 +225,16 @@ export default function CataloguePage() {
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>{produit.nom}</p>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>{s.couleur}</p>
                         <p style={{ margin: '4px 0 0', fontSize: 13, fontWeight: 700, color: '#d4a853' }}>{produit.prix_vente.toLocaleString('fr-FR')} F</p>
+                        <div style={{ marginTop: 6 }}>
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                            background: s.quantite <= 5 ? '#fff0f0' : '#f0fdf4',
+                            color: s.quantite <= 5 ? '#E24B4A' : '#1D9E75',
+                            border: `1px solid ${s.quantite <= 5 ? '#fecaca' : '#bbf7d0'}`,
+                          }}>
+                            {s.quantite <= 5 ? `⚠️ Plus que ${s.quantite} en stock !` : `${s.quantite} en stock`}
+                          </span>
+                        </div>
                       </div>
                     </button>
                   )
