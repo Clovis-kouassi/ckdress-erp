@@ -27,21 +27,28 @@ const ACTIVITES = [
 
 export default function UtilisateursPage() {
   const [utilisateurs, setUtilisateurs] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [onglet, setOnglet] = useState<'utilisateurs' | 'categories'>('utilisateurs')
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [form, setForm] = useState({ nom: '', email: '', mot_de_passe: '', role: 'commercial', activite: 'ck_design', code_ref: '' })
+  const [catForm, setCatForm] = useState({ nom: '', activite: 'ck_design', ordre: 0 })
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('ck_user') || '{}')
     setCurrentUser(user)
-    fetchUtilisateurs()
+    fetchData()
   }, [])
 
-  const fetchUtilisateurs = async () => {
-    const { data } = await supabase.from('utilisateurs').select('*').order('created_at', { ascending: false })
-    setUtilisateurs(data || [])
+  const fetchData = async () => {
+    const [{ data: users }, { data: cats }] = await Promise.all([
+      supabase.from('utilisateurs').select('*').order('created_at', { ascending: false }),
+      supabase.from('categories').select('*').order('activite').order('ordre'),
+    ])
+    setUtilisateurs(users || [])
+    setCategories(cats || [])
     setLoading(false)
   }
 
@@ -51,13 +58,28 @@ export default function UtilisateursPage() {
     await supabase.from('utilisateurs').insert(form)
     setForm({ nom: '', email: '', mot_de_passe: '', role: 'commercial', activite: 'ck_design', code_ref: '' })
     setShowForm(false)
-    fetchUtilisateurs()
+    fetchData()
     setSaving(false)
+  }
+
+  const addCategorie = async () => {
+    if (!catForm.nom) return
+    setSaving(true)
+    await supabase.from('categories').insert(catForm)
+    setCatForm({ nom: '', activite: 'ck_design', ordre: 0 })
+    fetchData()
+    setSaving(false)
+  }
+
+  const deleteCategorie = async (id: string) => {
+    if (!confirm('Supprimer cette catégorie ?')) return
+    await supabase.from('categories').delete().eq('id', id)
+    fetchData()
   }
 
   const toggleActif = async (id: string, actif: boolean) => {
     await supabase.from('utilisateurs').update({ actif: !actif }).eq('id', id)
-    fetchUtilisateurs()
+    fetchData()
   }
 
   const getRoleColor = (role: string) => {
@@ -71,101 +93,205 @@ export default function UtilisateursPage() {
 
   const needsCodeRef = (role: string) => ['livreur', 'boutique', 'atelier'].includes(role)
 
-  return (
-    <div style={{ minHeight: '100vh', background: '#f4f4f5', fontFamily: 'sans-serif', color: '#1a1a1a' }}>
+  const categoriesCK = categories.filter(c => c.activite === 'ck_design')
+  const categoriesSD = categories.filter(c => c.activite === 'succes_design')
 
-      {/* TOPBAR */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e5', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+  return (
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
+
+      {/* HEADER */}
+      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
         <div>
-          <h1 style={{ color: '#1a1a1a', margin: 0, fontSize: '20px', fontWeight: 700 }}>👥 Gestion des utilisateurs</h1>
-          <p style={{ color: '#aaa', margin: '4px 0 0', fontSize: '13px' }}>{utilisateurs.length} utilisateur(s)</p>
+          <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '16px', fontWeight: 700 }}>⚙️ Administration</h1>
+          <p style={{ color: '#94a3b8', margin: '2px 0 0', fontSize: '11px' }}>{utilisateurs.length} utilisateur(s) · {categories.length} catégorie(s)</p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <a href="/dashboard" style={{ padding: '10px 16px', background: 'transparent', border: '1px solid #e5e5e5', borderRadius: '8px', color: '#888', textDecoration: 'none', fontSize: '13px' }}>
-            ← Dashboard
-          </a>
-          {(currentUser?.role === 'super_admin' || currentUser?.role === 'manager') && (
-            <button onClick={() => setShowForm(!showForm)}
-              style={{ background: '#1D9E75', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
-              + Nouvel utilisateur
-            </button>
-          )}
-        </div>
+        <a href="/dashboard" style={{ padding: '7px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', textDecoration: 'none', fontSize: '12px' }}>
+          ← Dashboard
+        </a>
       </div>
 
-      <div style={{ padding: '24px' }}>
-        {showForm && (
-          <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-            <h3 style={{ color: '#1a1a1a', margin: '0 0 16px', fontSize: '15px' }}>Nouvel utilisateur</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-              <input value={form.nom} onChange={e => setForm(p => ({ ...p, nom: e.target.value }))}
-                placeholder="Nom complet *"
-                style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
-              <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                placeholder="Email *" type="email"
-                style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
-              <input value={form.mot_de_passe} onChange={e => setForm(p => ({ ...p, mot_de_passe: e.target.value }))}
-                placeholder="Mot de passe *" type="password"
-                style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
-              <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
-                style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }}>
-                {ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-              </select>
-              <select value={form.activite} onChange={e => setForm(p => ({ ...p, activite: e.target.value }))}
-                style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }}>
-                {ACTIVITES.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
-              </select>
-              {needsCodeRef(form.role) && (
-                <input value={form.code_ref} onChange={e => setForm(p => ({ ...p, code_ref: e.target.value }))}
-                  placeholder={form.role === 'livreur' ? 'Code livreur (ex: LIV-001)' : form.role === 'boutique' ? 'Token boutique' : 'Code atelier (ex: ATL-001)'}
-                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
+      {/* ONGLETS */}
+      <div style={{ display: 'flex', background: '#fff', margin: '16px 24px 0', borderRadius: '12px', padding: '4px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', gap: '4px' }}>
+        {[
+          { key: 'utilisateurs', label: '👥 Utilisateurs' },
+          { key: 'categories', label: '🏷️ Catégories catalogue' },
+        ].map(o => (
+          <button key={o.key} onClick={() => setOnglet(o.key as any)}
+            style={{
+              flex: 1, padding: '10px', borderRadius: '9px', border: 'none', cursor: 'pointer',
+              fontSize: '13px', fontWeight: 600,
+              background: onglet === o.key ? '#0891b2' : 'transparent',
+              color: onglet === o.key ? '#fff' : '#888',
+            }}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: '16px 24px' }}>
+
+        {/* ONGLET UTILISATEURS */}
+        {onglet === 'utilisateurs' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              {(currentUser?.role === 'super_admin' || currentUser?.role === 'manager') && (
+                <button onClick={() => setShowForm(!showForm)}
+                  style={{ background: '#1D9E75', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '9px', cursor: 'pointer', fontWeight: 600, boxShadow: '0 4px 12px rgba(29,158,117,0.3)' }}>
+                  + Nouvel utilisateur
+                </button>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setShowForm(false)}
-                style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #e5e5e5', borderRadius: '8px', color: '#888', cursor: 'pointer' }}>
-                Annuler
-              </button>
-              <button onClick={addUser} disabled={saving}
-                style={{ padding: '10px 24px', background: '#1D9E75', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 600 }}>
-                {saving ? 'Enregistrement...' : 'Créer'}
-              </button>
-            </div>
+
+            {showForm && (
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+                <h3 style={{ color: '#1a1a1a', margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>Nouvel utilisateur</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+                  <input value={form.nom} onChange={e => setForm(p => ({ ...p, nom: e.target.value }))}
+                    placeholder="Nom complet *"
+                    style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+                  <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                    placeholder="Email *" type="email"
+                    style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+                  <input value={form.mot_de_passe} onChange={e => setForm(p => ({ ...p, mot_de_passe: e.target.value }))}
+                    placeholder="Mot de passe *" type="password"
+                    style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+                  <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
+                    style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                    {ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                  </select>
+                  <select value={form.activite} onChange={e => setForm(p => ({ ...p, activite: e.target.value }))}
+                    style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                    {ACTIVITES.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                  </select>
+                  {needsCodeRef(form.role) && (
+                    <input value={form.code_ref} onChange={e => setForm(p => ({ ...p, code_ref: e.target.value }))}
+                      placeholder={form.role === 'livreur' ? 'Code livreur (ex: LIV-001)' : form.role === 'boutique' ? 'Token boutique' : 'Code atelier (ex: ATL-001)'}
+                      style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={() => setShowForm(false)}
+                    style={{ padding: '10px 20px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', borderRadius: '9px', color: '#888', cursor: 'pointer', fontWeight: 600 }}>
+                    Annuler
+                  </button>
+                  <button onClick={addUser} disabled={saving}
+                    style={{ padding: '10px 24px', background: '#1D9E75', border: 'none', borderRadius: '9px', color: 'white', cursor: 'pointer', fontWeight: 700, boxShadow: '0 4px 12px rgba(29,158,117,0.3)' }}>
+                    {saving ? 'Enregistrement...' : 'Créer'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {loading ? <p style={{ color: '#aaa' }}>Chargement...</p> : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {utilisateurs.map(u => (
+                  <div key={u.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                        <span style={{ color: '#1a1a1a', fontWeight: 700, fontSize: '15px' }}>{u.nom}</span>
+                        <span style={{ background: getRoleColor(u.role) + '22', color: getRoleColor(u.role), fontSize: '11px', padding: '2px 10px', borderRadius: '20px', fontWeight: 600 }}>
+                          {ROLES.find(r => r.id === u.role)?.label || u.role}
+                        </span>
+                        <span style={{ background: '#f0fdf4', color: '#1D9E75', fontSize: '11px', padding: '2px 10px', borderRadius: '20px' }}>
+                          {ACTIVITES.find(a => a.id === u.activite)?.label || u.activite}
+                        </span>
+                      </div>
+                      <p style={{ color: '#888', margin: '0 0 2px', fontSize: '13px' }}>✉️ {u.email}</p>
+                      {u.code_ref && (
+                        <p style={{ color: '#aaa', margin: 0, fontSize: '12px', fontFamily: 'monospace' }}>🔗 {u.code_ref}</p>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', background: u.actif ? '#f0fdf4' : '#f5f5f5', color: u.actif ? '#1D9E75' : '#aaa', padding: '3px 10px', borderRadius: '20px', fontWeight: 600 }}>
+                        {u.actif ? 'Actif' : 'Inactif'}
+                      </span>
+                      {(currentUser?.role === 'super_admin' || currentUser?.role === 'manager') && (
+                        <button onClick={() => toggleActif(u.id, u.actif)}
+                          style={{ padding: '6px 14px', background: 'transparent', border: `1.5px solid ${u.actif ? '#E24B4A' : '#1D9E75'}`, color: u.actif ? '#E24B4A' : '#1D9E75', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                          {u.actif ? 'Désactiver' : 'Activer'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {loading ? <p style={{ color: '#aaa' }}>Chargement...</p> : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {utilisateurs.map(u => (
-              <div key={u.id} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                    <span style={{ color: '#1a1a1a', fontWeight: 600, fontSize: '15px' }}>{u.nom}</span>
-                    <span style={{ background: getRoleColor(u.role) + '22', color: getRoleColor(u.role), fontSize: '11px', padding: '2px 10px', borderRadius: '20px', fontWeight: 600 }}>
-                      {ROLES.find(r => r.id === u.role)?.label || u.role}
-                    </span>
-                    <span style={{ background: '#f0fdf4', color: '#1D9E75', fontSize: '11px', padding: '2px 10px', borderRadius: '20px' }}>
-                      {ACTIVITES.find(a => a.id === u.activite)?.label || u.activite}
-                    </span>
-                  </div>
-                  <p style={{ color: '#888', margin: '0 0 2px', fontSize: '13px' }}>✉️ {u.email}</p>
-                  {u.code_ref && (
-                    <p style={{ color: '#aaa', margin: 0, fontSize: '12px', fontFamily: 'monospace' }}>🔗 {u.code_ref}</p>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', background: u.actif ? '#f0fdf4' : '#f5f5f5', color: u.actif ? '#1D9E75' : '#aaa', padding: '3px 10px', borderRadius: '20px' }}>
-                    {u.actif ? 'Actif' : 'Inactif'}
-                  </span>
-                  {(currentUser?.role === 'super_admin' || currentUser?.role === 'manager') && (
-                    <button onClick={() => toggleActif(u.id, u.actif)}
-                      style={{ padding: '6px 14px', background: 'transparent', border: `1px solid ${u.actif ? '#E24B4A' : '#1D9E75'}`, color: u.actif ? '#E24B4A' : '#1D9E75', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
-                      {u.actif ? 'Désactiver' : 'Activer'}
-                    </button>
-                  )}
-                </div>
+        {/* ONGLET CATEGORIES */}
+        {onglet === 'categories' && (
+          <div>
+            {/* FORMULAIRE AJOUT */}
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: '#0891b2' }}>🏷️ Ajouter une catégorie</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: '12px', marginBottom: '14px' }}>
+                <input value={catForm.nom} onChange={e => setCatForm(p => ({ ...p, nom: e.target.value }))}
+                  placeholder="Nom catégorie * (ex: Polo, Chemise...)"
+                  style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+                <select value={catForm.activite} onChange={e => setCatForm(p => ({ ...p, activite: e.target.value }))}
+                  style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                  <option value="ck_design">CK Design</option>
+                  <option value="succes_design">Succès Design</option>
+                </select>
+                <input type="number" value={catForm.ordre} onChange={e => setCatForm(p => ({ ...p, ordre: Number(e.target.value) }))}
+                  placeholder="Ordre"
+                  style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
               </div>
-            ))}
+              <button onClick={addCategorie} disabled={saving}
+                style={{ padding: '10px 24px', background: '#0891b2', border: 'none', borderRadius: '9px', color: 'white', cursor: 'pointer', fontWeight: 700, boxShadow: '0 4px 12px rgba(8,145,178,0.3)' }}>
+                {saving ? '...' : '+ Ajouter'}
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+              {/* CK DESIGN */}
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 700, color: '#1D9E75', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  🎨 CK Design — {categoriesCK.length} catégorie(s)
+                </h3>
+                {categoriesCK.length === 0 ? (
+                  <p style={{ color: '#ccc', fontSize: '13px', textAlign: 'center' }}>Aucune catégorie</p>
+                ) : (
+                  categoriesCK.map(c => (
+                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', borderRadius: '9px', padding: '10px 14px', marginBottom: '8px', border: '1px solid #e5e7eb' }}>
+                      <div>
+                        <span style={{ fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{c.nom}</span>
+                        <span style={{ marginLeft: 8, fontSize: '11px', color: '#aaa' }}>ordre: {c.ordre}</span>
+                      </div>
+                      <button onClick={() => deleteCategorie(c.id)}
+                        style={{ background: '#fff0f0', color: '#E24B4A', border: 'none', borderRadius: '7px', padding: '5px 10px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                        🗑️ Supprimer
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* SUCCÈS DESIGN */}
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 700, color: '#d4a853', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  ✨ Succès Design — {categoriesSD.length} catégorie(s)
+                </h3>
+                {categoriesSD.length === 0 ? (
+                  <p style={{ color: '#ccc', fontSize: '13px', textAlign: 'center' }}>Aucune catégorie</p>
+                ) : (
+                  categoriesSD.map(c => (
+                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', borderRadius: '9px', padding: '10px 14px', marginBottom: '8px', border: '1px solid #e5e7eb' }}>
+                      <div>
+                        <span style={{ fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{c.nom}</span>
+                        <span style={{ marginLeft: 8, fontSize: '11px', color: '#aaa' }}>ordre: {c.ordre}</span>
+                      </div>
+                      <button onClick={() => deleteCategorie(c.id)}
+                        style={{ background: '#fff0f0', color: '#E24B4A', border: 'none', borderRadius: '7px', padding: '5px 10px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                        🗑️ Supprimer
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
