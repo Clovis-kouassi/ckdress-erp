@@ -101,200 +101,217 @@ export default function AdminBoutiquesPage() {
   const caJour = ventes.filter((v: any) => new Date(v.created_at).toDateString() === new Date().toDateString()).reduce((s: number, v: any) => s + v.total, 0)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: 'sans-serif', color: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a', display: 'flex', flexDirection: 'column' }}>
 
-      {/* SIDEBAR BOUTIQUES */}
-      <div style={{ width: '280px', background: '#111', borderRight: '1px solid #222', padding: '16px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ margin: 0, fontSize: '16px', color: '#1D9E75' }}>🏪 Boutiques</h2>
-          <button onClick={() => setShowForm(!showForm)} style={{ background: '#1D9E75', border: 'none', borderRadius: '6px', color: 'white', padding: '5px 10px', fontSize: '12px', cursor: 'pointer' }}>+</button>
-        </div>
-
-        {showForm && (
-          <div style={{ background: '#1a1a1a', borderRadius: '10px', padding: '12px', marginBottom: '12px' }}>
-            {['nom', 'lieu', 'responsable', 'telephone'].map(field => (
-              <input
-                key={field}
-                value={(form as any)[field]}
-                onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
-                placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                style={{ width: '100%', padding: '8px', borderRadius: '6px', background: '#111', border: '1px solid #333', color: 'white', fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box' }}
-              />
-            ))}
-            <button onClick={addBoutique} disabled={saving} style={{ width: '100%', padding: '8px', background: '#1D9E75', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
-              {saving ? '...' : 'Créer'}
-            </button>
-          </div>
-        )}
-
-        {boutiques.map(b => (
-          <div
-            key={b.id}
-            onClick={() => fetchBoutiqueData(b)}
-            style={{ background: selected?.id === b.id ? '#1a2e25' : '#1a1a1a', border: `1px solid ${selected?.id === b.id ? '#1D9E75' : '#222'}`, borderRadius: '10px', padding: '12px', marginBottom: '8px', cursor: 'pointer' }}
-          >
-            <p style={{ margin: 0, fontWeight: 600, fontSize: '14px', color: selected?.id === b.id ? '#1D9E75' : 'white' }}>{b.nom}</p>
-            <p style={{ margin: '2px 0 0', color: '#888', fontSize: '11px' }}>📍 {b.lieu}</p>
-            <p style={{ margin: '2px 0 0', color: '#555', fontSize: '11px' }}>👤 {b.responsable}</p>
-          </div>
-        ))}
+      {/* HEADER */}
+      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+        <span style={{ color: '#34d399', fontSize: '16px', fontWeight: 700 }}>🏪 Admin — Boutiques</span>
+        <span style={{ color: '#94a3b8', fontSize: '12px' }}>{boutiques.length} boutique{boutiques.length > 1 ? 's' : ''}</span>
       </div>
 
-      {/* DETAIL BOUTIQUE */}
-      {!selected ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '3rem' }}>🏪</div>
-            <p>Sélectionnez une boutique</p>
-          </div>
-        </div>
-      ) : (
-        <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
+      <div style={{ display: 'flex', flex: 1 }}>
 
-          {/* Header boutique */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '20px' }}>{selected.nom}</h2>
-              <p style={{ margin: '4px 0 0', color: '#888', fontSize: '13px' }}>📍 {selected.lieu} — 👤 {selected.responsable} — 📞 {selected.telephone}</p>
-            </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/boutique/${selected.token}`)}
-                style={{ padding: '8px 14px', background: 'transparent', border: '1px solid #333', color: '#888', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}
-              >
-                📋 Copier lien
-              </button>
-              <button
-                onClick={() => setShowAddStock(!showAddStock)}
-                style={{ padding: '8px 14px', background: '#1D9E75', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
-              >
-                + Ajouter stock
-              </button>
-            </div>
+        {/* SIDEBAR BOUTIQUES */}
+        <div style={{ width: '280px', background: '#fff', borderRight: '1px solid #e5e7eb', padding: '16px', flexShrink: 0, boxShadow: '1px 0 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ margin: 0, fontSize: '14px', color: '#1D9E75', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>🏪 Boutiques</h2>
+            <button onClick={() => setShowForm(!showForm)}
+              style={{ background: '#1D9E75', border: 'none', borderRadius: '6px', color: 'white', padding: '5px 12px', fontSize: '13px', cursor: 'pointer', fontWeight: 700 }}>+</button>
           </div>
 
-          {/* Formulaire ajout stock */}
-          {showAddStock && (
-            <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
-              <h3 style={{ margin: '0 0 14px', fontSize: '14px' }}>Ajouter du stock</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
-                {[
-                  { key: 'nom_produit', placeholder: 'Nom produit' },
-                  { key: 'taille', placeholder: 'Taille' },
-                  { key: 'couleur', placeholder: 'Couleur' },
-                ].map(f => (
-                  <input
-                    key={f.key}
-                    value={(stockForm as any)[f.key]}
-                    onChange={e => setStockForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                    placeholder={f.placeholder}
-                    style={{ padding: '8px 12px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '13px' }}
-                  />
-                ))}
+          {showForm && (
+            <div style={{ background: '#f8f9fa', borderRadius: '12px', padding: '14px', marginBottom: '14px', border: '1px solid #e5e7eb' }}>
+              {['nom', 'lieu', 'responsable', 'telephone'].map(field => (
                 <input
-                  type="number" value={stockForm.quantite}
-                  onChange={e => setStockForm(prev => ({ ...prev, quantite: Number(e.target.value) }))}
-                  placeholder="Quantité"
-                  style={{ padding: '8px 12px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '13px' }}
+                  key={field}
+                  value={(form as any)[field]}
+                  onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
+                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: '#fff', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box', outline: 'none' }}
                 />
-                <input
-                  type="number" value={stockForm.prix_vente}
-                  onChange={e => setStockForm(prev => ({ ...prev, prix_vente: Number(e.target.value) }))}
-                  placeholder="Prix vente (F)"
-                  style={{ padding: '8px 12px', borderRadius: '8px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontSize: '13px' }}
-                />
-              </div>
-              <button onClick={addStock} disabled={saving} style={{ marginTop: '12px', padding: '8px 20px', background: '#1D9E75', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 600 }}>
-                {saving ? '...' : 'Ajouter'}
+              ))}
+              <button onClick={addBoutique} disabled={saving}
+                style={{ width: '100%', padding: '9px', background: '#1D9E75', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
+                {saving ? '...' : 'Créer'}
               </button>
             </div>
           )}
 
-          {/* KPIs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', marginBottom: '20px' }}>
-            {[
-              { label: 'Articles en stock', value: stock.reduce((s: number, i: any) => s + i.quantite, 0), color: '#378ADD' },
-              { label: 'Ventes totales', value: ventes.length, color: '#BA7517' },
-              { label: "CA aujourd'hui", value: caJour.toLocaleString('fr-FR') + ' F', color: '#1D9E75' },
-              { label: 'CA total', value: caTotal.toLocaleString('fr-FR') + ' F', color: '#1D9E75' },
-            ].map((k, i) => (
-              <div key={i} style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '12px 14px' }}>
-                <div style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase', marginBottom: '4px' }}>{k.label}</div>
-                <div style={{ fontSize: '18px', fontWeight: 600, color: k.color }}>{k.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* 3 sections côte à côte */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-
-            {/* Stock */}
-            <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '16px' }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: '13px', color: '#378ADD', textTransform: 'uppercase' }}>📦 Stock</h3>
-              {stock.length === 0 ? <p style={{ color: '#444', fontSize: '12px', textAlign: 'center' }}>Vide</p> : (
-                stock.map((item: any) => (
-                  <div key={item.id} style={{ background: '#1a1a1a', borderRadius: '8px', padding: '10px', marginBottom: '8px' }}>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: '13px' }}>{item.nom_produit}</p>
-                    <p style={{ margin: '2px 0', color: '#888', fontSize: '11px' }}>{item.taille} — {item.couleur}</p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#1D9E75', fontSize: '12px' }}>{item.prix_vente.toLocaleString('fr-FR')} F</span>
-                      <span style={{ color: item.quantite === 0 ? '#ff6b6b' : item.quantite <= 2 ? '#BA7517' : '#4ade80', fontWeight: 700, fontSize: '13px' }}>
-                        {item.quantite} pcs
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
+          {boutiques.map(b => (
+            <div
+              key={b.id}
+              onClick={() => fetchBoutiqueData(b)}
+              style={{
+                background: selected?.id === b.id ? '#f0fdf4' : '#f8f9fa',
+                border: `1.5px solid ${selected?.id === b.id ? '#1D9E75' : '#e5e7eb'}`,
+                borderRadius: '12px', padding: '12px', marginBottom: '8px', cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '14px', color: selected?.id === b.id ? '#1D9E75' : '#1a1a1a' }}>{b.nom}</p>
+              <p style={{ margin: '2px 0 0', color: '#888', fontSize: '11px' }}>📍 {b.lieu}</p>
+              <p style={{ margin: '2px 0 0', color: '#aaa', fontSize: '11px' }}>👤 {b.responsable}</p>
             </div>
-
-            {/* Ventes récentes */}
-            <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '16px' }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: '13px', color: '#BA7517', textTransform: 'uppercase' }}>💰 Ventes récentes</h3>
-              {ventes.length === 0 ? <p style={{ color: '#444', fontSize: '12px', textAlign: 'center' }}>Aucune</p> : (
-                ventes.slice(0, 10).map((v: any) => (
-                  <div key={v.id} style={{ background: '#1a1a1a', borderRadius: '8px', padding: '10px', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <p style={{ margin: 0, fontWeight: 600, fontSize: '13px' }}>{v.nom_produit}</p>
-                      <span style={{ color: '#1D9E75', fontWeight: 700, fontSize: '13px' }}>{v.total.toLocaleString('fr-FR')} F</span>
-                    </div>
-                    <p style={{ margin: '2px 0 0', color: '#888', fontSize: '11px' }}>{v.taille} — {v.couleur} × {v.quantite}</p>
-                    <p style={{ margin: '2px 0 0', color: '#555', fontSize: '10px' }}>
-                      {new Date(v.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Réappros */}
-            <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '16px' }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: '13px', color: '#7c3aed', textTransform: 'uppercase' }}>🔄 Réapprovisionnements</h3>
-              {reappros.length === 0 ? <p style={{ color: '#444', fontSize: '12px', textAlign: 'center' }}>Aucune demande</p> : (
-                reappros.map((r: any) => (
-                  <div key={r.id} style={{ background: '#1a1a1a', borderRadius: '8px', padding: '10px', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <p style={{ margin: 0, fontWeight: 600, fontSize: '13px' }}>{r.nom_produit}</p>
-                        <p style={{ margin: '2px 0 0', color: '#888', fontSize: '11px' }}>{r.taille} — {r.couleur} × {r.quantite_demandee}</p>
-                      </div>
-                      {r.statut === 'en_attente' ? (
-                        <button
-                          onClick={() => validerReappro(r)}
-                          style={{ padding: '5px 10px', background: 'rgba(29,158,117,0.1)', border: '0.5px solid rgba(29,158,117,0.3)', color: '#1D9E75', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}
-                        >
-                          ✅ Valider
-                        </button>
-                      ) : (
-                        <span style={{ color: '#1D9E75', fontSize: '11px' }}>✅ Validé</span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          ))}
         </div>
-      )}
+
+        {/* DETAIL BOUTIQUE */}
+        {!selected ? (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '3rem', marginBottom: 12 }}>🏪</div>
+              <p style={{ fontSize: 15, fontWeight: 600 }}>Sélectionnez une boutique</p>
+              <p style={{ fontSize: 13, color: '#bbb' }}>Cliquez sur une boutique dans la liste</p>
+            </div>
+          </div>
+        ) : (
+          <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
+
+            {/* Header boutique */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', background: '#fff', borderRadius: '14px', padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #e5e7eb' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>{selected.nom}</h2>
+                <p style={{ margin: '4px 0 0', color: '#888', fontSize: '13px' }}>📍 {selected.lieu} — 👤 {selected.responsable} — 📞 {selected.telephone}</p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/boutique/${selected.token}`)}
+                  style={{ padding: '9px 14px', background: '#f8f9fa', border: '1.5px solid #e5e7eb', color: '#555', borderRadius: '9px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                  📋 Copier lien
+                </button>
+                <button
+                  onClick={() => setShowAddStock(!showAddStock)}
+                  style={{ padding: '9px 14px', background: '#1D9E75', border: 'none', color: 'white', borderRadius: '9px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, boxShadow: '0 4px 12px rgba(29,158,117,0.3)' }}>
+                  + Ajouter stock
+                </button>
+              </div>
+            </div>
+
+            {/* Formulaire ajout stock */}
+            {showAddStock && (
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '18px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: '14px', fontWeight: 700, color: '#1D9E75' }}>Ajouter du stock</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                  {[
+                    { key: 'nom_produit', placeholder: 'Nom produit' },
+                    { key: 'taille', placeholder: 'Taille' },
+                    { key: 'couleur', placeholder: 'Couleur' },
+                  ].map(f => (
+                    <input
+                      key={f.key}
+                      value={(stockForm as any)[f.key]}
+                      onChange={e => setStockForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      style={{ padding: '9px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}
+                    />
+                  ))}
+                  <input type="number" value={stockForm.quantite}
+                    onChange={e => setStockForm(prev => ({ ...prev, quantite: Number(e.target.value) }))}
+                    placeholder="Quantité"
+                    style={{ padding: '9px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}
+                  />
+                  <input type="number" value={stockForm.prix_vente}
+                    onChange={e => setStockForm(prev => ({ ...prev, prix_vente: Number(e.target.value) }))}
+                    placeholder="Prix vente (F)"
+                    style={{ padding: '9px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+                <button onClick={addStock} disabled={saving}
+                  style={{ marginTop: '14px', padding: '9px 24px', background: '#1D9E75', border: 'none', borderRadius: '9px', color: 'white', cursor: 'pointer', fontWeight: 700, boxShadow: '0 4px 12px rgba(29,158,117,0.3)' }}>
+                  {saving ? '...' : 'Ajouter'}
+                </button>
+              </div>
+            )}
+
+            {/* KPIs */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', marginBottom: '20px' }}>
+              {[
+                { label: 'Articles en stock', value: stock.reduce((s: number, i: any) => s + i.quantite, 0), color: '#378ADD', bg: '#eff6ff' },
+                { label: 'Ventes totales', value: ventes.length, color: '#BA7517', bg: '#fff8e6' },
+                { label: "CA aujourd'hui", value: caJour.toLocaleString('fr-FR') + ' F', color: '#1D9E75', bg: '#f0fdf4' },
+                { label: 'CA total', value: caTotal.toLocaleString('fr-FR') + ' F', color: '#1D9E75', bg: '#f0fdf4' },
+              ].map((k, i) => (
+                <div key={i} style={{ background: k.bg, border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: '10px', color: '#888', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 600, letterSpacing: 0.5 }}>{k.label}</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: k.color }}>{k.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 3 sections côte à côte */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+
+              {/* Stock */}
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ margin: '0 0 12px', fontSize: '12px', color: '#378ADD', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5 }}>📦 Stock</h3>
+                {stock.length === 0 ? <p style={{ color: '#ccc', fontSize: '12px', textAlign: 'center' }}>Vide</p> : (
+                  stock.map((item: any) => (
+                    <div key={item.id} style={{ background: '#f8f9fa', borderRadius: '9px', padding: '10px', marginBottom: '8px', border: '1px solid #e5e7eb' }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: '13px', color: '#1a1a1a' }}>{item.nom_produit}</p>
+                      <p style={{ margin: '2px 0', color: '#888', fontSize: '11px' }}>{item.taille} — {item.couleur}</p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#1D9E75', fontSize: '12px', fontWeight: 600 }}>{item.prix_vente.toLocaleString('fr-FR')} F</span>
+                        <span style={{
+                          fontWeight: 700, fontSize: '12px', padding: '1px 8px', borderRadius: '20px',
+                          background: item.quantite === 0 ? '#fff0f0' : item.quantite <= 2 ? '#fff8e6' : '#f0fdf4',
+                          color: item.quantite === 0 ? '#E24B4A' : item.quantite <= 2 ? '#BA7517' : '#1D9E75'
+                        }}>
+                          {item.quantite} pcs
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Ventes récentes */}
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ margin: '0 0 12px', fontSize: '12px', color: '#BA7517', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5 }}>💰 Ventes récentes</h3>
+                {ventes.length === 0 ? <p style={{ color: '#ccc', fontSize: '12px', textAlign: 'center' }}>Aucune</p> : (
+                  ventes.slice(0, 10).map((v: any) => (
+                    <div key={v.id} style={{ background: '#f8f9fa', borderRadius: '9px', padding: '10px', marginBottom: '8px', border: '1px solid #e5e7eb' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: '13px', color: '#1a1a1a' }}>{v.nom_produit}</p>
+                        <span style={{ color: '#1D9E75', fontWeight: 700, fontSize: '13px' }}>{v.total.toLocaleString('fr-FR')} F</span>
+                      </div>
+                      <p style={{ margin: '2px 0 0', color: '#888', fontSize: '11px' }}>{v.taille} — {v.couleur} × {v.quantite}</p>
+                      <p style={{ margin: '2px 0 0', color: '#aaa', fontSize: '10px' }}>
+                        {new Date(v.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Réappros */}
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ margin: '0 0 12px', fontSize: '12px', color: '#7c3aed', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5 }}>🔄 Réapprovisionnements</h3>
+                {reappros.length === 0 ? <p style={{ color: '#ccc', fontSize: '12px', textAlign: 'center' }}>Aucune demande</p> : (
+                  reappros.map((r: any) => (
+                    <div key={r.id} style={{ background: '#f8f9fa', borderRadius: '9px', padding: '10px', marginBottom: '8px', border: '1px solid #e5e7eb' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 700, fontSize: '13px', color: '#1a1a1a' }}>{r.nom_produit}</p>
+                          <p style={{ margin: '2px 0 0', color: '#888', fontSize: '11px' }}>{r.taille} — {r.couleur} × {r.quantite_demandee}</p>
+                        </div>
+                        {r.statut === 'en_attente' ? (
+                          <button
+                            onClick={() => validerReappro(r)}
+                            style={{ padding: '5px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#1D9E75', borderRadius: '7px', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>
+                            ✅ Valider
+                          </button>
+                        ) : (
+                          <span style={{ color: '#1D9E75', fontSize: '11px', fontWeight: 600 }}>✅ Validé</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
