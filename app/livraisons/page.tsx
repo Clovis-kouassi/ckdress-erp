@@ -1,132 +1,220 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 
-export default function Livraisons() {
-  const [commandes, setCommandes] = useState<any[]>([])
-  const [livreurs, setLivreurs] = useState<any[]>([])
+import { useEffect, useState } from 'react'
+import { supabase } from '@/app/lib/supabase'
+
+type Commande = {
+  id: string
+  telephone: string
+  adresse: string
+  produit_ref: string
+  taille: string
+  variantes: string
+  montant_total: number
+  frais_livraison: number
+  statut: string
+  nom_client: string
+  note: string
+  created_at: string
+  livreur_id?: string
+  motif_retour?: string
+}
+
+type Livreur = {
+  id: string
+  nom: string
+  telephone: string
+  code: string
+}
+
+export default function LivraisonsPage() {
+  const [commandes, setCommandes] = useState<Commande[]>([])
+  const [livreurs, setLivreurs] = useState<Livreur[]>([])
   const [loading, setLoading] = useState(true)
-  const [success, setSuccess] = useState('')
+  const [filtreStatut, setFiltreStatut] = useState<string>('tous')
+  const [filtreLivreur, setFiltreLivreur] = useState<string>('tous')
 
   useEffect(() => { fetchData() }, [])
 
   async function fetchData() {
-    const { data: cmds } = await supabase
-      .from('commandes')
-      .select(`id, numero, montant_total, statut, adresse_livraison, created_at, clients(nom, telephone)`)
-      .neq('statut', 'annulee')
-      .order('created_at', { ascending: false })
-    const { data: livs } = await supabase.from('utilisateurs').select('id, nom, prenom').eq('role', 'livreur')
+    setLoading(true)
+    const [{ data: cmds }, { data: livs }] = await Promise.all([
+      supabase.from('commandes_catalogue').select('*')
+        .in('statut', ['en_livraison', 'livre', 'retour'])
+        .order('created_at', { ascending: false }),
+      supabase.from('livreurs').select('*').order('nom'),
+    ])
     setCommandes(cmds || [])
     setLivreurs(livs || [])
     setLoading(false)
   }
 
-  async function changerStatut(id: string, statut: string, livreurId?: string) {
-    const update: any = { statut }
-    if (livreurId) update.livreur_id = livreurId
-    if (statut === 'livree') update.date_livree = new Date().toISOString()
-    const { error } = await supabase.from('commandes').update(update).eq('id', id)
-    if (error) { alert('Erreur : ' + error.message) } else {
-      setSuccess('✅ Statut mis à jour !')
-      fetchData()
-      setTimeout(() => setSuccess(''), 2000)
-    }
+  const getLivreurNom = (id?: string) => livreurs.find(l => l.id === id)?.nom || '—'
+
+  const commandesFiltrees = commandes.filter(c => {
+    const okStatut = filtreStatut === 'tous' || c.statut === filtreStatut
+    const okLivreur = filtreLivreur === 'tous' || c.livreur_id === filtreLivreur
+    return okStatut && okLivreur
+  })
+
+  // Stats globales
+  const stats = {
+    enCours: commandes.filter(c => c.statut === 'en_livraison').length,
+    livres: commandes.filter(c => c.statut === 'livre').length,
+    retours: commandes.filter(c => c.statut === 'retour').length,
+    ca: commandes.filter(c => c.statut === 'livre').reduce((s, c) => s + (c.frais_livraison || 0), 0),
   }
 
-  const statutColor: any = {
-    nouvelle: '#E24B4A', validee: '#378ADD', en_livraison: '#EF9F27', livree: '#1D9E75',
-  }
-  const colonnesTitres: any = {
-    nouvelle: 'Nouvelles', validee: 'Validées', en_livraison: 'En livraison', livree: 'Livrées',
-  }
-  const colonnes = ['nouvelle', 'validee', 'en_livraison', 'livree']
-  const nbLivrees = commandes.filter(c => c.statut === 'livree').length
-  const nbEnCours = commandes.filter(c => c.statut === 'en_livraison').length
-  const caLivre = commandes.filter(c => c.statut === 'livree').reduce((sum, c) => sum + (c.montant_total || 0), 0)
+  // Stats par livreur
+  const statsByLivreur = livreurs.map(liv => {
+    const colis = commandes.filter(c => c.livreur_id === liv.id)
+    return {
+      ...liv,
+      enCours: colis.filter(c => c.statut === 'en_livraison').length,
+      livres: colis.filter(c => c.statut === 'livre').length,
+      retours: colis.filter(c => c.statut === 'retour').length,
+      ca: colis.filter(c => c.statut === 'livre').reduce((s, c) => s + (c.frais_livraison || 0), 0),
+    }
+  })
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f4f5', fontFamily: 'sans-serif', color: '#1a1a1a' }}>
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
 
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e5', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-        <h1 style={{ color: '#1D9E75', fontSize: '1.4rem', margin: 0 }}>CK Dress ERP</h1>
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <a href="/dashboard" style={{ color: '#888', fontSize: '13px', textDecoration: 'none' }}>Dashboard</a>
-          <a href="/commandes" style={{ color: '#888', fontSize: '13px', textDecoration: 'none' }}>Commandes</a>
+      {/* HEADER */}
+      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '16px', fontWeight: 700 }}>🚚 Livraisons</h1>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {[
+              { label: 'Dashboard', path: '/dashboard' },
+              { label: 'Commandes', path: '/commandes' },
+              { label: 'Livraisons', path: '/livraisons' },
+            ].map(nav => (
+              <a key={nav.path} href={nav.path} style={{ color: nav.path === '/livraisons' ? '#38bdf8' : '#94a3b8', fontSize: '12px', textDecoration: 'none', fontWeight: nav.path === '/livraisons' ? 600 : 400 }}>
+                {nav.label}
+              </a>
+            ))}
+          </div>
         </div>
+        <button onClick={fetchData} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', padding: '6px 12px', fontSize: '11px', cursor: 'pointer' }}>
+          ↺ Actualiser
+        </button>
       </div>
 
-      <div style={{ padding: '24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ padding: 16 }}>
+
+        {/* STATS GLOBALES */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
           {[
-            { label: 'Total commandes', value: commandes.length, color: '#1a1a1a' },
-            { label: 'En livraison', value: nbEnCours, color: '#EF9F27' },
-            { label: 'Livrées', value: nbLivrees, color: '#1D9E75' },
-            { label: 'CA livré', value: caLivre.toLocaleString('fr-FR') + ' F', color: '#1D9E75' },
+            { label: 'En cours', value: stats.enCours, color: '#f59e0b', bg: '#fff8e6' },
+            { label: 'Livrés', value: stats.livres, color: '#1D9E75', bg: '#f0fdf4' },
+            { label: 'Retours', value: stats.retours, color: '#ef4444', bg: '#fff0f0' },
+            { label: 'CA livraisons', value: stats.ca.toLocaleString('fr-FR') + ' F', color: '#1D9E75', bg: '#f0fdf4' },
           ].map((k, i) => (
-            <div key={i} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', marginBottom: '8px' }}>{k.label}</div>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: k.color }}>{k.value}</div>
+            <div key={i} style={{ background: k.bg, border: '1px solid #e5e7eb', borderRadius: 12, padding: '12px 14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: 10, color: '#888', textTransform: 'uppercase', marginBottom: 4, fontWeight: 600 }}>{k.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: k.color }}>{k.value}</div>
             </div>
           ))}
         </div>
 
-        {success && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #1D9E75', borderRadius: '8px', padding: '10px 16px', color: '#1D9E75', fontSize: '13px', marginBottom: '16px' }}>
-            {success}
-          </div>
-        )}
-
-        {loading ? (
-          <div style={{ textAlign: 'center', color: '#aaa', padding: '60px' }}>Chargement...</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px' }}>
-            {colonnes.map(col => (
-              <div key={col} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', color: statutColor[col] }}>
-                    {colonnesTitres[col]}
+        {/* STATS PAR LIVREUR */}
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', padding: 16, marginBottom: 20 }}>
+          <h3 style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>📊 Performance par livreur</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+            {statsByLivreur.map(liv => (
+              <div key={liv.id} style={{ background: '#f8f9fa', borderRadius: 12, padding: 14, border: '1px solid #e5e7eb' }}>
+                <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>🚚 {liv.nom}</p>
+                <p style={{ margin: '0 0 2px', fontSize: 11, color: '#888' }}>{liv.code}</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#f59e0b' }}>{liv.enCours}</div>
+                    <div style={{ fontSize: 10, color: '#888' }}>En cours</div>
                   </div>
-                  <div style={{ background: statutColor[col] + '22', color: statutColor[col], fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '8px' }}>
-                    {commandes.filter(c => c.statut === col).length}
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#1D9E75' }}>{liv.livres}</div>
+                    <div style={{ fontSize: 10, color: '#888' }}>Livrés</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#ef4444' }}>{liv.retours}</div>
+                    <div style={{ fontSize: 10, color: '#888' }}>Retours</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {commandes.filter(c => c.statut === col).length === 0 ? (
-                    <div style={{ color: '#ccc', fontSize: '12px', textAlign: 'center', padding: '20px 0' }}>Aucune</div>
-                  ) : commandes.filter(c => c.statut === col).map((cmd, i) => (
-                    <div key={i} style={{ background: '#f9f9f9', border: '1px solid #f0f0f0', borderRadius: '10px', padding: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <div style={{ fontSize: '11px', color: '#aaa' }}>#{cmd.numero}</div>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#1D9E75' }}>{(cmd.montant_total || 0).toLocaleString('fr-FR')} F</div>
-                      </div>
-                      <div style={{ fontSize: '13px', fontWeight: '500', marginBottom: '2px', color: '#1a1a1a' }}>{(cmd.clients as any)?.nom || '—'}</div>
-                      <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>📞 {(cmd.clients as any)?.telephone || '—'}</div>
-                      {cmd.adresse_livraison && <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '8px' }}>📍 {cmd.adresse_livraison}</div>}
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #e5e7eb', textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>{liv.ca.toLocaleString('fr-FR')} F</div>
+                  <div style={{ fontSize: 10, color: '#888' }}>CA total</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-                      {col === 'nouvelle' && (
-                        <button onClick={() => changerStatut(cmd.id, 'validee')}
-                          style={{ width: '100%', background: '#378ADD22', color: '#378ADD', border: '1px solid #378ADD44', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
-                          ✓ Valider
-                        </button>
-                      )}
-                      {col === 'validee' && (
-                        <button onClick={() => changerStatut(cmd.id, 'en_livraison')}
-                          style={{ width: '100%', background: '#EF9F2722', color: '#EF9F27', border: '1px solid #EF9F2744', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
-                          🚚 Envoyer en livraison
-                        </button>
-                      )}
-                      {col === 'en_livraison' && (
-                        <button onClick={() => changerStatut(cmd.id, 'livree')}
-                          style={{ width: '100%', background: '#1D9E7522', color: '#1D9E75', border: '1px solid #1D9E7544', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}>
-                          ✅ Confirmer livraison
-                        </button>
-                      )}
-                      {col === 'livree' && (
-                        <div style={{ fontSize: '10px', color: '#1D9E75', textAlign: 'center', padding: '4px' }}>✓ Livraison confirmée</div>
-                      )}
+        {/* FILTRES */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+          <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, outline: 'none', color: '#1a1a1a' }}>
+            <option value="tous">Tous les statuts</option>
+            <option value="en_livraison">🚚 En livraison</option>
+            <option value="livre">✅ Livrés</option>
+            <option value="retour">❌ Retours</option>
+          </select>
+          <select value={filtreLivreur} onChange={e => setFiltreLivreur(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, outline: 'none', color: '#1a1a1a' }}>
+            <option value="tous">Tous les livreurs</option>
+            {livreurs.map(l => <option key={l.id} value={l.id}>{l.nom}</option>)}
+          </select>
+          <div style={{ padding: '8px 14px', background: '#f0f2f5', borderRadius: 8, fontSize: 13, color: '#888' }}>
+            {commandesFiltrees.length} colis
+          </div>
+        </div>
+
+        {/* LISTE DES COLIS */}
+        {loading ? (
+          <div style={{ textAlign: 'center', color: '#aaa', padding: 60 }}>Chargement...</div>
+        ) : commandesFiltrees.length === 0 ? (
+          <div style={{ background: '#fff', borderRadius: 12, padding: 40, textAlign: 'center', color: '#ccc', border: '1px solid #e5e7eb' }}>
+            Aucun colis trouvé
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {commandesFiltrees.map(cmd => (
+              <div key={cmd.id} style={{
+                background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb',
+                borderLeft: `4px solid ${cmd.statut === 'livre' ? '#1D9E75' : cmd.statut === 'retour' ? '#ef4444' : '#f59e0b'}`
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+                        background: cmd.statut === 'livre' ? '#f0fdf4' : cmd.statut === 'retour' ? '#fff0f0' : '#fff8e6',
+                        color: cmd.statut === 'livre' ? '#1D9E75' : cmd.statut === 'retour' ? '#ef4444' : '#f59e0b'
+                      }}>
+                        {cmd.statut === 'livre' ? '✅ Livré' : cmd.statut === 'retour' ? '❌ Retour' : '🚚 En livraison'}
+                      </span>
                     </div>
-                  ))}
+                    <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
+                    <p style={{ margin: '0 0 2px', fontSize: 12, color: '#888' }}>📞 {cmd.telephone}</p>
+                    <p style={{ margin: '0 0 2px', fontSize: 12, color: '#888' }}>📍 {cmd.adresse}</p>
+                    <p style={{ margin: '0 0 2px', fontSize: 11, color: '#aaa' }}>🛍️ {cmd.produit_ref} — {cmd.taille} — {cmd.variantes}</p>
+                    {cmd.motif_retour && (
+                      <p style={{ margin: '4px 0 0', fontSize: 11, color: '#ef4444', background: '#fff0f0', padding: '4px 8px', borderRadius: 6 }}>
+                        Motif retour : {cmd.motif_retour}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#1D9E75', marginBottom: 4 }}>
+                      {cmd.frais_livraison?.toLocaleString('fr-FR')} F
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
+                      🚚 {cmd.livreur_id ? getLivreurNom(cmd.livreur_id) : <span style={{ color: '#f59e0b' }}>Non assigné</span>}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#ccc' }}>
+                      {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
