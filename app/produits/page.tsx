@@ -82,8 +82,11 @@ function nouvelleCouleur(): CouleurVariante {
   }
 }
 
+const ROLES_AUTORISES = ['gestionnaire_stock', 'super_admin', 'manager']
+
 export default function ProduitsPage() {
   const router = useRouter()
+  const [acces, setAcces] = useState(false)
   const [produits, setProduits] = useState<Produit[]>([])
   const [loading, setLoading] = useState(true)
   const [onglet, setOnglet] = useState<'liste' | 'nouveau'>('liste')
@@ -99,10 +102,18 @@ export default function ProduitsPage() {
   })
 
   const [couleurs, setCouleurs] = useState<CouleurVariante[]>([nouvelleCouleur()])
-
   const [stockCouleurForm, setStockCouleurForm] = useState<CouleurVariante>(nouvelleCouleur())
 
-  useEffect(() => { fetchProduits() }, [])
+  useEffect(() => {
+    // Vérification du rôle
+    const user = JSON.parse(localStorage.getItem('ck_user') || '{}')
+    if (!user?.role || !ROLES_AUTORISES.includes(user.role)) {
+      router.push('/login')
+      return
+    }
+    setAcces(true)
+    fetchProduits()
+  }, [])
 
   async function fetchProduits() {
     setLoading(true)
@@ -227,6 +238,13 @@ export default function ProduitsPage() {
     if (produitSelectionne) fetchStock(produitSelectionne.id)
   }
 
+  // Bloquer l'accès si pas autorisé
+  if (!acces) return (
+    <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center', color: '#888' }}>Vérification des droits...</div>
+    </div>
+  )
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8f9fa', fontFamily: "'DM Sans', sans-serif" }}>
 
@@ -237,15 +255,13 @@ export default function ProduitsPage() {
         </div>
         <button
           onClick={() => { setOnglet(onglet === 'liste' ? 'nouveau' : 'liste'); setProduitSelectionne(null) }}
-          style={{ background: '#d4a853', color: '#1a1a1a', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-        >
+          style={{ background: '#d4a853', color: '#1a1a1a', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
           {onglet === 'liste' ? '+ Nouveau produit' : '← Liste'}
         </button>
       </header>
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
 
-        {/* NOUVEAU PRODUIT */}
         {onglet === 'nouveau' && (
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', padding: '24px' }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', margin: '0 0 20px' }}>Nouveau produit</h2>
@@ -294,7 +310,6 @@ export default function ProduitsPage() {
               </div>
             </div>
 
-            {/* COULEURS */}
             <div style={{ marginTop: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Couleurs & Tailles disponibles</h3>
@@ -366,7 +381,6 @@ export default function ProduitsPage() {
           </div>
         )}
 
-        {/* LISTE PRODUITS */}
         {onglet === 'liste' && !produitSelectionne && (
           <>
             {loading ? (
@@ -396,7 +410,6 @@ export default function ProduitsPage() {
           </>
         )}
 
-        {/* DÉTAIL PRODUIT */}
         {onglet === 'liste' && produitSelectionne && (
           <div>
             <button onClick={() => setProduitSelectionne(null)}
@@ -421,10 +434,8 @@ export default function ProduitsPage() {
               </div>
             </div>
 
-            {/* Ajouter nouvelle couleur */}
             <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', padding: '16px', marginBottom: 16 }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', margin: '0 0 14px' }}>Ajouter une couleur</h3>
-
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: 11, fontWeight: 600, color: '#888', display: 'block', marginBottom: 4 }}>COULEUR</label>
@@ -473,7 +484,6 @@ export default function ProduitsPage() {
               </button>
             </div>
 
-            {/* Stock actuel groupé par couleur */}
             <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', padding: '16px' }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', margin: '0 0 14px' }}>Stock actuel</h3>
               {stock.length === 0 ? (
@@ -514,7 +524,6 @@ export default function ProduitsPage() {
           </div>
         )}
       </div>
-
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     </div>
   )
