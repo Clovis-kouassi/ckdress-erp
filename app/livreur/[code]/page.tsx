@@ -224,7 +224,6 @@ export default function LivreurPage() {
 
       <div style={{ padding: 16 }}>
 
-        {/* ONGLET 1 — DISPONIBLES */}
         {onglet === 0 && (
           <div>
             {disponibles.length === 0 ? (
@@ -265,7 +264,6 @@ export default function LivreurPage() {
           </div>
         )}
 
-        {/* ONGLET 2 — MES COLIS EN COURS */}
         {onglet === 1 && (
           <div>
             {mesColis.length === 0 ? (
@@ -285,17 +283,11 @@ export default function LivreurPage() {
                         {cmd.frais_livraison?.toLocaleString('fr-FR')} F
                       </span>
                     </div>
-                    <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600, color: '#f1f5f9' }}>{cmd.nom_client || '—'}</p>
-
-                    {/* BOUTON APPELER */}
-                    <a href={`tel:${cmd.telephone}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px', padding: '10px 14px', background: '#0f2744', borderRadius: 10, textDecoration: 'none', color: '#38bdf8', fontSize: 13, fontWeight: 600 }}>
-                      📞 Appeler — {cmd.telephone}
-                    </a>
-
+                    <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#f1f5f9' }}>{cmd.nom_client || '—'}</p>
                     <p style={{ margin: '0 0 4px', fontSize: 12, color: '#94a3b8' }}>📍 {cmd.adresse}</p>
                     <p style={{ margin: '0 0 12px', fontSize: 11, color: '#475569' }}>🛍️ {cmd.produit_ref} — {cmd.taille} — {cmd.variantes}</p>
 
+                    {/* 3 BOUTONS : LIVRÉ — APPELER — RETOUR */}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         onClick={() => confirmerLivraison(cmd)}
@@ -307,6 +299,14 @@ export default function LivreurPage() {
                         }}>
                         {saving === cmd.id ? '...' : '✅ Livré'}
                       </button>
+                      <a href={`tel:${cmd.telephone}`}
+                        style={{
+                          flex: 1, padding: '11px', borderRadius: 10, border: '1px solid #38bdf8',
+                          background: 'transparent', color: '#38bdf8', fontWeight: 700, fontSize: 13,
+                          cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
+                        }}>
+                        📞 Appeler
+                      </a>
                       <button
                         onClick={() => setMotifModal(cmd)}
                         disabled={saving === cmd.id}
@@ -324,7 +324,6 @@ export default function LivreurPage() {
           </div>
         )}
 
-        {/* ONGLET 3 — HISTORIQUE + CA */}
         {onglet === 2 && (
           <div>
             <div style={{ background: '#1e293b', borderRadius: 14, padding: 16, marginBottom: 16, border: '1px solid #334155' }}>
