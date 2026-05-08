@@ -201,8 +201,7 @@ export default function LivreurPage() {
           <button key={i} onClick={() => setOnglet(i)}
             style={{
               flex: 1, padding: '12px 8px', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-              background: 'transparent',
-              color: onglet === i ? '#38bdf8' : '#888',
+              background: 'transparent', color: onglet === i ? '#38bdf8' : '#888',
               borderBottom: onglet === i ? '2px solid #38bdf8' : '2px solid transparent'
             }}>
             {o}
@@ -224,10 +223,10 @@ export default function LivreurPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {disponibles.map(cmd => (
                   <div key={cmd.id} style={{ background: '#fff', borderRadius: 12, padding: 12, border: '1px solid #e5e7eb', display: 'flex', gap: 12, alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                    <div style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#f0f2f5' }}>
+                    <div style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {cmd.image_url
-                        ? <img src={cmd.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, opacity: 0.3 }}>👗</div>
+                        ? <img src={cmd.image_url} alt=" " style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: 22, opacity: 0.3 }}>👗</span>
                       }
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -269,13 +268,13 @@ export default function LivreurPage() {
                 {mesColis.map(cmd => (
                   <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #fde68a', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 
-                    {/* IMAGES */}
-                    {cmd.images && cmd.images.length > 0 && (
+                    {/* IMAGES — seulement si elles existent vraiment */}
+                    {cmd.images && cmd.images.filter(img => img.url).length > 0 && (
                       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '10px 12px 6px', background: '#f8f9fa' }}>
-                        {cmd.images.map((img, i) => (
+                        {cmd.images.filter(img => img.url).map((img, i) => (
                           <div key={i} style={{ flexShrink: 0, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
-                            <img src={img.url} alt={img.couleur}
-                              style={{ width: cmd.images!.length === 1 ? 200 : 130, height: 150, objectFit: 'cover', display: 'block' }} />
+                            <img src={img.url} alt=" "
+                              style={{ width: cmd.images!.filter(img => img.url).length === 1 ? 200 : 130, height: 150, objectFit: 'cover', display: 'block' }} />
                             <div style={{ position: 'absolute', bottom: 4, left: 4, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 12 }}>
                               {img.couleur}
                             </div>
