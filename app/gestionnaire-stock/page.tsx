@@ -62,6 +62,7 @@ export default function GestionnaireStockPage() {
   const [user, setUser] = useState<any>(null)
   const [success, setSuccess] = useState('')
   const [saving, setSaving] = useState(false)
+  const [produitDetail, setProduitDetail] = useState<any>(null)
   const [approForm, setApproForm] = useState({ boutique_id: '', nom_produit: '', taille: '', couleur: '', quantite: 1, prix_vente: 0 })
   const [prodForm, setProdForm] = useState({
     reference: '', nom: '', categorie: '', activite: 'ck_design',
@@ -93,7 +94,6 @@ export default function GestionnaireStockPage() {
     setLoading(false)
   }
 
-  // Filtrer les catégories selon l'activité sélectionnée
   const categoriesFiltrees = categories.filter(c => c.activite === prodForm.activite)
 
   const updateCouleur = (index: number, field: string, value: any) =>
@@ -151,6 +151,17 @@ export default function GestionnaireStockPage() {
   const toggleDisponible = async (id: string, disponible: boolean) => {
     await supabase.from('produits').update({ disponible: !disponible }).eq('id', id)
     fetchData()
+    if (produitDetail?.id === id) setProduitDetail({ ...produitDetail, disponible: !disponible })
+  }
+
+  // Calculer le stock total par produit
+  const getStockProduit = (produitId: string) => {
+    return stock.filter(s => s.produit_id === produitId).reduce((sum, s) => sum + s.quantite, 0)
+  }
+
+  // Obtenir les variantes d'un produit
+  const getVariantesProduit = (produitId: string) => {
+    return stock.filter(s => s.produit_id === produitId)
   }
 
   const stockCritique = stock.filter(s => s.quantite <= 3)
@@ -158,6 +169,81 @@ export default function GestionnaireStockPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
+
+      {/* MODAL DÉTAIL PRODUIT */}
+      {produitDetail && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setProduitDetail(null)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 500, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{produitDetail.nom}</h3>
+              <button onClick={() => setProduitDetail(null)}
+                style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 14 }}>✕</button>
+            </div>
+
+            {produitDetail.image_url && (
+              <img src={produitDetail.image_url} alt={produitDetail.nom}
+                style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 12, marginBottom: 16 }} />
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+              <span style={{ background: '#f0f9ff', color: '#0891b2', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20 }}>
+                Réf: {produitDetail.reference}
+              </span>
+              {produitDetail.categorie && (
+                <span style={{ background: '#f0fdf4', color: '#1D9E75', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20 }}>
+                  🏷️ {produitDetail.categorie}
+                </span>
+              )}
+              <span style={{ background: '#ede9fe', color: '#6366f1', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20 }}>
+                {produitDetail.activite === 'ck_design' ? 'CK Design' : 'Succès Design'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Prix de vente</p>
+                <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0891b2' }}>{produitDetail.prix_vente?.toLocaleString('fr-FR')} F</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Stock total</p>
+                <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1D9E75' }}>{getStockProduit(produitDetail.id)} pcs</p>
+              </div>
+            </div>
+
+            <h4 style={{ margin: '0 0 10px', fontSize: 13, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Détail par variante</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {getVariantesProduit(produitDetail.id).map(v => (
+                <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', borderRadius: 9, padding: '8px 14px' }}>
+                  <span style={{ fontSize: 13, color: '#1a1a1a' }}>Taille {v.taille} — {v.couleur}</span>
+                  <span style={{
+                    fontSize: 13, fontWeight: 700, padding: '2px 10px', borderRadius: 20,
+                    background: v.quantite <= 3 ? '#fff0f0' : v.quantite <= 10 ? '#fff8e6' : '#f0fdf4',
+                    color: v.quantite <= 3 ? '#E24B4A' : v.quantite <= 10 ? '#EF9F27' : '#1D9E75'
+                  }}>
+                    {v.quantite} pcs
+                  </span>
+                </div>
+              ))}
+              {getVariantesProduit(produitDetail.id).length === 0 && (
+                <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center' }}>Aucune variante en stock</p>
+              )}
+            </div>
+
+            <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+              <button onClick={() => toggleDisponible(produitDetail.id, produitDetail.disponible)}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: 9, cursor: 'pointer', border: 'none', fontWeight: 600, fontSize: 13,
+                  background: produitDetail.disponible ? '#fff5f5' : '#f0fdf4',
+                  color: produitDetail.disponible ? '#E24B4A' : '#1D9E75',
+                }}>
+                {produitDetail.disponible ? '❌ Masquer du catalogue' : '✅ Publier dans catalogue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HEADER */}
       <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
@@ -255,35 +341,62 @@ export default function GestionnaireStockPage() {
           </div>
         )}
 
-        {/* ONGLET PRODUITS */}
+        {/* ONGLET PRODUITS — 1 carte par produit */}
         {onglet === 'produits' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
-            {produits.map(prod => (
-              <div key={prod.id} style={{ background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
-                <div style={{ height: '170px', background: '#f5f5f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {prod.image_url
-                    ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>
-                  }
-                </div>
-                <div style={{ padding: '14px' }}>
-                  <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
-                  <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
-                  {prod.categorie && <p style={{ margin: '0 0 10px', color: '#0891b2', fontSize: '11px', fontWeight: 600 }}>🏷️ {prod.categorie}</p>}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
-                    <button onClick={() => toggleDisponible(prod.id, prod.disponible)}
-                      style={{
-                        fontSize: '11px', fontWeight: 600, padding: '4px 12px', borderRadius: '20px', cursor: 'pointer', border: 'none',
-                        background: prod.disponible ? '#f0fdf4' : '#fff5f5',
-                        color: prod.disponible ? '#1D9E75' : '#E24B4A',
-                      }}>
-                      {prod.disponible ? '✅ Publié' : '❌ Masqué'}
-                    </button>
+            {produits.map(prod => {
+              const stockTotal = getStockProduit(prod.id)
+              const variantes = getVariantesProduit(prod.id)
+              const hasCritique = variantes.some(v => v.quantite <= 3)
+              return (
+                <div key={prod.id} style={{
+                  background: '#fff', borderRadius: '14px', overflow: 'hidden',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                  border: hasCritique ? '1.5px solid #E24B4A44' : '1.5px solid transparent',
+                }}>
+                  <div style={{ height: '170px', background: '#f5f5f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    {prod.image_url
+                      ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>
+                    }
+                    {/* Badge stock total */}
+                    <div style={{
+                      position: 'absolute', bottom: 8, right: 8,
+                      fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                      background: stockTotal === 0 ? '#E24B4A' : stockTotal <= 5 ? '#EF9F27' : '#1D9E75',
+                      color: '#fff'
+                    }}>
+                      {stockTotal} pcs
+                    </div>
+                  </div>
+                  <div style={{ padding: '14px' }}>
+                    <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
+                    <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
+                    {prod.categorie && <p style={{ margin: '0 0 6px', color: '#0891b2', fontSize: '11px', fontWeight: 600 }}>🏷️ {prod.categorie}</p>}
+                    <p style={{ margin: '0 0 10px', color: '#888', fontSize: '11px' }}>
+                      {variantes.length} variante{variantes.length > 1 ? 's' : ''} — {[...new Set(variantes.map(v => v.couleur))].join(', ') || 'aucune'}
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => setProduitDetail(prod)}
+                          style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: '1px solid #e5e7eb', background: '#f8f9fa', color: '#555' }}>
+                          👁️ Détails
+                        </button>
+                        <button onClick={() => toggleDisponible(prod.id, prod.disponible)}
+                          style={{
+                            fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none',
+                            background: prod.disponible ? '#f0fdf4' : '#fff5f5',
+                            color: prod.disponible ? '#1D9E75' : '#E24B4A',
+                          }}>
+                          {prod.disponible ? '✅' : '❌'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -318,8 +431,6 @@ export default function GestionnaireStockPage() {
                     placeholder="Ex: 8000"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
-
-                {/* ACTIVITÉ — doit être avant catégorie pour filtrer */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Activité</label>
                   <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value, categorie: '' }))}
@@ -328,8 +439,6 @@ export default function GestionnaireStockPage() {
                     <option value="succes_design">Succès Design</option>
                   </select>
                 </div>
-
-                {/* CATÉGORIE — select dynamique filtré par activité */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Catégorie *</label>
                   <select value={prodForm.categorie} onChange={e => setProdForm(p => ({ ...p, categorie: e.target.value }))}
@@ -341,7 +450,7 @@ export default function GestionnaireStockPage() {
                   </select>
                   {categoriesFiltrees.length === 0 && (
                     <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#E24B4A' }}>
-                      ⚠️ Aucune catégorie pour cette activité — <a href="/admin/utilisateurs" style={{ color: '#0891b2' }}>Ajouter</a>
+                      ⚠️ Aucune catégorie — <a href="/admin/utilisateurs" style={{ color: '#0891b2' }}>Ajouter</a>
                     </p>
                   )}
                 </div>
