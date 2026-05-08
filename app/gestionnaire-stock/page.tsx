@@ -58,11 +58,12 @@ export default function GestionnaireStockPage() {
   const [mouvements, setMouvements] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [onglet, setOnglet] = useState<'stock' | 'produits' | 'nouveau_produit' | 'approvisionner' | 'historique'>('stock')
+  const [onglet, setOnglet] = useState<'produits' | 'nouveau_produit' | 'approvisionner' | 'historique'>('produits')
   const [user, setUser] = useState<any>(null)
   const [success, setSuccess] = useState('')
   const [saving, setSaving] = useState(false)
   const [produitDetail, setProduitDetail] = useState<any>(null)
+  const [ajustements, setAjustements] = useState<Record<string, number>>({})
   const [approForm, setApproForm] = useState({ boutique_id: '', nom_produit: '', taille: '', couleur: '', quantite: 1, prix_vente: 0 })
   const [prodForm, setProdForm] = useState({
     reference: '', nom: '', categorie: '', activite: 'ck_design',
@@ -80,7 +81,7 @@ export default function GestionnaireStockPage() {
 
   const fetchData = async () => {
     const [{ data: stockData }, { data: prodsData }, { data: boutsData }, { data: ventesData }, { data: catsData }] = await Promise.all([
-      supabase.from('stock').select('*, produits(nom, reference, image_url)').order('quantite'),
+      supabase.from('stock').select('*').order('quantite'),
       supabase.from('produits').select('*').order('nom'),
       supabase.from('boutiques').select('*').eq('actif', true),
       supabase.from('ventes_boutique').select('*').order('created_at', { ascending: false }).limit(30),
@@ -95,6 +96,34 @@ export default function GestionnaireStockPage() {
   }
 
   const categoriesFiltrees = categories.filter(c => c.activite === prodForm.activite)
+
+  const getStockProduit = (produitId: string) =>
+    stock.filter(s => s.produit_id === produitId).reduce((sum, s) => sum + s.quantite, 0)
+
+  const getVariantesProduit = (produitId: string) =>
+    stock.filter(s => s.produit_id === produitId)
+
+  const ajusterQuantite = async (stockId: string, delta: number) => {
+    const item = stock.find(s => s.id === stockId)
+    if (!item) return
+    const newQte = Math.max(0, item.quantite + delta)
+    await supabase.from('stock').update({ quantite: newQte }).eq('id', stockId)
+    await fetchData()
+    // Mettre à jour le produitDetail si ouvert
+    if (produitDetail) {
+      setProduitDetail((prev: any) => ({ ...prev }))
+    }
+  }
+
+  const sauvegarderAjustement = async (stockId: string) => {
+    const val = ajustements[stockId]
+    if (val === undefined) return
+    const item = stock.find(s => s.id === stockId)
+    if (!item) return
+    await supabase.from('stock').update({ quantite: Math.max(0, val) }).eq('id', stockId)
+    setAjustements(prev => { const n = { ...prev }; delete n[stockId]; return n })
+    await fetchData()
+  }
 
   const updateCouleur = (index: number, field: string, value: any) =>
     setCouleurs(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
@@ -150,18 +179,8 @@ export default function GestionnaireStockPage() {
 
   const toggleDisponible = async (id: string, disponible: boolean) => {
     await supabase.from('produits').update({ disponible: !disponible }).eq('id', id)
+    if (produitDetail?.id === id) setProduitDetail((p: any) => ({ ...p, disponible: !disponible }))
     fetchData()
-    if (produitDetail?.id === id) setProduitDetail({ ...produitDetail, disponible: !disponible })
-  }
-
-  // Calculer le stock total par produit
-  const getStockProduit = (produitId: string) => {
-    return stock.filter(s => s.produit_id === produitId).reduce((sum, s) => sum + s.quantite, 0)
-  }
-
-  // Obtenir les variantes d'un produit
-  const getVariantesProduit = (produitId: string) => {
-    return stock.filter(s => s.produit_id === produitId)
   }
 
   const stockCritique = stock.filter(s => s.quantite <= 3)
@@ -174,67 +193,105 @@ export default function GestionnaireStockPage() {
       {produitDetail && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
           onClick={() => setProduitDetail(null)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 500, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 520, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}>
+
+            {/* Header modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{produitDetail.nom}</h3>
               <button onClick={() => setProduitDetail(null)}
                 style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 14 }}>✕</button>
             </div>
 
+            {/* Image */}
             {produitDetail.image_url && (
               <img src={produitDetail.image_url} alt={produitDetail.nom}
-                style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 12, marginBottom: 16 }} />
+                style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 12, marginBottom: 14 }} />
             )}
 
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-              <span style={{ background: '#f0f9ff', color: '#0891b2', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20 }}>
+            {/* Badges */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+              <span style={{ background: '#f0f9ff', color: '#0891b2', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
                 Réf: {produitDetail.reference}
               </span>
               {produitDetail.categorie && (
-                <span style={{ background: '#f0fdf4', color: '#1D9E75', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20 }}>
+                <span style={{ background: '#f0fdf4', color: '#1D9E75', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
                   🏷️ {produitDetail.categorie}
                 </span>
               )}
-              <span style={{ background: '#ede9fe', color: '#6366f1', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20 }}>
+              <span style={{ background: '#ede9fe', color: '#6366f1', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
                 {produitDetail.activite === 'ck_design' ? 'CK Design' : 'Succès Design'}
               </span>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Prix de vente</p>
-                <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0891b2' }}>{produitDetail.prix_vente?.toLocaleString('fr-FR')} F</p>
+            {/* Prix + Stock total */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <div style={{ background: '#f0f9ff', borderRadius: 10, padding: '10px 14px' }}>
+                <p style={{ margin: 0, fontSize: 11, color: '#888' }}>Prix vente</p>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0891b2' }}>{produitDetail.prix_vente?.toLocaleString('fr-FR')} F</p>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Stock total</p>
-                <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1D9E75' }}>{getStockProduit(produitDetail.id)} pcs</p>
+              <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px' }}>
+                <p style={{ margin: 0, fontSize: 11, color: '#888' }}>Stock total</p>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1D9E75' }}>{getStockProduit(produitDetail.id)} pcs</p>
+              </div>
+              <div style={{ background: stockCritique.some(s => s.produit_id === produitDetail.id) ? '#fff0f0' : '#f8f9fa', borderRadius: 10, padding: '10px 14px' }}>
+                <p style={{ margin: 0, fontSize: 11, color: '#888' }}>Alertes</p>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: stockCritique.some(s => s.produit_id === produitDetail.id) ? '#E24B4A' : '#aaa' }}>
+                  {stockCritique.filter(s => s.produit_id === produitDetail.id).length > 0 ? '⚠️ Critique' : '✅ OK'}
+                </p>
               </div>
             </div>
 
-            <h4 style={{ margin: '0 0 10px', fontSize: 13, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Détail par variante</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {/* Variantes avec ajustement */}
+            <h4 style={{ margin: '0 0 10px', fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
+              Variantes — ajuster les quantités
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {getVariantesProduit(produitDetail.id).map(v => (
-                <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', borderRadius: 9, padding: '8px 14px' }}>
-                  <span style={{ fontSize: 13, color: '#1a1a1a' }}>Taille {v.taille} — {v.couleur}</span>
-                  <span style={{
-                    fontSize: 13, fontWeight: 700, padding: '2px 10px', borderRadius: 20,
-                    background: v.quantite <= 3 ? '#fff0f0' : v.quantite <= 10 ? '#fff8e6' : '#f0fdf4',
-                    color: v.quantite <= 3 ? '#E24B4A' : v.quantite <= 10 ? '#EF9F27' : '#1D9E75'
-                  }}>
-                    {v.quantite} pcs
-                  </span>
+                <div key={v.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  background: v.quantite <= 3 ? '#fff5f5' : '#f8f9fa',
+                  borderRadius: 10, padding: '10px 14px',
+                  border: v.quantite <= 3 ? '1px solid #fecaca' : '1px solid #e5e7eb'
+                }}>
+                  <div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>Taille {v.taille}</span>
+                    <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>— {v.couleur}</span>
+                    {v.quantite <= 3 && <span style={{ fontSize: 11, color: '#E24B4A', marginLeft: 6, fontWeight: 600 }}>⚠️ Critique</span>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* Boutons +/- rapides */}
+                    <button onClick={() => ajusterQuantite(v.id, -1)}
+                      style={{ width: 28, height: 28, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#E24B4A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                    {/* Input direct */}
+                    <input
+                      type="number"
+                      value={ajustements[v.id] !== undefined ? ajustements[v.id] : v.quantite}
+                      onChange={e => setAjustements(prev => ({ ...prev, [v.id]: Number(e.target.value) }))}
+                      onBlur={() => sauvegarderAjustement(v.id)}
+                      min={0}
+                      style={{
+                        width: 56, padding: '4px 8px', borderRadius: 8, textAlign: 'center',
+                        border: '1.5px solid #0891b2', fontSize: 14, fontWeight: 700,
+                        color: v.quantite <= 3 ? '#E24B4A' : '#1D9E75', outline: 'none',
+                        background: '#fff'
+                      }} />
+                    <button onClick={() => ajusterQuantite(v.id, 1)}
+                      style={{ width: 28, height: 28, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    <span style={{ fontSize: 11, color: '#aaa' }}>pcs</span>
+                  </div>
                 </div>
               ))}
               {getVariantesProduit(produitDetail.id).length === 0 && (
-                <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center' }}>Aucune variante en stock</p>
+                <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Aucune variante en stock</p>
               )}
             </div>
 
-            <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+            {/* Actions */}
+            <div style={{ marginTop: 16 }}>
               <button onClick={() => toggleDisponible(produitDetail.id, produitDetail.disponible)}
                 style={{
-                  flex: 1, padding: '10px', borderRadius: 9, cursor: 'pointer', border: 'none', fontWeight: 600, fontSize: 13,
+                  width: '100%', padding: '11px', borderRadius: 10, cursor: 'pointer', border: 'none', fontWeight: 600, fontSize: 13,
                   background: produitDetail.disponible ? '#fff5f5' : '#f0fdf4',
                   color: produitDetail.disponible ? '#E24B4A' : '#1D9E75',
                 }}>
@@ -272,10 +329,9 @@ export default function GestionnaireStockPage() {
         ))}
       </div>
 
-      {/* TABS */}
+      {/* TABS — sans Stock */}
       <div style={{ display: 'flex', background: '#fff', margin: '16px 16px 0', borderRadius: '12px', padding: '4px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflowX: 'auto', gap: '2px' }}>
         {[
-          { key: 'stock', label: '📦 Stock' },
           { key: 'produits', label: '🏷️ Produits' },
           { key: 'nouveau_produit', label: '➕ Publier' },
           { key: 'approvisionner', label: '🏪 Appro.' },
@@ -300,103 +356,77 @@ export default function GestionnaireStockPage() {
           </div>
         )}
 
-        {/* ONGLET STOCK */}
-        {onglet === 'stock' && (
+        {/* ONGLET PRODUITS */}
+        {onglet === 'produits' && (
           <div>
+            {/* Alerte stock critique */}
             {stockCritique.length > 0 && (
               <div style={{ background: '#fff5f5', border: '1px solid #E24B4A', borderRadius: '10px', padding: '12px 16px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 18 }}>⚠️</span>
                 <p style={{ margin: 0, color: '#E24B4A', fontSize: '13px', fontWeight: 600 }}>
-                  {stockCritique.length} article(s) en stock critique (≤ 3 pièces) !
+                  {stockCritique.length} variante(s) en stock critique (≤ 3 pièces) ! Cliquez sur un produit pour ajuster.
                 </p>
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-              {stock.map(item => (
-                <div key={item.id} style={{
-                  background: '#fff', borderRadius: '12px', overflow: 'hidden',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                  border: item.quantite <= 3 ? '1.5px solid #E24B4A44' : '1.5px solid transparent',
-                }}>
-                  {(item.produits as any)?.image_url && (
-                    <img src={(item.produits as any).image_url} alt="" style={{ width: '100%', height: '130px', objectFit: 'cover' }} />
-                  )}
-                  <div style={{ padding: '12px' }}>
-                    <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: '13px', color: '#1a1a1a' }}>{(item.produits as any)?.nom}</p>
-                    <p style={{ margin: '0 0 8px', color: '#888', fontSize: '11px' }}>Taille {item.taille} — {item.couleur}</p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '11px', color: '#aaa', fontWeight: 500 }}>Stock</span>
-                      <span style={{
-                        fontSize: '15px', fontWeight: 700, padding: '2px 10px', borderRadius: '20px',
-                        background: item.quantite <= 3 ? '#fff0f0' : item.quantite <= 10 ? '#fff8e6' : '#f0fdf4',
-                        color: item.quantite <= 3 ? '#E24B4A' : item.quantite <= 10 ? '#EF9F27' : '#1D9E75'
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
+              {produits.map(prod => {
+                const stockTotal = getStockProduit(prod.id)
+                const variantes = getVariantesProduit(prod.id)
+                const hasCritique = variantes.some(v => v.quantite <= 3)
+                const couleurs = [...new Set(variantes.map(v => v.couleur))]
+                return (
+                  <div key={prod.id} style={{
+                    background: '#fff', borderRadius: '14px', overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                    border: hasCritique ? '1.5px solid #E24B4A66' : '1.5px solid transparent',
+                    cursor: 'pointer',
+                  }} onClick={() => setProduitDetail(prod)}>
+                    <div style={{ height: '170px', background: '#f5f5f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                      {prod.image_url
+                        ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>
+                      }
+                      {/* Badge stock total */}
+                      <div style={{
+                        position: 'absolute', bottom: 8, right: 8,
+                        fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                        background: stockTotal === 0 ? '#E24B4A' : hasCritique ? '#EF9F27' : '#1D9E75',
+                        color: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
                       }}>
-                        {item.quantite} pcs
-                      </span>
+                        {stockTotal} pcs
+                      </div>
+                      {/* Badge alerte */}
+                      {hasCritique && (
+                        <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
+                          ⚠️ Critique
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ONGLET PRODUITS — 1 carte par produit */}
-        {onglet === 'produits' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
-            {produits.map(prod => {
-              const stockTotal = getStockProduit(prod.id)
-              const variantes = getVariantesProduit(prod.id)
-              const hasCritique = variantes.some(v => v.quantite <= 3)
-              return (
-                <div key={prod.id} style={{
-                  background: '#fff', borderRadius: '14px', overflow: 'hidden',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                  border: hasCritique ? '1.5px solid #E24B4A44' : '1.5px solid transparent',
-                }}>
-                  <div style={{ height: '170px', background: '#f5f5f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                    {prod.image_url
-                      ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>
-                    }
-                    {/* Badge stock total */}
-                    <div style={{
-                      position: 'absolute', bottom: 8, right: 8,
-                      fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-                      background: stockTotal === 0 ? '#E24B4A' : stockTotal <= 5 ? '#EF9F27' : '#1D9E75',
-                      color: '#fff'
-                    }}>
-                      {stockTotal} pcs
-                    </div>
-                  </div>
-                  <div style={{ padding: '14px' }}>
-                    <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
-                    <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
-                    {prod.categorie && <p style={{ margin: '0 0 6px', color: '#0891b2', fontSize: '11px', fontWeight: 600 }}>🏷️ {prod.categorie}</p>}
-                    <p style={{ margin: '0 0 10px', color: '#888', fontSize: '11px' }}>
-                      {variantes.length} variante{variantes.length > 1 ? 's' : ''} — {[...new Set(variantes.map(v => v.couleur))].join(', ') || 'aucune'}
-                    </p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <span style={{ color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => setProduitDetail(prod)}
-                          style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: '1px solid #e5e7eb', background: '#f8f9fa', color: '#555' }}>
-                          👁️ Détails
-                        </button>
-                        <button onClick={() => toggleDisponible(prod.id, prod.disponible)}
-                          style={{
-                            fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none',
-                            background: prod.disponible ? '#f0fdf4' : '#fff5f5',
-                            color: prod.disponible ? '#1D9E75' : '#E24B4A',
-                          }}>
-                          {prod.disponible ? '✅' : '❌'}
-                        </button>
+                    <div style={{ padding: '14px' }}>
+                      <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
+                      <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
+                      {prod.categorie && <p style={{ margin: '0 0 4px', color: '#0891b2', fontSize: '11px', fontWeight: 600 }}>🏷️ {prod.categorie}</p>}
+                      <p style={{ margin: '0 0 10px', color: '#888', fontSize: '11px' }}>
+                        {variantes.length} variante{variantes.length > 1 ? 's' : ''} · {couleurs.slice(0, 3).join(', ')}{couleurs.length > 3 ? '...' : ''}
+                      </p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
+                        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                          <button onClick={e => { e.stopPropagation(); toggleDisponible(prod.id, prod.disponible) }}
+                            style={{
+                              fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none',
+                              background: prod.disponible ? '#f0fdf4' : '#fff5f5',
+                              color: prod.disponible ? '#1D9E75' : '#E24B4A',
+                            }}>
+                            {prod.disponible ? '✅ Publié' : '❌ Masqué'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         )}
 
