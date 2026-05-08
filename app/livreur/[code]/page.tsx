@@ -91,7 +91,7 @@ export default function LivreurPage() {
     setSaving(commande.id)
     const { error } = await supabase
       .from('commandes_catalogue')
-      .update({ livreur_id: livreur.id, code_livreur: livreur.code })
+      .update({ livreur_id: livreur.id })
       .eq('id', commande.id)
       .is('livreur_id', null)
 
