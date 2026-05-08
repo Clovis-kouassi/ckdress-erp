@@ -37,11 +37,25 @@ export default function CommandesPage() {
 
   async function fetchData() {
     setLoading(true)
-    const [{ data: cmds }, { data: livs }] = await Promise.all([
+
+    const [{ data: cmds }, { data: livs }, { data: stockData }] = await Promise.all([
       supabase.from('commandes_catalogue').select('*').neq('statut', 'annule').order('created_at', { ascending: false }),
       supabase.from('livreurs').select('*').eq('actif', true).order('nom'),
+      supabase.from('stock').select('produit_id, couleur, image_url, produits(reference)'),
     ])
-    setCommandes(cmds || [])
+
+    // Enrichir chaque commande avec l'image depuis stock
+    const commandesAvecImages = (cmds || []).map(cmd => {
+      const couleurPrincipale = cmd.variantes?.split(',')[0]?.trim() || ''
+      const match = (stockData || []).find((s: any) =>
+        s.produits?.reference === cmd.produit_ref &&
+        s.couleur?.toLowerCase() === couleurPrincipale.toLowerCase() &&
+        s.image_url
+      )
+      return { ...cmd, image_url: match?.image_url || null }
+    })
+
+    setCommandes(commandesAvecImages)
     setLivreurs(livs || [])
     setLoading(false)
   }
@@ -169,8 +183,6 @@ export default function CommandesPage() {
 
                 {commandeDetail.statut === 'en_preparation' && (
                   <div style={{ marginBottom: 12 }}>
-
-                    {/* Bouton principal — Envoyer en livraison SANS assigner (défaut) */}
                     <button
                       onClick={() => changerStatut(commandeDetail.id, 'en_livraison')}
                       disabled={saving}
@@ -183,14 +195,12 @@ export default function CommandesPage() {
                       {saving ? '...' : '🚚 Envoyer en livraison'}
                     </button>
 
-                    {/* Séparateur */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
                       <span style={{ fontSize: 11, color: '#aaa', fontWeight: 500 }}>ou assigner à un livreur spécifique</span>
                       <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
                     </div>
 
-                    {/* Sélecteur livreur — OPTIONNEL */}
                     <select value={livreurChoisi} onChange={e => setLivreurChoisi(e.target.value)}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e5e5', background: '#f8f9fa', color: '#1a1a1a', fontSize: 13, outline: 'none', marginBottom: 8 }}>
                       <option value="">Choisir un livreur... (optionnel)</option>
@@ -212,7 +222,6 @@ export default function CommandesPage() {
                   </div>
                 )}
 
-                {/* Autres statuts */}
                 {commandeDetail.statut !== 'en_preparation' && (
                   <button
                     onClick={() => changerStatut(commandeDetail.id, STATUTS_SUIVANTS[commandeDetail.statut].key)}
@@ -229,14 +238,12 @@ export default function CommandesPage() {
               </div>
             )}
 
-            {/* Statut final */}
             {commandeDetail.statut === 'livre' && (
               <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '12px 14px', marginBottom: 14, textAlign: 'center' }}>
                 <p style={{ margin: 0, fontSize: 14, color: '#1D9E75', fontWeight: 700 }}>✅ Commande livrée avec succès !</p>
               </div>
             )}
 
-            {/* Annuler */}
             {commandeDetail.statut !== 'livre' && (
               <button onClick={() => annulerCommande(commandeDetail.id)}
                 style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1.5px solid #fecaca', background: '#fff0f0', color: '#E24B4A', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
@@ -333,16 +340,20 @@ export default function CommandesPage() {
                           onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
 
                           {/* IMAGE sur la carte */}
-                          {cmd.image_url && (
+                          {cmd.image_url ? (
                             <img
                               src={cmd.image_url}
                               alt={cmd.produit_ref}
-                              style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }}
+                              style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }}
                               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                             />
+                          ) : (
+                            <div style={{ width: '100%', height: 110, background: 'linear-gradient(135deg, #f0ece4, #e8e1d5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, opacity: 0.3 }}>
+                              👗
+                            </div>
                           )}
 
-                          <div style={{ padding: 14 }}>
+                          <div style={{ padding: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                               <span style={{ fontSize: 11, fontWeight: 700, color: statut.color, background: statut.bg, padding: '2px 8px', borderRadius: 20 }}>
                                 #{cmd.id.slice(0, 6).toUpperCase()}
