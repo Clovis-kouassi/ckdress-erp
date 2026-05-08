@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/app/lib/supabase'
 
 type Commande = {
@@ -11,20 +10,27 @@ type Commande = {
 }
 type Livreur = { id: string; nom: string; code: string }
 
-const colonnes = [
-  { key: 'nouveau', label: 'Nouvelles', color: '#E24B4A', bg: 'rgba(226,75,74,0.08)', textColor: '#E24B4A' },
-  { key: 'en_preparation', label: 'Validées', color: '#378ADD', bg: 'rgba(55,138,221,0.08)', textColor: '#378ADD' },
-  { key: 'en_livraison', label: 'En livraison', color: '#BA7517', bg: 'rgba(239,159,39,0.08)', textColor: '#BA7517' },
-  { key: 'livre', label: 'Livrées', color: '#1D9E75', bg: 'rgba(29,158,117,0.08)', textColor: '#1D9E75' },
+const STATUTS = [
+  { key: 'nouveau', label: '🆕 Nouvelles', color: '#E24B4A', bg: '#fff0f0', border: '#fecaca' },
+  { key: 'en_preparation', label: '📦 En préparation', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+  { key: 'en_livraison', label: '🚚 En livraison', color: '#BA7517', bg: '#fff8e6', border: '#fde68a' },
+  { key: 'livre', label: '✅ Livrées', color: '#1D9E75', bg: '#f0fdf4', border: '#bbf7d0' },
 ]
 
+const STATUTS_SUIVANTS: Record<string, { key: string; label: string; color: string }> = {
+  nouveau: { key: 'en_preparation', label: '📦 Mettre en préparation', color: '#7c3aed' },
+  en_preparation: { key: 'en_livraison', label: '🚚 Envoyer en livraison', color: '#BA7517' },
+  en_livraison: { key: 'livre', label: '✅ Confirmer livraison', color: '#1D9E75' },
+}
+
 export default function CommandesPage() {
-  const router = useRouter()
   const [commandes, setCommandes] = useState<Commande[]>([])
   const [livreurs, setLivreurs] = useState<Livreur[]>([])
   const [loading, setLoading] = useState(true)
-  const [livreurChoisi, setLivreurChoisi] = useState<Record<string, string>>({})
   const [success, setSuccess] = useState('')
+  const [commandeDetail, setCommandeDetail] = useState<Commande | null>(null)
+  const [livreurChoisi, setLivreurChoisi] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => { fetchData() }, [])
 
@@ -40,69 +46,201 @@ export default function CommandesPage() {
   }
 
   async function changerStatut(id: string, statut: string, livreurId?: string) {
+    setSaving(true)
     const update: any = { statut }
     if (livreurId) update.livreur_id = livreurId
     await supabase.from('commandes_catalogue').update(update).eq('id', id)
-    setSuccess('✅ Mis à jour !')
-    fetchData()
+    setSuccess('✅ Statut mis à jour !')
     setTimeout(() => setSuccess(''), 2000)
+    await fetchData()
+    // Mettre à jour le modal si ouvert
+    if (commandeDetail?.id === id) {
+      setCommandeDetail(prev => prev ? { ...prev, statut, livreur_id: livreurId || prev.livreur_id } : null)
+    }
+    setSaving(false)
   }
 
-  const getLivreurNom = (id: string | null | undefined) => {
-    if (!id) return null
-    return livreurs.find(l => l.id === id)?.nom || null
+  async function annulerCommande(id: string) {
+    if (!confirm('Annuler cette commande ?')) return
+    await supabase.from('commandes_catalogue').update({ statut: 'annule' }).eq('id', id)
+    setCommandeDetail(null)
+    setSuccess('❌ Commande annulée')
+    setTimeout(() => setSuccess(''), 2000)
+    fetchData()
   }
+
+  const getLivreurNom = (id?: string) => livreurs.find(l => l.id === id)?.nom || null
 
   const stats = {
     total: commandes.length,
     nouveau: commandes.filter(c => c.statut === 'nouveau').length,
+    en_preparation: commandes.filter(c => c.statut === 'en_preparation').length,
     en_livraison: commandes.filter(c => c.statut === 'en_livraison').length,
     livre: commandes.filter(c => c.statut === 'livre').length,
     ca: commandes.filter(c => c.statut === 'livre').reduce((s, c) => s + (c.montant_total || 0), 0),
   }
 
-  return (
-    <div style={{ minHeight: '100vh', background: '#f4f4f5', fontFamily: 'sans-serif', color: '#1a1a1a' }}>
+  const ouvrirDetail = (cmd: Commande) => {
+    setCommandeDetail(cmd)
+    setLivreurChoisi(cmd.livreur_id || '')
+  }
 
-      {/* TOPBAR */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e5', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-        <span style={{ color: '#1D9E75', fontSize: '16px', fontWeight: 600 }}>CK Dress ERP</span>
-        <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-          {[
-            { label: 'Dashboard', path: '/dashboard' },
-            { label: 'Commandes', path: '/commandes' },
-            { label: 'Livraisons', path: '/livraisons' },
-          ].map(nav => (
-            <a key={nav.path} href={nav.path} style={{ color: nav.path === '/commandes' ? '#1D9E75' : '#888', fontSize: '12px', textDecoration: 'none', fontWeight: nav.path === '/commandes' ? 600 : 400 }}>
-              {nav.label}
-            </a>
-          ))}
-          <button onClick={fetchData} style={{ background: 'none', border: '1px solid #1D9E75', borderRadius: '6px', color: '#1D9E75', padding: '5px 10px', fontSize: '11px', cursor: 'pointer' }}>
-            ↺ Actualiser
-          </button>
+  return (
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
+
+      {/* MODAL DÉTAIL COMMANDE */}
+      {commandeDetail && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setCommandeDetail(null)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 500, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Commande #{commandeDetail.id.slice(0, 6).toUpperCase()}</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#888' }}>
+                  {new Date(commandeDetail.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <button onClick={() => setCommandeDetail(null)}
+                style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 14 }}>✕</button>
+            </div>
+
+            {/* Statut actuel */}
+            {(() => {
+              const s = STATUTS.find(s => s.key === commandeDetail.statut)
+              return s ? (
+                <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.label}</span>
+                </div>
+              ) : null
+            })()}
+
+            {/* Infos client */}
+            <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 16, marginBottom: 14 }}>
+              <h4 style={{ margin: '0 0 10px', fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Infos client</h4>
+              <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600 }}>{commandeDetail.nom_client || '—'}</p>
+              <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>📞 {commandeDetail.telephone}</p>
+              <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>📍 {commandeDetail.adresse}</p>
+            </div>
+
+            {/* Infos commande */}
+            <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 16, marginBottom: 14 }}>
+              <h4 style={{ margin: '0 0 10px', fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Détails commande</h4>
+              <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>🛍️ Réf: <strong>{commandeDetail.produit_ref}</strong> — Taille {commandeDetail.taille}</p>
+              <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>🎨 Variantes: {commandeDetail.variantes}</p>
+              {commandeDetail.note && <p style={{ margin: '0 0 4px', fontSize: 12, color: '#aaa' }}>📝 {commandeDetail.note}</p>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>
+                <span style={{ fontSize: 13, color: '#888' }}>Frais livraison</span>
+                <span style={{ fontSize: 13, color: '#888' }}>{commandeDetail.frais_livraison?.toLocaleString('fr-FR')} F</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                <span style={{ fontSize: 15, fontWeight: 700 }}>Total</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#1D9E75' }}>{commandeDetail.montant_total?.toLocaleString('fr-FR')} F</span>
+              </div>
+            </div>
+
+            {/* Livreur assigné */}
+            {commandeDetail.livreur_id && (
+              <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px', marginBottom: 14, border: '1px solid #bbf7d0' }}>
+                <p style={{ margin: 0, fontSize: 13, color: '#1D9E75', fontWeight: 600 }}>
+                  🚚 Livreur : {getLivreurNom(commandeDetail.livreur_id)}
+                </p>
+              </div>
+            )}
+
+            {/* Actions — changer statut */}
+            {STATUTS_SUIVANTS[commandeDetail.statut] && (
+              <div style={{ marginBottom: 14 }}>
+                <h4 style={{ margin: '0 0 10px', fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Changer le statut</h4>
+
+                {/* Assigner livreur si on envoie en livraison */}
+                {commandeDetail.statut === 'en_preparation' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ fontSize: 12, color: '#555', fontWeight: 600, display: 'block', marginBottom: 6 }}>Assigner un livreur</label>
+                    <select value={livreurChoisi} onChange={e => setLivreurChoisi(e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e5e5', background: '#f8f9fa', color: '#1a1a1a', fontSize: 13, outline: 'none' }}>
+                      <option value="">Choisir un livreur...</option>
+                      {livreurs.map(l => <option key={l.id} value={l.id}>{l.nom} ({l.code})</option>)}
+                    </select>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => changerStatut(commandeDetail.id, STATUTS_SUIVANTS[commandeDetail.statut].key, commandeDetail.statut === 'en_preparation' ? livreurChoisi : undefined)}
+                  disabled={saving || (commandeDetail.statut === 'en_preparation' && !livreurChoisi)}
+                  style={{
+                    width: '100%', padding: '12px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14,
+                    background: saving ? '#aaa' : STATUTS_SUIVANTS[commandeDetail.statut].color,
+                    color: '#fff', opacity: (commandeDetail.statut === 'en_preparation' && !livreurChoisi) ? 0.5 : 1,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  }}>
+                  {saving ? '...' : STATUTS_SUIVANTS[commandeDetail.statut].label}
+                </button>
+              </div>
+            )}
+
+            {/* Statut final */}
+            {commandeDetail.statut === 'livre' && (
+              <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '12px 14px', marginBottom: 14, textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 14, color: '#1D9E75', fontWeight: 700 }}>✅ Commande livrée avec succès !</p>
+              </div>
+            )}
+
+            {/* Annuler */}
+            {commandeDetail.statut !== 'livre' && (
+              <button onClick={() => annulerCommande(commandeDetail.id)}
+                style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1.5px solid #fecaca', background: '#fff0f0', color: '#E24B4A', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                ❌ Annuler la commande
+              </button>
+            )}
+          </div>
         </div>
+      )}
+
+      {/* HEADER */}
+      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '16px', fontWeight: 700 }}>📋 Commandes</h1>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {[
+              { label: 'Dashboard', path: '/dashboard' },
+              { label: 'Commandes', path: '/commandes' },
+              { label: 'Livraisons', path: '/livraisons' },
+            ].map(nav => (
+              <a key={nav.path} href={nav.path} style={{ color: nav.path === '/commandes' ? '#38bdf8' : '#94a3b8', fontSize: '12px', textDecoration: 'none', fontWeight: nav.path === '/commandes' ? 600 : 400 }}>
+                {nav.label}
+              </a>
+            ))}
+          </div>
+        </div>
+        <button onClick={fetchData} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', padding: '6px 12px', fontSize: '11px', cursor: 'pointer' }}>
+          ↺ Actualiser
+        </button>
       </div>
 
       <div style={{ padding: '16px' }}>
 
         {/* KPIs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '10px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '20px' }}>
           {[
-            { label: 'Total commandes', value: stats.total, color: '#1a1a1a' },
-            { label: 'Nouvelles', value: stats.nouveau, color: '#E24B4A' },
-            { label: 'En livraison', value: stats.en_livraison, color: '#BA7517' },
-            { label: 'Livrées', value: stats.livre, color: '#1D9E75' },
-            { label: 'CA livré', value: stats.ca.toLocaleString('fr-FR') + ' F', color: '#1D9E75' },
+            { label: 'Total', value: stats.total, color: '#1a1a1a', bg: '#fff' },
+            { label: 'Nouvelles', value: stats.nouveau, color: '#E24B4A', bg: '#fff0f0' },
+            { label: 'Préparation', value: stats.en_preparation, color: '#7c3aed', bg: '#f5f3ff' },
+            { label: 'En livraison', value: stats.en_livraison, color: '#BA7517', bg: '#fff8e6' },
+            { label: 'Livrées', value: stats.livre, color: '#1D9E75', bg: '#f0fdf4' },
+            { label: 'CA livré', value: stats.ca.toLocaleString('fr-FR') + ' F', color: '#1D9E75', bg: '#f0fdf4' },
           ].map((k, i) => (
-            <div key={i} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '12px 14px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: '10px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{k.label}</div>
-              <div style={{ fontSize: '20px', fontWeight: 500, color: k.color }}>{k.value}</div>
+            <div key={i} style={{ background: k.bg, border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px 14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: '10px', color: '#888', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 600 }}>{k.label}</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: k.color }}>{k.value}</div>
             </div>
           ))}
         </div>
 
         {success && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #1D9E75', borderRadius: '8px', padding: '10px 16px', color: '#1D9E75', fontSize: '13px', marginBottom: '12px' }}>
+          <div style={{ background: '#f0fdf4', border: '1px solid #1D9E75', borderRadius: '10px', padding: '10px 16px', color: '#1D9E75', fontSize: '13px', marginBottom: '14px', fontWeight: 600 }}>
             {success}
           </div>
         )}
@@ -110,76 +248,96 @@ export default function CommandesPage() {
         {loading ? (
           <div style={{ textAlign: 'center', color: '#aaa', padding: '60px' }}>Chargement...</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px' }}>
-            {colonnes.map(col => {
-              const cmdCol = commandes.filter(c => c.statut === col.key)
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {STATUTS.map(statut => {
+              const cmds = commandes.filter(c => c.statut === statut.key)
               return (
-                <div key={col.key} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: col.color }}>
-                      {col.label}
-                    </span>
-                    <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 7px', borderRadius: '8px', background: col.bg, color: col.textColor }}>
-                      {cmdCol.length}
-                    </span>
+                <div key={statut.key}>
+                  {/* Header ligne */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: statut.color }}>{statut.label}</span>
+                      <span style={{ background: statut.bg, border: `1px solid ${statut.border}`, color: statut.color, fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }}>
+                        {cmds.length}
+                      </span>
+                    </div>
+                    {cmds.length > 4 && (
+                      <button style={{ background: 'none', border: `1px solid ${statut.color}`, color: statut.color, borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                        Voir tout →
+                      </button>
+                    )}
                   </div>
 
-                  {cmdCol.length === 0 ? (
-                    <div style={{ color: '#ccc', fontSize: '11px', textAlign: 'center', padding: '20px 0' }}>Aucune</div>
-                  ) : cmdCol.map(cmd => (
-                    <div key={cmd.id} style={{ background: '#f9f9f9', border: '1px solid #f0f0f0', borderRadius: '10px', padding: '10px', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '10px', color: '#aaa' }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
-                      </div>
-                      <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '2px', color: '#1a1a1a' }}>{cmd.nom_client || '—'}</div>
-                      <div style={{ fontSize: '11px', color: '#888', marginBottom: '2px' }}>📞 {cmd.telephone}</div>
-                      <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '4px' }}>📍 {cmd.adresse}</div>
-                      <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '8px' }}>🛍️ {cmd.produit_ref} — Taille {cmd.taille}</div>
+                  {/* Scroll horizontal */}
+                  {cmds.length === 0 ? (
+                    <div style={{ background: '#fff', borderRadius: 12, padding: '20px', textAlign: 'center', color: '#ccc', fontSize: 13, border: '1px solid #e5e7eb' }}>
+                      Aucune commande
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+                      {cmds.map(cmd => (
+                        <div key={cmd.id}
+                          onClick={() => ouvrirDetail(cmd)}
+                          style={{
+                            background: '#fff', borderRadius: 14, padding: 14, minWidth: 200, maxWidth: 200,
+                            border: `1.5px solid ${statut.border}`, cursor: 'pointer', flexShrink: 0,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.07)', transition: 'transform 0.1s',
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+                          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
 
-                      <button onClick={() => router.push(`/commandes/${cmd.id}`)}
-                        style={{ width: '100%', padding: '5px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', background: 'transparent', color: '#888', border: '1px solid #e5e5e5', marginBottom: '6px' }}>
-                        Voir détail →
-                      </button>
+                          {/* Ref + montant */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: statut.color, background: statut.bg, padding: '2px 8px', borderRadius: 20 }}>
+                              #{cmd.id.slice(0, 6).toUpperCase()}
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>
+                              {cmd.montant_total?.toLocaleString('fr-FR')} F
+                            </span>
+                          </div>
 
-                      {col.key === 'nouveau' && (
-                        <button onClick={() => changerStatut(cmd.id, 'en_preparation')}
-                          style={{ width: '100%', padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', background: 'rgba(55,138,221,0.08)', color: '#378ADD', border: '1px solid rgba(55,138,221,0.2)' }}>
-                          ✓ Valider
-                        </button>
-                      )}
+                          {/* Client */}
+                          <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {cmd.nom_client || '—'}
+                          </p>
 
-                      {col.key === 'en_preparation' && (
-                        <>
-                          <select value={livreurChoisi[cmd.id] || ''} onChange={e => setLivreurChoisi(prev => ({ ...prev, [cmd.id]: e.target.value }))}
-                            style={{ width: '100%', padding: '5px', borderRadius: '6px', border: '1px solid #e5e5e5', background: '#fff', color: '#888', fontSize: '11px', marginBottom: '6px' }}>
-                            <option value="">Assigner un livreur...</option>
-                            {livreurs.map(l => <option key={l.id} value={l.id}>{l.nom} ({l.code})</option>)}
-                          </select>
-                          <button onClick={() => changerStatut(cmd.id, 'en_livraison', livreurChoisi[cmd.id])}
-                            style={{ width: '100%', padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', background: 'rgba(239,159,39,0.08)', color: '#BA7517', border: '1px solid rgba(239,159,39,0.2)' }}>
-                            🚚 Envoyer en livraison
-                          </button>
-                        </>
-                      )}
+                          {/* Téléphone */}
+                          <p style={{ margin: '0 0 3px', fontSize: 11, color: '#888' }}>📞 {cmd.telephone}</p>
 
-                      {col.key === 'en_livraison' && (
-                        <>
-                          {getLivreurNom(cmd.livreur_id) && (
-                            <div style={{ fontSize: '11px', color: '#1D9E75', marginBottom: '6px' }}>🚚 {getLivreurNom(cmd.livreur_id)}</div>
+                          {/* Adresse */}
+                          <p style={{ margin: '0 0 3px', fontSize: 11, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            📍 {cmd.adresse}
+                          </p>
+
+                          {/* Produit */}
+                          <p style={{ margin: '0 0 8px', fontSize: 11, color: '#aaa' }}>
+                            🛍️ {cmd.produit_ref} — {cmd.taille}
+                          </p>
+
+                          {/* Livreur si en livraison */}
+                          {cmd.livreur_id && (
+                            <p style={{ margin: '0 0 8px', fontSize: 11, color: '#1D9E75', fontWeight: 600 }}>
+                              🚚 {getLivreurNom(cmd.livreur_id)}
+                            </p>
                           )}
-                          <button onClick={() => changerStatut(cmd.id, 'livre')}
-                            style={{ width: '100%', padding: '6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', background: 'rgba(29,158,117,0.08)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.2)' }}>
-                            ✅ Confirmer livraison
-                          </button>
-                        </>
-                      )}
 
-                      {col.key === 'livre' && (
-                        <div style={{ color: '#1D9E75', fontSize: '10px', textAlign: 'center', padding: '4px' }}>✓ Livraison confirmée</div>
+                          {/* Date */}
+                          <p style={{ margin: 0, fontSize: 10, color: '#ccc' }}>
+                            {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      ))}
+
+                      {/* Bouton voir tout si > 4 */}
+                      {cmds.length > 4 && (
+                        <div style={{ minWidth: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <button style={{ background: statut.bg, border: `1.5px solid ${statut.border}`, color: statut.color, borderRadius: '50%', width: 44, height: 44, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                            →
+                          </button>
+                        </div>
                       )}
                     </div>
-                  ))}
+                  )}
                 </div>
               )
             })}
