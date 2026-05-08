@@ -79,6 +79,16 @@ export default function GestionnaireStockPage() {
     fetchData()
   }, [])
 
+  // ✅ Génération automatique de la référence
+  useEffect(() => {
+    if (!prodForm.categorie) return
+    const prefix = prodForm.activite === 'ck_design' ? 'CK' : 'SD'
+    const catCode = prodForm.categorie.substring(0, 3).toUpperCase().replace(/\s/g, '')
+    const timestamp = Date.now().toString().slice(-4)
+    const ref = `${prefix}-${catCode}-${timestamp}`
+    setProdForm(p => ({ ...p, reference: ref }))
+  }, [prodForm.activite, prodForm.categorie])
+
   const fetchData = async () => {
     const [{ data: stockData }, { data: prodsData }, { data: boutsData }, { data: ventesData }, { data: catsData }] = await Promise.all([
       supabase.from('stock').select('*').order('quantite'),
@@ -109,17 +119,11 @@ export default function GestionnaireStockPage() {
     const newQte = Math.max(0, item.quantite + delta)
     await supabase.from('stock').update({ quantite: newQte }).eq('id', stockId)
     await fetchData()
-    // Mettre à jour le produitDetail si ouvert
-    if (produitDetail) {
-      setProduitDetail((prev: any) => ({ ...prev }))
-    }
   }
 
   const sauvegarderAjustement = async (stockId: string) => {
     const val = ajustements[stockId]
     if (val === undefined) return
-    const item = stock.find(s => s.id === stockId)
-    if (!item) return
     await supabase.from('stock').update({ quantite: Math.max(0, val) }).eq('id', stockId)
     setAjustements(prev => { const n = { ...prev }; delete n[stockId]; return n })
     await fetchData()
@@ -196,20 +200,17 @@ export default function GestionnaireStockPage() {
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 520, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}>
 
-            {/* Header modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{produitDetail.nom}</h3>
               <button onClick={() => setProduitDetail(null)}
                 style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 14 }}>✕</button>
             </div>
 
-            {/* Image */}
             {produitDetail.image_url && (
               <img src={produitDetail.image_url} alt={produitDetail.nom}
                 style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 12, marginBottom: 14 }} />
             )}
 
-            {/* Badges */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
               <span style={{ background: '#f0f9ff', color: '#0891b2', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
                 Réf: {produitDetail.reference}
@@ -224,7 +225,6 @@ export default function GestionnaireStockPage() {
               </span>
             </div>
 
-            {/* Prix + Stock total */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div style={{ background: '#f0f9ff', borderRadius: 10, padding: '10px 14px' }}>
                 <p style={{ margin: 0, fontSize: 11, color: '#888' }}>Prix vente</p>
@@ -242,7 +242,6 @@ export default function GestionnaireStockPage() {
               </div>
             </div>
 
-            {/* Variantes avec ajustement */}
             <h4 style={{ margin: '0 0 10px', fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
               Variantes — ajuster les quantités
             </h4>
@@ -260,10 +259,8 @@ export default function GestionnaireStockPage() {
                     {v.quantite <= 3 && <span style={{ fontSize: 11, color: '#E24B4A', marginLeft: 6, fontWeight: 600 }}>⚠️ Critique</span>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {/* Boutons +/- rapides */}
                     <button onClick={() => ajusterQuantite(v.id, -1)}
                       style={{ width: 28, height: 28, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#E24B4A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                    {/* Input direct */}
                     <input
                       type="number"
                       value={ajustements[v.id] !== undefined ? ajustements[v.id] : v.quantite}
@@ -287,7 +284,6 @@ export default function GestionnaireStockPage() {
               )}
             </div>
 
-            {/* Actions */}
             <div style={{ marginTop: 16 }}>
               <button onClick={() => toggleDisponible(produitDetail.id, produitDetail.disponible)}
                 style={{
@@ -329,7 +325,7 @@ export default function GestionnaireStockPage() {
         ))}
       </div>
 
-      {/* TABS — sans Stock */}
+      {/* TABS */}
       <div style={{ display: 'flex', background: '#fff', margin: '16px 16px 0', borderRadius: '12px', padding: '4px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflowX: 'auto', gap: '2px' }}>
         {[
           { key: 'produits', label: '🏷️ Produits' },
@@ -359,7 +355,6 @@ export default function GestionnaireStockPage() {
         {/* ONGLET PRODUITS */}
         {onglet === 'produits' && (
           <div>
-            {/* Alerte stock critique */}
             {stockCritique.length > 0 && (
               <div style={{ background: '#fff5f5', border: '1px solid #E24B4A', borderRadius: '10px', padding: '12px 16px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 18 }}>⚠️</span>
@@ -373,7 +368,7 @@ export default function GestionnaireStockPage() {
                 const stockTotal = getStockProduit(prod.id)
                 const variantes = getVariantesProduit(prod.id)
                 const hasCritique = variantes.some(v => v.quantite <= 3)
-                const couleurs = [...new Set(variantes.map(v => v.couleur))]
+                const couleursUniques = [...new Set(variantes.map(v => v.couleur))]
                 return (
                   <div key={prod.id} style={{
                     background: '#fff', borderRadius: '14px', overflow: 'hidden',
@@ -386,7 +381,6 @@ export default function GestionnaireStockPage() {
                         ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>
                       }
-                      {/* Badge stock total */}
                       <div style={{
                         position: 'absolute', bottom: 8, right: 8,
                         fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
@@ -395,7 +389,6 @@ export default function GestionnaireStockPage() {
                       }}>
                         {stockTotal} pcs
                       </div>
-                      {/* Badge alerte */}
                       {hasCritique && (
                         <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
                           ⚠️ Critique
@@ -407,20 +400,18 @@ export default function GestionnaireStockPage() {
                       <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
                       {prod.categorie && <p style={{ margin: '0 0 4px', color: '#0891b2', fontSize: '11px', fontWeight: 600 }}>🏷️ {prod.categorie}</p>}
                       <p style={{ margin: '0 0 10px', color: '#888', fontSize: '11px' }}>
-                        {variantes.length} variante{variantes.length > 1 ? 's' : ''} · {couleurs.slice(0, 3).join(', ')}{couleurs.length > 3 ? '...' : ''}
+                        {variantes.length} variante{variantes.length > 1 ? 's' : ''} · {couleursUniques.slice(0, 3).join(', ')}{couleursUniques.length > 3 ? '...' : ''}
                       </p>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
-                        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
-                          <button onClick={e => { e.stopPropagation(); toggleDisponible(prod.id, prod.disponible) }}
-                            style={{
-                              fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none',
-                              background: prod.disponible ? '#f0fdf4' : '#fff5f5',
-                              color: prod.disponible ? '#1D9E75' : '#E24B4A',
-                            }}>
-                            {prod.disponible ? '✅ Publié' : '❌ Masqué'}
-                          </button>
-                        </div>
+                        <button onClick={e => { e.stopPropagation(); toggleDisponible(prod.id, prod.disponible) }}
+                          style={{
+                            fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none',
+                            background: prod.disponible ? '#f0fdf4' : '#fff5f5',
+                            color: prod.disponible ? '#1D9E75' : '#E24B4A',
+                          }}>
+                          {prod.disponible ? '✅ Publié' : '❌ Masqué'}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -438,37 +429,52 @@ export default function GestionnaireStockPage() {
               <p style={{ margin: '0 0 20px', fontSize: '12px', color: '#aaa' }}>Ce produit sera visible dans le catalogue client.</p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                {[
-                  { key: 'reference', label: 'Référence *', placeholder: 'Ex: CK-001' },
-                  { key: 'nom', label: 'Nom *', placeholder: 'Ex: Robe Wax' },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>{f.label}</label>
-                    <input value={(prodForm as any)[f.key]} onChange={e => setProdForm(p => ({ ...p, [f.key]: e.target.value }))}
-                      placeholder={f.placeholder}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
-                  </div>
-                ))}
+
+                {/* NOM */}
+                <div>
+                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Nom *</label>
+                  <input value={prodForm.nom} onChange={e => setProdForm(p => ({ ...p, nom: e.target.value }))}
+                    placeholder="Ex: Robe Wax"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+
+                {/* RÉFÉRENCE AUTO */}
+                <div>
+                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                    Référence <span style={{ color: '#0891b2', fontWeight: 400 }}>(générée auto)</span>
+                  </label>
+                  <input value={prodForm.reference} readOnly
+                    placeholder="Choisissez activité + catégorie"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#e8f4fd', border: '1.5px solid #bae6fd', color: '#0891b2', fontSize: '13px', boxSizing: 'border-box', outline: 'none', fontWeight: 600 }} />
+                </div>
+
+                {/* PRIX VENTE */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Prix de vente (F) *</label>
                   <input type="number" value={prodForm.prix_vente} onChange={e => setProdForm(p => ({ ...p, prix_vente: Number(e.target.value) }))}
                     placeholder="Ex: 15000"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
+
+                {/* PRIX ACHAT */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Prix d'achat (F)</label>
                   <input type="number" value={prodForm.prix_achat} onChange={e => setProdForm(p => ({ ...p, prix_achat: Number(e.target.value) }))}
                     placeholder="Ex: 8000"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
+
+                {/* ACTIVITÉ */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Activité</label>
-                  <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value, categorie: '' }))}
+                  <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value, categorie: '', reference: '' }))}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
                     <option value="ck_design">CK Design</option>
                     <option value="succes_design">Succès Design</option>
                   </select>
                 </div>
+
+                {/* CATÉGORIE */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Catégorie *</label>
                   <select value={prodForm.categorie} onChange={e => setProdForm(p => ({ ...p, categorie: e.target.value }))}
