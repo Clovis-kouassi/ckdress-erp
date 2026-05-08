@@ -46,7 +46,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
   async function fetchAll() {
     setLoading(true)
 
-    // Récupérer le livreur
     const { data: liv } = await supabase
       .from('livreurs')
       .select('*')
@@ -56,25 +55,22 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
     if (!liv) { setLoading(false); return }
     setLivreur(liv)
 
-    // Commandes disponibles (en_livraison + pas encore assignées)
     const { data: dispo } = await supabase
-      .from('catalogue_commandes')
+      .from('commandes_catalogue')
       .select('*')
       .eq('statut', 'en_livraison')
       .is('livreur_id', null)
       .order('created_at', { ascending: false })
 
-    // Mes colis en cours
     const { data: encours } = await supabase
-      .from('catalogue_commandes')
+      .from('commandes_catalogue')
       .select('*')
       .eq('livreur_id', liv.id)
       .eq('statut', 'en_livraison')
       .order('created_at', { ascending: false })
 
-    // Historique (livré ou retour)
     const { data: hist } = await supabase
-      .from('catalogue_commandes')
+      .from('commandes_catalogue')
       .select('*')
       .eq('livreur_id', liv.id)
       .in('statut', ['livre', 'retour'])
@@ -90,14 +86,12 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
     if (!livreur) return
     setSaving(commande.id)
     const { error } = await supabase
-      .from('catalogue_commandes')
+      .from('commandes_catalogue')
       .update({ livreur_id: livreur.id, code_livreur: livreur.code })
       .eq('id', commande.id)
-      .is('livreur_id', null) // sécurité : pas déjà pris
+      .is('livreur_id', null)
 
-    if (error) {
-      alert('Ce colis vient d\'être pris par un autre livreur !')
-    }
+    if (error) alert('Ce colis vient d\'être pris par un autre livreur !')
     await fetchAll()
     setSaving(null)
   }
@@ -105,7 +99,7 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
   async function confirmerLivraison(commande: Commande) {
     setSaving(commande.id)
     await supabase
-      .from('catalogue_commandes')
+      .from('commandes_catalogue')
       .update({ statut: 'livre' })
       .eq('id', commande.id)
     await fetchAll()
@@ -116,7 +110,7 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
     if (!motifModal) return
     setSaving(motifModal.id)
     await supabase
-      .from('catalogue_commandes')
+      .from('commandes_catalogue')
       .update({ statut: 'retour', motif_retour: motif })
       .eq('id', motifModal.id)
     setMotifModal(null)
@@ -125,7 +119,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
     setSaving(null)
   }
 
-  // Stats CA
   const now = new Date()
   const statsCA = () => {
     return historique
@@ -133,10 +126,7 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
       .filter(c => {
         const d = new Date(c.created_at)
         if (periode === 'jour') return d.toDateString() === now.toDateString()
-        if (periode === 'semaine') {
-          const diff = (now.getTime() - d.getTime()) / (1000 * 3600 * 24)
-          return diff <= 7
-        }
+        if (periode === 'semaine') return (now.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 7
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
       })
       .reduce((s, c) => s + (c.frais_livraison || 0), 0)
@@ -202,7 +192,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
           </button>
         </div>
 
-        {/* Stats rapides */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 14 }}>
           {[
             { label: 'Disponibles', value: disponibles.length, color: '#38bdf8' },
@@ -330,7 +319,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
         {/* ONGLET 3 — HISTORIQUE + CA */}
         {onglet === 2 && (
           <div>
-            {/* CA */}
             <div style={{ background: '#1e293b', borderRadius: 14, padding: 16, marginBottom: 16, border: '1px solid #334155' }}>
               <h3 style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Chiffre d'affaires (frais livraison)</h3>
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -360,7 +348,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
               </div>
             </div>
 
-            {/* Liste historique */}
             {historique.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 20px', color: '#334155' }}>
                 <p style={{ fontSize: 14 }}>Aucun historique</p>
