@@ -191,7 +191,6 @@ export default function LivreurPage() {
               #{motifModal.id.slice(0, 6).toUpperCase()} — {motifModal.nom_client || motifModal.telephone}
             </p>
 
-            {/* MOTIFS */}
             <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>Motif du retour *</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
               {MOTIFS_RETOUR.map(m => (
@@ -208,7 +207,6 @@ export default function LivreurPage() {
               ))}
             </div>
 
-            {/* QUANTITÉ LIVRÉE */}
             <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>
               Quantité livrée (sur {qtteTotale})
             </p>
@@ -226,7 +224,6 @@ export default function LivreurPage() {
               </button>
             </div>
 
-            {/* RÉSUMÉ */}
             <div style={{ background: '#f8f9fa', borderRadius: 12, padding: '14px', marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 13, color: '#888' }}>Total commande</span>
@@ -381,7 +378,9 @@ export default function LivreurPage() {
                         </span>
                       </div>
 
-                      <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
+                      {/* NOM + TELEPHONE */}
+                      <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
+                      <p style={{ margin: '0 0 8px', fontSize: 13, color: '#555' }}>📞 {cmd.telephone}</p>
 
                       <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
                         <p style={{ margin: '0 0 3px', fontSize: 12, color: '#555' }}>🛍️ <strong>{cmd.produit_ref}</strong> — Taille {cmd.taille}</p>
@@ -489,6 +488,7 @@ export default function LivreurPage() {
                       </span>
                     </div>
                     <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
+                    <p style={{ margin: '0 0 2px', fontSize: 11, color: '#888' }}>📞 {cmd.telephone}</p>
                     <p style={{ margin: '0 0 2px', fontSize: 11, color: '#888' }}>📍 {cmd.adresse}</p>
                     {cmd.quantite > 1 && cmd.quantite_livree !== undefined && (
                       <p style={{ margin: '0 0 2px', fontSize: 11, color: '#888' }}>
