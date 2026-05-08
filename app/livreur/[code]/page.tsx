@@ -33,7 +33,7 @@ type Livreur = {
   code: string
 }
 
-const ONGLETS = ['📦 Dispo', '🚚 Mes colis', '📊 Historique']
+const ONGLETS = ['📦 Disponibles', '🚚 Mes colis', '📊 Historique']
 
 const MOTIFS_RETOUR = [
   { id: 'absent', label: '🏠 Client absent' },
@@ -132,9 +132,6 @@ export default function LivreurPage() {
     const prixUnitaire = (motifModal.montant_total - motifModal.frais_livraison) / qtteTotale
     const montantLivre = quantiteLivree * prixUnitaire
     const fraisLivraison = quantiteLivree > 0 ? motifModal.frais_livraison : 0
-
-    // Si livraison partielle → livré + retour partiel
-    // Si 0 livré → retour total
     const statut = quantiteLivree > 0 ? 'livre' : 'retour'
 
     await supabase.from('commandes_catalogue').update({
@@ -165,14 +162,13 @@ export default function LivreurPage() {
   const nbLivres = historique.filter(c => c.statut === 'livre').length
   const nbRetours = historique.filter(c => c.statut === 'retour').length
 
-  // Calcul automatique dans le modal
   const qtteTotale = motifModal?.quantite || 1
   const prixUnitaire = motifModal ? (motifModal.montant_total - motifModal.frais_livraison) / qtteTotale : 0
   const montantEncaisse = quantiteLivree * prixUnitaire + (quantiteLivree > 0 ? (motifModal?.frais_livraison || 0) : 0)
   const montantRetour = motifModal ? motifModal.montant_total - montantEncaisse : 0
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'sans-serif', fontSize: 14 }}>
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'sans-serif' }}>
       Chargement...
     </div>
   )
@@ -184,26 +180,25 @@ export default function LivreurPage() {
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a', maxWidth: 480, margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
 
-      {/* MODAL RETOUR AMÉLIORÉ */}
+      {/* MODAL RETOUR */}
       {motifModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 40px', width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ width: 40, height: 4, background: '#e5e7eb', borderRadius: 2, margin: '0 auto 16px' }} />
-            
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>Retour de colis</h3>
             <p style={{ margin: '0 0 16px', fontSize: 13, color: '#888' }}>
               #{motifModal.id.slice(0, 6).toUpperCase()} — {motifModal.nom_client || motifModal.telephone}
             </p>
 
-            {/* MOTIF */}
+            {/* MOTIFS */}
             <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>Motif du retour *</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
               {MOTIFS_RETOUR.map(m => (
                 <button key={m.id} onClick={() => setMotifChoisi(m.label)}
                   style={{
-                    padding: '12px 8px', borderRadius: 10, border: `2px solid ${motifChoisi === m.label ? '#ef4444' : '#e5e7eb'}`,
+                    padding: '12px 8px', borderRadius: 10,
+                    border: `2px solid ${motifChoisi === m.label ? '#ef4444' : '#e5e7eb'}`,
                     background: motifChoisi === m.label ? '#fff0f0' : '#f8f9fa',
                     color: motifChoisi === m.label ? '#ef4444' : '#555',
                     fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center'
@@ -217,48 +212,47 @@ export default function LivreurPage() {
             <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>
               Quantité livrée (sur {qtteTotale})
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, justifyContent: 'center' }}>
               <button onClick={() => setQuantiteLivree(Math.max(0, quantiteLivree - 1))}
-                style={{ width: 44, height: 44, borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#f8f9fa', fontSize: 20, cursor: 'pointer', fontWeight: 700, color: '#555' }}>
+                style={{ width: 44, height: 44, borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#f8f9fa', fontSize: 22, cursor: 'pointer', fontWeight: 700, color: '#555' }}>
                 −
               </button>
-              <div style={{ flex: 1, textAlign: 'center', fontSize: 28, fontWeight: 700, color: '#1a1a1a' }}>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#1a1a1a', minWidth: 60, textAlign: 'center' }}>
                 {quantiteLivree}
               </div>
               <button onClick={() => setQuantiteLivree(Math.min(qtteTotale, quantiteLivree + 1))}
-                style={{ width: 44, height: 44, borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#f8f9fa', fontSize: 20, cursor: 'pointer', fontWeight: 700, color: '#555' }}>
+                style={{ width: 44, height: 44, borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#f8f9fa', fontSize: 22, cursor: 'pointer', fontWeight: 700, color: '#555' }}>
                 +
               </button>
             </div>
 
-            {/* RÉSUMÉ AUTOMATIQUE */}
+            {/* RÉSUMÉ */}
             <div style={{ background: '#f8f9fa', borderRadius: 12, padding: '14px', marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 13, color: '#888' }}>Total commande</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{motifModal.montant_total?.toLocaleString('fr-FR')} F</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{motifModal.montant_total?.toLocaleString('fr-FR')} F</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #e5e7eb' }}>
-                <span style={{ fontSize: 13, color: '#888' }}>Quantité retournée</span>
+                <span style={{ fontSize: 13, color: '#888' }}>Qté retournée</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>{qtteTotale - quantiteLivree} article(s)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>💰 Montant encaissé</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>💰 Encaissé</span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>{montantEncaisse.toLocaleString('fr-FR')} F</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#ef4444' }}>📦 Montant retour</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#ef4444' }}>📦 Retour</span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#ef4444' }}>{montantRetour.toLocaleString('fr-FR')} F</span>
               </div>
             </div>
 
-            {/* BOUTONS */}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setMotifModal(null); setMotifChoisi(''); setQuantiteLivree(0) }}
-                style={{ flex: 1, padding: '14px', borderRadius: 12, border: '1px solid #e5e7eb', background: 'transparent', color: '#888', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
+                style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1px solid #e5e7eb', background: 'transparent', color: '#888', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
                 Annuler
               </button>
               <button onClick={confirmerRetour} disabled={!motifChoisi || saving === motifModal.id}
-                style={{ flex: 2, padding: '14px', borderRadius: 12, border: 'none', background: !motifChoisi ? '#e5e7eb' : '#ef4444', color: !motifChoisi ? '#888' : '#fff', cursor: !motifChoisi ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700 }}>
+                style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', background: !motifChoisi ? '#e5e7eb' : '#ef4444', color: !motifChoisi ? '#888' : '#fff', cursor: !motifChoisi ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700 }}>
                 {saving === motifModal.id ? '...' : 'Confirmer le retour'}
               </button>
             </div>
@@ -267,25 +261,25 @@ export default function LivreurPage() {
       )}
 
       {/* HEADER */}
-      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '20px 16px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#38bdf8' }}>🚚 {livreur.nom}</h1>
+            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#38bdf8' }}>🚚 {livreur.nom}</h1>
             <p style={{ margin: '2px 0 0', fontSize: 12, color: '#94a3b8' }}>{livreur.code} • {livreur.telephone}</p>
           </div>
           <button onClick={fetchAll}
-            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, color: '#fff', padding: '8px 14px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-            ↺
+            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, color: '#fff', padding: '6px 12px', fontSize: 11, cursor: 'pointer' }}>
+            ↺ Actualiser
           </button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 14 }}>
           {[
             { label: 'Disponibles', value: disponibles.length, color: '#38bdf8' },
             { label: 'En cours', value: mesColis.length, color: '#f59e0b' },
             { label: 'Livrés', value: nbLivres, color: '#1D9E75' },
           ].map((s, i) => (
-            <div key={i} style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
+            <div key={i} style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.15)' }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</div>
               <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{s.label}</div>
             </div>
           ))}
@@ -293,61 +287,55 @@ export default function LivreurPage() {
       </div>
 
       {/* ONGLETS */}
-      <div style={{ display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', position: 'sticky', top: 130, zIndex: 9 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
         {ONGLETS.map((o, i) => (
           <button key={i} onClick={() => setOnglet(i)}
             style={{
-              flex: 1, padding: '14px 4px', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-              background: 'transparent', color: onglet === i ? '#38bdf8' : '#aaa',
-              borderBottom: onglet === i ? '3px solid #38bdf8' : '3px solid transparent'
+              flex: 1, padding: '12px 8px', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              background: 'transparent', color: onglet === i ? '#38bdf8' : '#888',
+              borderBottom: onglet === i ? '2px solid #38bdf8' : '2px solid transparent'
             }}>
             {o}
           </button>
         ))}
       </div>
 
-      <div style={{ padding: '12px 12px 80px' }}>
+      <div style={{ padding: '12px 16px' }}>
 
         {/* ONGLET 1 — DISPONIBLES */}
         {onglet === 0 && (
           <div>
             {disponibles.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px 20px', color: '#ccc' }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
-                <p style={{ fontSize: 15, fontWeight: 600 }}>Aucun colis disponible</p>
-                <p style={{ fontSize: 13, marginTop: 4 }}>Revenez plus tard</p>
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#ccc' }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
+                <p style={{ fontSize: 14 }}>Aucun colis disponible</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {disponibles.map(cmd => (
-                  <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 14, border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {cmd.image_url
-                          ? <img src={cmd.image_url} alt=" " style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <span style={{ fontSize: 24, opacity: 0.3 }}>👗</span>
-                        }
+                  <div key={cmd.id} style={{ background: '#fff', borderRadius: 12, padding: 12, border: '1px solid #e5e7eb', display: 'flex', gap: 12, alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                    <div style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {cmd.image_url
+                        ? <img src={cmd.image_url} alt=" " style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: 22, opacity: 0.3 }}>👗</span>
+                      }
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8' }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>{cmd.frais_livraison?.toLocaleString('fr-FR')} F</span>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#38bdf8', background: '#eff6ff', padding: '2px 8px', borderRadius: 20 }}>
-                            #{cmd.id.slice(0, 6).toUpperCase()}
-                          </span>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>{cmd.frais_livraison?.toLocaleString('fr-FR')} F</span>
-                        </div>
-                        <p style={{ margin: '0 0 3px', fontSize: 13, color: '#555' }}>📞 {cmd.telephone}</p>
-                        <p style={{ margin: '0 0 3px', fontSize: 12, color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {cmd.adresse}</p>
-                        <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>🛍️ {cmd.produit_ref} — {cmd.taille}</p>
-                      </div>
+                      <p style={{ margin: '0 0 2px', fontSize: 12, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📞 {cmd.telephone}</p>
+                      <p style={{ margin: '0 0 2px', fontSize: 11, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 {cmd.adresse}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: '#aaa' }}>🛍️ {cmd.produit_ref} — {cmd.taille}</p>
                     </div>
                     <button onClick={() => accepterColis(cmd)} disabled={saving === cmd.id}
                       style={{
-                        width: '100%', padding: '14px', borderRadius: 12, border: 'none',
+                        flexShrink: 0, padding: '8px 14px', borderRadius: 8, border: 'none',
                         background: saving === cmd.id ? '#e5e7eb' : '#1D9E75',
-                        color: saving === cmd.id ? '#888' : '#fff', fontWeight: 700, fontSize: 15,
-                        cursor: saving === cmd.id ? 'not-allowed' : 'pointer'
+                        color: saving === cmd.id ? '#888' : '#fff', fontWeight: 700, fontSize: 12, cursor: saving === cmd.id ? 'not-allowed' : 'pointer'
                       }}>
-                      {saving === cmd.id ? '...' : '✅ Accepter ce colis'}
+                      {saving === cmd.id ? '...' : '✅ Accepter'}
                     </button>
                   </div>
                 ))}
@@ -360,22 +348,22 @@ export default function LivreurPage() {
         {onglet === 1 && (
           <div>
             {mesColis.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px 20px', color: '#ccc' }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>🚚</div>
-                <p style={{ fontSize: 15, fontWeight: 600 }}>Aucun colis en cours</p>
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#ccc' }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>🚚</div>
+                <p style={{ fontSize: 14 }}>Aucun colis en cours</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {mesColis.map(cmd => (
-                  <div key={cmd.id} style={{ background: '#fff', borderRadius: 16, border: '1px solid #fde68a', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                  <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #fde68a', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 
                     {cmd.images && cmd.images.filter(img => img.url).length > 0 && (
                       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '10px 12px 6px', background: '#fffbf0' }}>
                         {cmd.images.filter(img => img.url).map((img, i) => (
-                          <div key={i} style={{ flexShrink: 0, borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
+                          <div key={i} style={{ flexShrink: 0, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
                             <img src={img.url} alt=" "
-                              style={{ width: cmd.images!.filter(img => img.url).length === 1 ? 220 : 140, height: 160, objectFit: 'cover', display: 'block' }} />
-                            <div style={{ position: 'absolute', bottom: 6, left: 6, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20 }}>
+                              style={{ width: cmd.images!.filter(img => img.url).length === 1 ? 200 : 130, height: 150, objectFit: 'cover', display: 'block' }} />
+                            <div style={{ position: 'absolute', bottom: 4, left: 4, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 12 }}>
                               {img.couleur}
                             </div>
                           </div>
@@ -383,9 +371,9 @@ export default function LivreurPage() {
                       </div>
                     )}
 
-                    <div style={{ padding: '14px' }}>
+                    <div style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', background: '#fff8e6', padding: '4px 12px', borderRadius: 20, border: '1px solid #fde68a' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', background: '#fff8e6', padding: '3px 10px', borderRadius: 20, border: '1px solid #fde68a' }}>
                           #{cmd.id.slice(0, 6).toUpperCase()}
                         </span>
                         <span style={{ fontSize: 11, color: '#aaa' }}>
@@ -393,49 +381,50 @@ export default function LivreurPage() {
                         </span>
                       </div>
 
-                      <p style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
+                      <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
 
-                      <div style={{ background: '#f8f9fa', borderRadius: 10, padding: '10px 12px', marginBottom: 10 }}>
-                        <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>🛍️ <strong>{cmd.produit_ref}</strong> — Taille {cmd.taille}</p>
-                        <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>🎨 {cmd.variantes}</p>
-                        {cmd.quantite > 1 && <p style={{ margin: '0', fontSize: 13, color: '#555' }}>📦 Quantité : <strong>{cmd.quantite}</strong></p>}
-                        {cmd.note && <p style={{ margin: '4px 0 0', fontSize: 12, color: '#aaa' }}>📝 {cmd.note}</p>}
+                      <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+                        <p style={{ margin: '0 0 3px', fontSize: 12, color: '#555' }}>🛍️ <strong>{cmd.produit_ref}</strong> — Taille {cmd.taille}</p>
+                        <p style={{ margin: '0 0 3px', fontSize: 12, color: '#555' }}>🎨 {cmd.variantes}</p>
+                        {cmd.quantite > 1 && <p style={{ margin: 0, fontSize: 12, color: '#555' }}>📦 Quantité : <strong>{cmd.quantite}</strong></p>}
+                        {cmd.note && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#aaa' }}>📝 {cmd.note}</p>}
                       </div>
 
-                      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                        <div style={{ flex: 1, background: '#f8f9fa', borderRadius: 10, padding: '10px', textAlign: 'center' }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</div>
-                          <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>Total commande</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, background: '#f8f9fa', borderRadius: 8, padding: '8px 10px' }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</div>
+                          <div style={{ fontSize: 10, color: '#888' }}>Total commande</div>
                         </div>
-                        <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 10, padding: '10px', textAlign: 'center' }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>{cmd.frais_livraison?.toLocaleString('fr-FR')} F</div>
-                          <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>Mes frais</div>
+                        <div style={{ width: 1, background: '#e5e7eb' }} />
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>{cmd.frais_livraison?.toLocaleString('fr-FR')} F</div>
+                          <div style={{ fontSize: 10, color: '#888' }}>Mes frais</div>
                         </div>
                       </div>
 
-                      <p style={{ margin: '0 0 14px', fontSize: 13, color: '#555' }}>📍 {cmd.adresse}</p>
+                      <p style={{ margin: '0 0 12px', fontSize: 12, color: '#555' }}>📍 {cmd.adresse}</p>
 
-                      <button onClick={() => confirmerLivraison(cmd)} disabled={saving === cmd.id}
-                        style={{
-                          width: '100%', padding: '15px', borderRadius: 12, border: 'none', marginBottom: 8,
-                          background: saving === cmd.id ? '#e5e7eb' : '#1D9E75',
-                          color: saving === cmd.id ? '#888' : '#fff', fontWeight: 700, fontSize: 15, cursor: saving === cmd.id ? 'not-allowed' : 'pointer'
-                        }}>
-                        {saving === cmd.id ? '...' : '✅ Confirmer la livraison'}
-                      </button>
                       <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => confirmerLivraison(cmd)} disabled={saving === cmd.id}
+                          style={{
+                            flex: 1, padding: '11px', borderRadius: 10, border: 'none',
+                            background: saving === cmd.id ? '#e5e7eb' : '#1D9E75',
+                            color: saving === cmd.id ? '#888' : '#fff', fontWeight: 700, fontSize: 13, cursor: saving === cmd.id ? 'not-allowed' : 'pointer'
+                          }}>
+                          {saving === cmd.id ? '...' : '✅ Livré'}
+                        </button>
                         <a href={`tel:${cmd.telephone}`}
                           style={{
-                            flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #38bdf8',
-                            background: '#eff6ff', color: '#38bdf8', fontWeight: 700, fontSize: 14,
-                            textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                            flex: 1, padding: '11px', borderRadius: 10, border: '1px solid #38bdf8',
+                            background: '#eff6ff', color: '#38bdf8', fontWeight: 700, fontSize: 13,
+                            textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
                           }}>
                           📞 Appeler
                         </a>
                         <button onClick={() => ouvrirRetour(cmd)} disabled={saving === cmd.id}
                           style={{
-                            flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #ef4444',
-                            background: '#fff0f0', color: '#ef4444', fontWeight: 700, fontSize: 14, cursor: 'pointer'
+                            flex: 1, padding: '11px', borderRadius: 10, border: '1px solid #ef4444',
+                            background: '#fff0f0', color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer'
                           }}>
                           ❌ Retour
                         </button>
@@ -451,67 +440,67 @@ export default function LivreurPage() {
         {/* ONGLET 3 — HISTORIQUE */}
         {onglet === 2 && (
           <div>
-            <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ margin: '0 0 14px', fontSize: 14, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 }}>💰 Chiffre d'affaires</h3>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 16, border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ margin: '0 0 12px', fontSize: 13, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Chiffre d'affaires</h3>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                 {(['jour', 'semaine', 'mois'] as const).map(p => (
                   <button key={p} onClick={() => setPeriode(p)}
                     style={{
-                      flex: 1, padding: '10px 4px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                      flex: 1, padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                       background: periode === p ? '#38bdf8' : '#f0f2f5',
                       color: periode === p ? '#fff' : '#888'
                     }}>
-                    {p === 'jour' ? 'Jour' : p === 'semaine' ? '7 jours' : 'Mois'}
+                    {p === 'jour' ? 'Jour' : p === 'semaine' ? 'Semaine' : 'Mois'}
                   </button>
                 ))}
               </div>
-              <div style={{ fontSize: 32, fontWeight: 700, color: '#1D9E75', textAlign: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 28, fontWeight: 700, color: '#1D9E75', textAlign: 'center' }}>
                 {statsCA().toLocaleString('fr-FR')} F
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: '#1D9E75' }}>{nbLivres}</div>
-                  <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>✅ Livrés</div>
+              <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 12 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#1D9E75' }}>{nbLivres}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Livrés</div>
                 </div>
-                <div style={{ flex: 1, background: '#fff0f0', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444' }}>{nbRetours}</div>
-                  <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>❌ Retours</div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#ef4444' }}>{nbRetours}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Retours</div>
                 </div>
               </div>
             </div>
 
             {historique.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 20px', color: '#ccc' }}>
-                <p style={{ fontSize: 15 }}>Aucun historique</p>
+                <p style={{ fontSize: 14 }}>Aucun historique</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {historique.map(cmd => (
                   <div key={cmd.id} style={{
-                    background: '#fff', borderRadius: 14, padding: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                    background: '#fff', borderRadius: 12, padding: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
                     border: `1px solid ${cmd.statut === 'livre' ? '#bbf7d0' : '#fecaca'}`
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: cmd.statut === 'livre' ? '#1D9E75' : '#ef4444', background: cmd.statut === 'livre' ? '#f0fdf4' : '#fff0f0', padding: '3px 10px', borderRadius: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: cmd.statut === 'livre' ? '#1D9E75' : '#ef4444', background: cmd.statut === 'livre' ? '#f0fdf4' : '#fff0f0', padding: '2px 8px', borderRadius: 20 }}>
                         {cmd.statut === 'livre' ? '✅ Livré' : '❌ Retour'}
                       </span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>
                         +{(cmd.montant_livree || cmd.frais_livraison || 0).toLocaleString('fr-FR')} F
                       </span>
                     </div>
-                    <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
-                    <p style={{ margin: '0 0 4px', fontSize: 12, color: '#888' }}>📍 {cmd.adresse}</p>
-                    {cmd.quantite_livree !== undefined && cmd.quantite > 1 && (
-                      <p style={{ margin: '0 0 4px', fontSize: 12, color: '#888' }}>
+                    <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
+                    <p style={{ margin: '0 0 2px', fontSize: 11, color: '#888' }}>📍 {cmd.adresse}</p>
+                    {cmd.quantite > 1 && cmd.quantite_livree !== undefined && (
+                      <p style={{ margin: '0 0 2px', fontSize: 11, color: '#888' }}>
                         📦 {cmd.quantite_livree}/{cmd.quantite} articles livrés
                       </p>
                     )}
                     {cmd.motif_retour && (
-                      <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444', background: '#fff0f0', padding: '6px 10px', borderRadius: 8 }}>
+                      <p style={{ margin: '4px 0 0', fontSize: 11, color: '#ef4444', background: '#fff0f0', padding: '4px 8px', borderRadius: 6 }}>
                         Motif : {cmd.motif_retour}
                       </p>
                     )}
-                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#ccc' }}>
+                    <p style={{ margin: '4px 0 0', fontSize: 10, color: '#ccc' }}>
                       {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
