@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { supabase } from '@/app/lib/supabase'
 
 type Commande = {
@@ -29,7 +30,10 @@ type Livreur = {
 
 const ONGLETS = ['📦 Disponibles', '🚚 Mes colis', '📊 Historique']
 
-export default function LivreurPage({ params }: { params: { code: string } }) {
+export default function LivreurPage() {
+  const params = useParams()
+  const code = params?.code as string
+
   const [livreur, setLivreur] = useState<Livreur | null>(null)
   const [onglet, setOnglet] = useState(0)
   const [disponibles, setDisponibles] = useState<Commande[]>([])
@@ -41,7 +45,7 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
   const [motif, setMotif] = useState('')
   const [periode, setPeriode] = useState<'jour' | 'semaine' | 'mois'>('jour')
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => { if (code) fetchAll() }, [code])
 
   async function fetchAll() {
     setLoading(true)
@@ -49,7 +53,7 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
     const { data: liv } = await supabase
       .from('livreurs')
       .select('*')
-      .eq('code', params.code)
+      .eq('code', code)
       .single()
 
     if (!liv) { setLoading(false); return }
@@ -150,7 +154,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
   return (
     <div style={{ minHeight: '100vh', background: '#0f172a', fontFamily: "'Inter', sans-serif", color: '#f1f5f9' }}>
 
-      {/* MODAL RETOUR */}
       {motifModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#1e293b', borderRadius: 16, padding: 24, maxWidth: 400, width: '100%', border: '1px solid #334155' }}>
@@ -179,7 +182,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
         </div>
       )}
 
-      {/* HEADER */}
       <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', padding: '16px 20px', borderBottom: '1px solid #1e293b' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -206,7 +208,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
         </div>
       </div>
 
-      {/* ONGLETS */}
       <div style={{ display: 'flex', borderBottom: '1px solid #1e293b', background: '#0f172a' }}>
         {ONGLETS.map((o, i) => (
           <button key={i} onClick={() => setOnglet(i)}
@@ -223,7 +224,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
 
       <div style={{ padding: 16 }}>
 
-        {/* ONGLET 1 — DISPONIBLES */}
         {onglet === 0 && (
           <div>
             {disponibles.length === 0 ? (
@@ -264,7 +264,6 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
           </div>
         )}
 
-        {/* ONGLET 2 — MES COLIS EN COURS */}
         {onglet === 1 && (
           <div>
             {mesColis.length === 0 ? (
@@ -316,11 +315,10 @@ export default function LivreurPage({ params }: { params: { code: string } }) {
           </div>
         )}
 
-        {/* ONGLET 3 — HISTORIQUE + CA */}
         {onglet === 2 && (
           <div>
             <div style={{ background: '#1e293b', borderRadius: 14, padding: 16, marginBottom: 16, border: '1px solid #334155' }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Chiffre d'affaires (frais livraison)</h3>
+              <h3 style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Chiffre d'affaires</h3>
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                 {(['jour', 'semaine', 'mois'] as const).map(p => (
                   <button key={p} onClick={() => setPeriode(p)}
