@@ -19,6 +19,8 @@ type Commande = {
   created_at: string
   livreur_id?: string
   motif_retour?: string
+  image_url?: string
+  images?: { couleur: string; url: string }[]
 }
 
 type Livreur = {
@@ -51,38 +53,34 @@ export default function LivreurPage() {
     setLoading(true)
 
     const { data: liv } = await supabase
-      .from('livreurs')
-      .select('*')
-      .eq('code', code)
-      .single()
+      .from('livreurs').select('*').eq('code', code).single()
 
     if (!liv) { setLoading(false); return }
     setLivreur(liv)
 
-    const { data: dispo } = await supabase
-      .from('commandes_catalogue')
-      .select('*')
-      .eq('statut', 'en_livraison')
-      .is('livreur_id', null)
-      .order('created_at', { ascending: false })
+    const [{ data: dispo }, { data: encours }, { data: hist }, { data: stockData }] = await Promise.all([
+      supabase.from('commandes_catalogue').select('*').eq('statut', 'en_livraison').is('livreur_id', null).order('created_at', { ascending: false }),
+      supabase.from('commandes_catalogue').select('*').eq('livreur_id', liv.id).eq('statut', 'en_livraison').order('created_at', { ascending: false }),
+      supabase.from('commandes_catalogue').select('*').eq('livreur_id', liv.id).in('statut', ['livre', 'retour']).order('created_at', { ascending: false }),
+      supabase.from('boutique_stock').select('produit_id, couleur, image_url, produits(reference)'),
+    ])
 
-    const { data: encours } = await supabase
-      .from('commandes_catalogue')
-      .select('*')
-      .eq('livreur_id', liv.id)
-      .eq('statut', 'en_livraison')
-      .order('created_at', { ascending: false })
+    const enrichir = (cmds: any[]) => cmds.map(cmd => {
+      const couleurs = (cmd.variantes || '').split(',').map((c: string) => c.trim()).filter(Boolean)
+      const images = couleurs.map((couleur: string) => {
+        const match = (stockData || []).find((s: any) =>
+          s.produits?.reference === cmd.produit_ref &&
+          s.couleur?.toLowerCase() === couleur.toLowerCase() &&
+          s.image_url
+        )
+        return match ? { couleur, url: match.image_url } : null
+      }).filter(Boolean) as { couleur: string; url: string }[]
+      return { ...cmd, image_url: images[0]?.url || null, images }
+    })
 
-    const { data: hist } = await supabase
-      .from('commandes_catalogue')
-      .select('*')
-      .eq('livreur_id', liv.id)
-      .in('statut', ['livre', 'retour'])
-      .order('created_at', { ascending: false })
-
-    setDisponibles(dispo || [])
-    setMesColis(encours || [])
-    setHistorique(hist || [])
+    setDisponibles(enrichir(dispo || []))
+    setMesColis(enrichir(encours || []))
+    setHistorique(enrichir(hist || []))
     setLoading(false)
   }
 
@@ -94,7 +92,6 @@ export default function LivreurPage() {
       .update({ livreur_id: livreur.id })
       .eq('id', commande.id)
       .is('livreur_id', null)
-
     if (error) alert('Ce colis vient d\'être pris par un autre livreur !')
     await fetchAll()
     setSaving(null)
@@ -102,10 +99,7 @@ export default function LivreurPage() {
 
   async function confirmerLivraison(commande: Commande) {
     setSaving(commande.id)
-    await supabase
-      .from('commandes_catalogue')
-      .update({ statut: 'livre' })
-      .eq('id', commande.id)
+    await supabase.from('commandes_catalogue').update({ statut: 'livre' }).eq('id', commande.id)
     await fetchAll()
     setSaving(null)
   }
@@ -113,10 +107,7 @@ export default function LivreurPage() {
   async function confirmerRetour() {
     if (!motifModal) return
     setSaving(motifModal.id)
-    await supabase
-      .from('commandes_catalogue')
-      .update({ statut: 'retour', motif_retour: motif })
-      .eq('id', motifModal.id)
+    await supabase.from('commandes_catalogue').update({ statut: 'retour', motif_retour: motif }).eq('id', motifModal.id)
     setMotifModal(null)
     setMotif('')
     await fetchAll()
@@ -124,17 +115,15 @@ export default function LivreurPage() {
   }
 
   const now = new Date()
-  const statsCA = () => {
-    return historique
-      .filter(c => c.statut === 'livre')
-      .filter(c => {
-        const d = new Date(c.created_at)
-        if (periode === 'jour') return d.toDateString() === now.toDateString()
-        if (periode === 'semaine') return (now.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 7
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-      })
-      .reduce((s, c) => s + (c.frais_livraison || 0), 0)
-  }
+  const statsCA = () => historique
+    .filter(c => c.statut === 'livre')
+    .filter(c => {
+      const d = new Date(c.created_at)
+      if (periode === 'jour') return d.toDateString() === now.toDateString()
+      if (periode === 'semaine') return (now.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 7
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    })
+    .reduce((s, c) => s + (c.frais_livraison || 0), 0)
 
   const nbLivres = historique.filter(c => c.statut === 'livre').length
   const nbRetours = historique.filter(c => c.statut === 'retour').length
@@ -154,20 +143,18 @@ export default function LivreurPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#0f172a', fontFamily: "'Inter', sans-serif", color: '#f1f5f9' }}>
 
+      {/* MODAL RETOUR */}
       {motifModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#1e293b', borderRadius: 16, padding: 24, maxWidth: 400, width: '100%', border: '1px solid #334155' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>❌ Motif de retour</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>❌ Motif de retour</h3>
             <p style={{ margin: '0 0 12px', fontSize: 13, color: '#94a3b8' }}>
-              Commande #{motifModal.id.slice(0, 6).toUpperCase()} — {motifModal.nom_client || motifModal.telephone}
+              #{motifModal.id.slice(0, 6).toUpperCase()} — {motifModal.nom_client || motifModal.telephone}
             </p>
-            <textarea
-              value={motif}
-              onChange={e => setMotif(e.target.value)}
-              placeholder="Ex: Client absent, adresse incorrecte, client a refusé..."
+            <textarea value={motif} onChange={e => setMotif(e.target.value)}
+              placeholder="Ex: Client absent, adresse incorrecte..."
               rows={3}
-              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#f1f5f9', fontSize: 13, outline: 'none', resize: 'vertical', marginBottom: 14 }}
-            />
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#f1f5f9', fontSize: 13, outline: 'none', resize: 'vertical', marginBottom: 14 }} />
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setMotifModal(null); setMotif('') }}
                 style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: 13 }}>
@@ -182,6 +169,7 @@ export default function LivreurPage() {
         </div>
       )}
 
+      {/* HEADER */}
       <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', padding: '16px 20px', borderBottom: '1px solid #1e293b' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -193,7 +181,6 @@ export default function LivreurPage() {
             ↺ Actualiser
           </button>
         </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 14 }}>
           {[
             { label: 'Disponibles', value: disponibles.length, color: '#38bdf8' },
@@ -208,13 +195,13 @@ export default function LivreurPage() {
         </div>
       </div>
 
+      {/* ONGLETS */}
       <div style={{ display: 'flex', borderBottom: '1px solid #1e293b', background: '#0f172a' }}>
         {ONGLETS.map((o, i) => (
           <button key={i} onClick={() => setOnglet(i)}
             style={{
               flex: 1, padding: '12px 8px', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-              background: 'transparent',
-              color: onglet === i ? '#38bdf8' : '#64748b',
+              background: 'transparent', color: onglet === i ? '#38bdf8' : '#64748b',
               borderBottom: onglet === i ? '2px solid #38bdf8' : '2px solid transparent'
             }}>
             {o}
@@ -222,8 +209,9 @@ export default function LivreurPage() {
         ))}
       </div>
 
-      <div style={{ padding: 16 }}>
+      <div style={{ padding: '12px 16px' }}>
 
+        {/* ONGLET 1 — DISPONIBLES (compact) */}
         {onglet === 0 && (
           <div>
             {disponibles.length === 0 ? (
@@ -232,30 +220,39 @@ export default function LivreurPage() {
                 <p style={{ fontSize: 14 }}>Aucun colis disponible</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {disponibles.map(cmd => (
-                  <div key={cmd.id} style={{ background: '#1e293b', borderRadius: 14, padding: 16, border: '1px solid #334155' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#38bdf8', background: '#0f2744', padding: '3px 10px', borderRadius: 20 }}>
-                        #{cmd.id.slice(0, 6).toUpperCase()}
-                      </span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>
-                        {cmd.frais_livraison?.toLocaleString('fr-FR')} F
-                      </span>
+                  <div key={cmd.id} style={{ background: '#1e293b', borderRadius: 12, padding: 12, border: '1px solid #334155', display: 'flex', gap: 12, alignItems: 'center' }}>
+
+                    {/* Image petite */}
+                    <div style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#0f172a' }}>
+                      {cmd.image_url
+                        ? <img src={cmd.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, opacity: 0.3 }}>👗</div>
+                      }
                     </div>
-                    <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#f1f5f9' }}>{cmd.nom_client || '—'}</p>
-                    <p style={{ margin: '0 0 4px', fontSize: 12, color: '#94a3b8' }}>📞 {cmd.telephone}</p>
-                    <p style={{ margin: '0 0 4px', fontSize: 12, color: '#94a3b8' }}>📍 {cmd.adresse}</p>
-                    <p style={{ margin: '0 0 12px', fontSize: 11, color: '#475569' }}>🛍️ {cmd.produit_ref} — {cmd.taille} — {cmd.variantes}</p>
+
+                    {/* Infos */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8' }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>{cmd.frais_livraison?.toLocaleString('fr-FR')} F</span>
+                      </div>
+                      <p style={{ margin: '0 0 2px', fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📞 {cmd.telephone}</p>
+                      <p style={{ margin: '0 0 2px', fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📍 {cmd.adresse}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: '#475569' }}>🛍️ {cmd.produit_ref} — {cmd.taille}</p>
+                    </div>
+
+                    {/* Bouton accepter */}
                     <button
                       onClick={() => accepterColis(cmd)}
                       disabled={saving === cmd.id}
                       style={{
-                        width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+                        flexShrink: 0, padding: '8px 14px', borderRadius: 8, border: 'none',
                         background: saving === cmd.id ? '#334155' : '#1D9E75',
-                        color: '#fff', fontWeight: 700, fontSize: 14, cursor: saving === cmd.id ? 'not-allowed' : 'pointer'
+                        color: '#fff', fontWeight: 700, fontSize: 12, cursor: saving === cmd.id ? 'not-allowed' : 'pointer'
                       }}>
-                      {saving === cmd.id ? '...' : '✅ Accepter ce colis'}
+                      {saving === cmd.id ? '...' : '✅ Accepter'}
                     </button>
                   </div>
                 ))}
@@ -264,6 +261,7 @@ export default function LivreurPage() {
           </div>
         )}
 
+        {/* ONGLET 2 — MES COLIS (détaillé avec images) */}
         {onglet === 1 && (
           <div>
             {mesColis.length === 0 ? (
@@ -272,50 +270,88 @@ export default function LivreurPage() {
                 <p style={{ fontSize: 14 }}>Aucun colis en cours</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {mesColis.map(cmd => (
-                  <div key={cmd.id} style={{ background: '#1e293b', borderRadius: 14, padding: 16, border: '1px solid #f59e0b44' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', background: '#2a1f00', padding: '3px 10px', borderRadius: 20 }}>
-                        #{cmd.id.slice(0, 6).toUpperCase()}
-                      </span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>
-                        {cmd.frais_livraison?.toLocaleString('fr-FR')} F
-                      </span>
-                    </div>
-                    <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#f1f5f9' }}>{cmd.nom_client || '—'}</p>
-                    <p style={{ margin: '0 0 4px', fontSize: 12, color: '#94a3b8' }}>📍 {cmd.adresse}</p>
-                    <p style={{ margin: '0 0 12px', fontSize: 11, color: '#475569' }}>🛍️ {cmd.produit_ref} — {cmd.taille} — {cmd.variantes}</p>
+                  <div key={cmd.id} style={{ background: '#1e293b', borderRadius: 14, border: '1px solid #f59e0b44', overflow: 'hidden' }}>
 
-                    {/* 3 BOUTONS : LIVRÉ — APPELER — RETOUR */}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        onClick={() => confirmerLivraison(cmd)}
-                        disabled={saving === cmd.id}
-                        style={{
-                          flex: 1, padding: '11px', borderRadius: 10, border: 'none',
-                          background: saving === cmd.id ? '#334155' : '#1D9E75',
-                          color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving === cmd.id ? 'not-allowed' : 'pointer'
-                        }}>
-                        {saving === cmd.id ? '...' : '✅ Livré'}
-                      </button>
-                      <a href={`tel:${cmd.telephone}`}
-                        style={{
-                          flex: 1, padding: '11px', borderRadius: 10, border: '1px solid #38bdf8',
-                          background: 'transparent', color: '#38bdf8', fontWeight: 700, fontSize: 13,
-                          cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
-                        }}>
-                        📞 Appeler
-                      </a>
-                      <button
-                        onClick={() => setMotifModal(cmd)}
-                        disabled={saving === cmd.id}
-                        style={{
-                          flex: 1, padding: '11px', borderRadius: 10, border: '1px solid #ef4444',
-                          background: 'transparent', color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer'
-                        }}>
-                        ❌ Retour
-                      </button>
+                    {/* IMAGES défilement horizontal */}
+                    {cmd.images && cmd.images.length > 0 && (
+                      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '10px 12px 6px', background: '#0f172a' }}>
+                        {cmd.images.map((img, i) => (
+                          <div key={i} style={{ flexShrink: 0, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
+                            <img src={img.url} alt={img.couleur}
+                              style={{ width: cmd.images!.length === 1 ? 200 : 130, height: 150, objectFit: 'cover', display: 'block' }} />
+                            <div style={{ position: 'absolute', bottom: 4, left: 4, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 12 }}>
+                              {img.couleur}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ padding: '12px 14px' }}>
+                      {/* Ref + statut */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', background: '#2a1f00', padding: '3px 10px', borderRadius: 20 }}>
+                          #{cmd.id.slice(0, 6).toUpperCase()}
+                        </span>
+                        <span style={{ fontSize: 11, color: '#64748b' }}>
+                          {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+
+                      {/* Client */}
+                      <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600, color: '#f1f5f9' }}>{cmd.nom_client || '—'}</p>
+
+                      {/* Détails produit */}
+                      <div style={{ background: '#0f172a', borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+                        <p style={{ margin: '0 0 3px', fontSize: 12, color: '#94a3b8' }}>🛍️ <strong style={{ color: '#f1f5f9' }}>{cmd.produit_ref}</strong> — Taille {cmd.taille}</p>
+                        <p style={{ margin: '0 0 3px', fontSize: 12, color: '#94a3b8' }}>🎨 {cmd.variantes}</p>
+                        {cmd.note && <p style={{ margin: 0, fontSize: 11, color: '#475569' }}>📝 {cmd.note}</p>}
+                      </div>
+
+                      {/* Prix */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, background: '#0f172a', borderRadius: 8, padding: '8px 10px' }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</div>
+                          <div style={{ fontSize: 10, color: '#64748b' }}>Total commande</div>
+                        </div>
+                        <div style={{ width: 1, background: '#334155' }} />
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>{cmd.frais_livraison?.toLocaleString('fr-FR')} F</div>
+                          <div style={{ fontSize: 10, color: '#64748b' }}>Frais livraison</div>
+                        </div>
+                      </div>
+
+                      {/* Adresse */}
+                      <p style={{ margin: '0 0 12px', fontSize: 12, color: '#94a3b8' }}>📍 {cmd.adresse}</p>
+
+                      {/* 3 BOUTONS */}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => confirmerLivraison(cmd)} disabled={saving === cmd.id}
+                          style={{
+                            flex: 1, padding: '11px', borderRadius: 10, border: 'none',
+                            background: saving === cmd.id ? '#334155' : '#1D9E75',
+                            color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving === cmd.id ? 'not-allowed' : 'pointer'
+                          }}>
+                          {saving === cmd.id ? '...' : '✅ Livré'}
+                        </button>
+                        <a href={`tel:${cmd.telephone}`}
+                          style={{
+                            flex: 1, padding: '11px', borderRadius: 10, border: '1px solid #38bdf8',
+                            background: 'transparent', color: '#38bdf8', fontWeight: 700, fontSize: 13,
+                            cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
+                          }}>
+                          📞 Appeler
+                        </a>
+                        <button onClick={() => setMotifModal(cmd)} disabled={saving === cmd.id}
+                          style={{
+                            flex: 1, padding: '11px', borderRadius: 10, border: '1px solid #ef4444',
+                            background: 'transparent', color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer'
+                          }}>
+                          ❌ Retour
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -324,6 +360,7 @@ export default function LivreurPage() {
           </div>
         )}
 
+        {/* ONGLET 3 — HISTORIQUE + CA */}
         {onglet === 2 && (
           <div>
             <div style={{ background: '#1e293b', borderRadius: 14, padding: 16, marginBottom: 16, border: '1px solid #334155' }}>
