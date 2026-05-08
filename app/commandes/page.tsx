@@ -7,7 +7,7 @@ type Commande = {
   id: string; telephone: string; adresse: string; produit_ref: string; taille: string
   variantes: string; montant_total: number; frais_livraison: number; statut: string
   source: string; nom_client: string; note: string; created_at: string; livreur_id?: string
-  image_url?: string
+  image_url?: string; images?: { couleur: string; url: string }[]
 }
 type Livreur = { id: string; nom: string; code: string }
 
@@ -45,13 +45,23 @@ export default function CommandesPage() {
     ])
 
     const commandesAvecImages = (cmds || []).map(cmd => {
-      const couleurPrincipale = cmd.variantes?.split(',')[0]?.trim() || ''
-      const match = (stockData || []).find((s: any) =>
-        s.produits?.reference === cmd.produit_ref &&
-        s.couleur?.toLowerCase() === couleurPrincipale.toLowerCase() &&
-        s.image_url
-      )
-      return { ...cmd, image_url: match?.image_url || null }
+      const couleurs = (cmd.variantes || '').split(',').map((c: string) => c.trim()).filter(Boolean)
+
+      // Toutes les images pour toutes les couleurs commandées
+      const images = couleurs.map((couleur: string) => {
+        const match = (stockData || []).find((s: any) =>
+          s.produits?.reference === cmd.produit_ref &&
+          s.couleur?.toLowerCase() === couleur.toLowerCase() &&
+          s.image_url
+        )
+        return match ? { couleur, url: match.image_url } : null
+      }).filter(Boolean) as { couleur: string; url: string }[]
+
+      return {
+        ...cmd,
+        image_url: images[0]?.url || null, // première image pour la carte
+        images, // toutes les images pour le modal
+      }
     })
 
     setCommandes(commandesAvecImages)
@@ -127,15 +137,29 @@ export default function CommandesPage() {
               ) : null
             })()}
 
-            {/* IMAGE PRODUIT */}
-            {commandeDetail.image_url ? (
-              <div style={{ marginBottom: 14, borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                <img
-                  src={commandeDetail.image_url}
-                  alt={`Produit ${commandeDetail.produit_ref}`}
-                  style={{ width: '100%', maxHeight: 220, objectFit: 'cover', display: 'block' }}
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                />
+            {/* IMAGES DÉFILEMENT HORIZONTAL */}
+            {commandeDetail.images && commandeDetail.images.length > 0 ? (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  {commandeDetail.images.map((img, i) => (
+                    <div key={i} style={{ flexShrink: 0, borderRadius: 10, overflow: 'hidden', border: '1px solid #e5e7eb', position: 'relative' }}>
+                      <img
+                        src={img.url}
+                        alt={img.couleur}
+                        style={{
+                          width: commandeDetail.images!.length === 1 ? '100%' : 160,
+                          height: 180,
+                          objectFit: 'cover',
+                          display: 'block'
+                        }}
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                      />
+                      <div style={{ position: 'absolute', bottom: 6, left: 6, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20 }}>
+                        {img.couleur}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div style={{ marginBottom: 14, borderRadius: 12, border: '1px solid #e5e7eb', height: 120, background: 'linear-gradient(135deg, #f0ece4, #e8e1d5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, opacity: 0.3 }}>
@@ -272,7 +296,6 @@ export default function CommandesPage() {
       </div>
 
       <div style={{ padding: '16px' }}>
-
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '20px' }}>
           {[
             { label: 'Total', value: stats.total, color: '#1a1a1a', bg: '#fff' },
