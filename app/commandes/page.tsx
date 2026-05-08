@@ -41,10 +41,9 @@ export default function CommandesPage() {
     const [{ data: cmds }, { data: livs }, { data: stockData }] = await Promise.all([
       supabase.from('commandes_catalogue').select('*').neq('statut', 'annule').order('created_at', { ascending: false }),
       supabase.from('livreurs').select('*').eq('actif', true).order('nom'),
-      supabase.from('stock').select('produit_id, couleur, image_url, produits(reference)'),
+      supabase.from('boutique_stock').select('produit_id, couleur, image_url, produits(reference)'),
     ])
 
-    // Enrichir chaque commande avec l'image depuis stock
     const commandesAvecImages = (cmds || []).map(cmd => {
       const couleurPrincipale = cmd.variantes?.split(',')[0]?.trim() || ''
       const match = (stockData || []).find((s: any) =>
@@ -102,14 +101,12 @@ export default function CommandesPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
 
-      {/* MODAL DÉTAIL COMMANDE */}
       {commandeDetail && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
           onClick={() => setCommandeDetail(null)}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 500, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}>
 
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Commande #{commandeDetail.id.slice(0, 6).toUpperCase()}</h3>
@@ -121,18 +118,17 @@ export default function CommandesPage() {
                 style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 14 }}>✕</button>
             </div>
 
-            {/* Statut actuel */}
             {(() => {
               const s = STATUTS.find(s => s.key === commandeDetail.statut)
               return s ? (
-                <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.label}</span>
                 </div>
               ) : null
             })()}
 
-            {/* IMAGE DU PRODUIT */}
-            {commandeDetail.image_url && (
+            {/* IMAGE PRODUIT */}
+            {commandeDetail.image_url ? (
               <div style={{ marginBottom: 14, borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
                 <img
                   src={commandeDetail.image_url}
@@ -141,9 +137,12 @@ export default function CommandesPage() {
                   onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                 />
               </div>
+            ) : (
+              <div style={{ marginBottom: 14, borderRadius: 12, border: '1px solid #e5e7eb', height: 120, background: 'linear-gradient(135deg, #f0ece4, #e8e1d5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, opacity: 0.3 }}>
+                👗
+              </div>
             )}
 
-            {/* Infos client */}
             <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 16, marginBottom: 14 }}>
               <h4 style={{ margin: '0 0 10px', fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Infos client</h4>
               <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600 }}>{commandeDetail.nom_client || '—'}</p>
@@ -151,7 +150,6 @@ export default function CommandesPage() {
               <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>📍 {commandeDetail.adresse}</p>
             </div>
 
-            {/* Infos commande */}
             <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 16, marginBottom: 14 }}>
               <h4 style={{ margin: '0 0 10px', fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Détails commande</h4>
               <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>🛍️ Réf: <strong>{commandeDetail.produit_ref}</strong> — Taille {commandeDetail.taille}</p>
@@ -167,7 +165,6 @@ export default function CommandesPage() {
               </div>
             </div>
 
-            {/* Livreur assigné */}
             {commandeDetail.livreur_id && (
               <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 14px', marginBottom: 14, border: '1px solid #bbf7d0' }}>
                 <p style={{ margin: 0, fontSize: 13, color: '#1D9E75', fontWeight: 600 }}>
@@ -176,7 +173,6 @@ export default function CommandesPage() {
               </div>
             )}
 
-            {/* NOUVEAU FLOW LIVRAISON */}
             {STATUTS_SUIVANTS[commandeDetail.statut] && (
               <div style={{ marginBottom: 14 }}>
                 <h4 style={{ margin: '0 0 10px', fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Changer le statut</h4>
@@ -277,7 +273,6 @@ export default function CommandesPage() {
 
       <div style={{ padding: '16px' }}>
 
-        {/* KPIs */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '20px' }}>
           {[
             { label: 'Total', value: stats.total, color: '#1a1a1a', bg: '#fff' },
@@ -339,7 +334,6 @@ export default function CommandesPage() {
                           onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
                           onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
 
-                          {/* IMAGE sur la carte */}
                           {cmd.image_url ? (
                             <img
                               src={cmd.image_url}
