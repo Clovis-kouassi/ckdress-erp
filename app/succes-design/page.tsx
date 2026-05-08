@@ -53,6 +53,7 @@ export default function SuccesDesignPage() {
   const [produits, setProduits] = useState<any[]>([])
   const [fournisseurs, setFournisseurs] = useState<any[]>([])
   const [achats, setAchats] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [onglet, setOnglet] = useState<'stock' | 'publier' | 'fournisseurs' | 'achats'>('stock')
   const [user, setUser] = useState<any>(null)
@@ -61,7 +62,7 @@ export default function SuccesDesignPage() {
   const [prodForm, setProdForm] = useState({ reference: '', nom: '', categorie: '', prix_vente: 0, prix_achat: 0, description: '', image_file: null as File | null, preview: '', fournisseur_id: '' })
   const [couleurs, setCouleurs] = useState<CouleurVariante[]>([nouvelleCouleur()])
   const fileRef = useRef<HTMLInputElement>(null)
-  const [fournisseurForm, setFournisseurForm] = useState({ nom: '', pays: 'Côte dIvoire', telephone: '', email: '', type: 'local' })
+  const [fournisseurForm, setFournisseurForm] = useState({ nom: '', pays: "Côte d'Ivoire", telephone: '', email: '', type: 'local' })
   const [achatForm, setAchatForm] = useState({ fournisseur_id: '', nom_produit: '', produit_ref: '', quantite: 1, prix_achat_unitaire: 0, date_achat: new Date().toISOString().split('T')[0], notes: '' })
 
   useEffect(() => {
@@ -71,14 +72,16 @@ export default function SuccesDesignPage() {
   }, [])
 
   const fetchData = async () => {
-    const [{ data: prodsData }, { data: foursData }, { data: achatsData }] = await Promise.all([
+    const [{ data: prodsData }, { data: foursData }, { data: achatsData }, { data: catsData }] = await Promise.all([
       supabase.from('produits').select('*').eq('activite', 'succes_design').order('created_at', { ascending: false }),
       supabase.from('fournisseurs').select('*').eq('actif', true).order('nom'),
       supabase.from('achats_fournisseur').select('*, fournisseurs(nom)').order('created_at', { ascending: false }).limit(20),
+      supabase.from('categories').select('*').eq('activite', 'succes_design').order('ordre'),
     ])
     setProduits(prodsData || [])
     setFournisseurs(foursData || [])
     setAchats(achatsData || [])
+    setCategories(catsData || [])
     setLoading(false)
   }
 
@@ -122,7 +125,7 @@ export default function SuccesDesignPage() {
     if (!fournisseurForm.nom) return
     setSaving(true)
     await supabase.from('fournisseurs').insert(fournisseurForm)
-    setFournisseurForm({ nom: '', pays: 'Côte dIvoire', telephone: '', email: '', type: 'local' })
+    setFournisseurForm({ nom: '', pays: "Côte d'Ivoire", telephone: '', email: '', type: 'local' })
     setSuccess('✅ Fournisseur ajouté !')
     setTimeout(() => setSuccess(''), 2000)
     fetchData(); setSaving(false)
@@ -215,6 +218,7 @@ export default function SuccesDesignPage() {
                 <div style={{ padding: '12px' }}>
                   <p style={{ margin: 0, fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
                   <p style={{ margin: '2px 0 4px', color: '#888', fontSize: '12px' }}>Réf: {prod.reference}</p>
+                  {prod.categorie && <p style={{ margin: '0 0 4px', color: '#d4a853', fontSize: '11px', fontWeight: 600 }}>🏷️ {prod.categorie}</p>}
                   {prod.description && <p style={{ margin: '0 0 6px', color: '#aaa', fontSize: '11px' }}>{prod.description}</p>}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: '#d4a853', fontWeight: 700, fontSize: '14px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
@@ -238,38 +242,53 @@ export default function SuccesDesignPage() {
                   <div key={f.key}>
                     <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>{f.label}</label>
                     <input value={(prodForm as any)[f.key]} onChange={e => setProdForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder}
-                      style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' }} />
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                   </div>
                 ))}
                 <div>
                   <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Prix de vente (F) *</label>
                   <input type="number" value={prodForm.prix_vente} onChange={e => setProdForm(p => ({ ...p, prix_vente: Number(e.target.value) }))} placeholder="Ex: 25000"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' }} />
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
                 <div>
                   <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Prix d'achat (F)</label>
                   <input type="number" value={prodForm.prix_achat} onChange={e => setProdForm(p => ({ ...p, prix_achat: Number(e.target.value) }))} placeholder="Ex: 12000"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' }} />
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
+
+                {/* CATÉGORIE — select dynamique */}
                 <div>
-                  <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Catégorie</label>
-                  <input value={prodForm.categorie} onChange={e => setProdForm(p => ({ ...p, categorie: e.target.value }))} placeholder="Ex: robe, ensemble"
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' }} />
+                  <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Catégorie *</label>
+                  <select value={prodForm.categorie} onChange={e => setProdForm(p => ({ ...p, categorie: e.target.value }))}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                    <option value="">Choisir une catégorie...</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.nom}>{c.nom}</option>
+                    ))}
+                  </select>
+                  {categories.length === 0 && (
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#E24B4A' }}>
+                      ⚠️ Aucune catégorie — <a href="/admin/utilisateurs" style={{ color: '#d4a853' }}>Ajouter</a>
+                    </p>
+                  )}
                 </div>
+
                 <div>
                   <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Fournisseur</label>
                   <select value={prodForm.fournisseur_id} onChange={e => setProdForm(p => ({ ...p, fournisseur_id: e.target.value }))}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }}>
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
                     <option value="">Choisir...</option>
                     {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom} ({f.pays})</option>)}
                   </select>
                 </div>
               </div>
+
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Description</label>
                 <textarea value={prodForm.description} onChange={e => setProdForm(p => ({ ...p, description: e.target.value }))} placeholder="Description..." rows={2}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', resize: 'vertical' }} />
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', resize: 'vertical', outline: 'none' }} />
               </div>
+
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '6px' }}>📷 Photo principale</label>
                 <input type="file" accept="image/*" ref={fileRef} onChange={e => { const file = e.target.files?.[0]; if (file) setProdForm(p => ({ ...p, image_file: file, preview: URL.createObjectURL(file) })) }} style={{ display: 'none' }} />
@@ -281,6 +300,7 @@ export default function SuccesDesignPage() {
                   {prodForm.preview && <img src={prodForm.preview} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e5e5e5' }} />}
                 </div>
               </div>
+
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={{ color: '#888', fontSize: '12px' }}>COULEURS & TAILLES</label>
@@ -291,7 +311,7 @@ export default function SuccesDesignPage() {
                   <div key={ci} style={{ background: '#f9f9f9', borderRadius: '10px', padding: '14px', marginBottom: '10px', border: '1px solid #f0f0f0' }}>
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
                       <input value={c.couleur} onChange={e => updateCouleur(ci, 'couleur', e.target.value)} placeholder="Nom couleur"
-                        style={{ flex: 1, padding: '8px', borderRadius: '6px', background: '#fff', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
+                        style={{ flex: 1, padding: '8px', borderRadius: '6px', background: '#fff', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
                       <button onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e: any) => { const file = e.target.files?.[0]; if (file) { updateCouleur(ci, 'image_file', file); updateCouleur(ci, 'preview', URL.createObjectURL(file)) } }; input.click() }}
                         style={{ padding: '8px 12px', borderRadius: '6px', border: '1px dashed #d4a853', background: '#fffbeb', color: '#d4a853', fontSize: '12px', cursor: 'pointer' }}>📷</button>
                       {c.preview && <img src={c.preview} style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px' }} />}
@@ -324,13 +344,13 @@ export default function SuccesDesignPage() {
               <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#d4a853' }}>🏭 Ajouter un fournisseur</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
                 <input value={fournisseurForm.nom} onChange={e => setFournisseurForm(p => ({ ...p, nom: e.target.value }))} placeholder="Nom fournisseur *"
-                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
+                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
                 <input value={fournisseurForm.pays} onChange={e => setFournisseurForm(p => ({ ...p, pays: e.target.value }))} placeholder="Pays"
-                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
+                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
                 <input value={fournisseurForm.telephone} onChange={e => setFournisseurForm(p => ({ ...p, telephone: e.target.value }))} placeholder="Téléphone"
-                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
+                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
                 <select value={fournisseurForm.type} onChange={e => setFournisseurForm(p => ({ ...p, type: e.target.value }))}
-                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }}>
+                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
                   <option value="local">Local</option>
                   <option value="import">Import</option>
                   <option value="chine">Chine</option>
@@ -362,20 +382,20 @@ export default function SuccesDesignPage() {
               <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#d4a853' }}>🛒 Enregistrer un achat</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <select value={achatForm.fournisseur_id} onChange={e => setAchatForm(p => ({ ...p, fournisseur_id: e.target.value }))}
-                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }}>
+                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
                   <option value="">Fournisseur *</option>
                   {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
                 </select>
                 <input value={achatForm.nom_produit} onChange={e => setAchatForm(p => ({ ...p, nom_produit: e.target.value }))} placeholder="Nom produit *"
-                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
+                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <input type="number" value={achatForm.quantite} onChange={e => setAchatForm(p => ({ ...p, quantite: Number(e.target.value) }))} placeholder="Quantité"
-                    style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
+                    style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
                   <input type="number" value={achatForm.prix_achat_unitaire} onChange={e => setAchatForm(p => ({ ...p, prix_achat_unitaire: Number(e.target.value) }))} placeholder="Prix unitaire (F)"
-                    style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
+                    style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
                 </div>
                 <input type="date" value={achatForm.date_achat} onChange={e => setAchatForm(p => ({ ...p, date_achat: e.target.value }))}
-                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px' }} />
+                  style={{ padding: '10px', borderRadius: '8px', background: '#f9f9f9', border: '1px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
                 <div style={{ background: '#fffbeb', borderRadius: '8px', padding: '10px', display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#888' }}>Total</span>
                   <span style={{ color: '#d4a853', fontWeight: 700 }}>{(achatForm.quantite * achatForm.prix_achat_unitaire).toLocaleString('fr-FR')} F</span>
