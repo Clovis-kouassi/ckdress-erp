@@ -56,7 +56,7 @@ function CommandeContent() {
 
   async function enregistrerCommande(via: 'whatsapp' | 'formulaire') {
     const ref = Math.random().toString(36).slice(2, 10).toUpperCase()
-    const { error } = await supabase.from('commandes_catalogue').insert({
+    const { data, error } = await supabase.from('commandes_catalogue').insert({
       telephone,
       adresse: typeCommande === 'expedition' ? `Ville: ${ville}` : adresse,
       produit_ref: produitRef,
@@ -67,7 +67,15 @@ function CommandeContent() {
       statut: 'nouveau',
       source: via,
       note: `REF: ${ref} | SUCCES DESIGN | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
-    })
+    }).select().single()
+
+    // ✅ Déduire le stock via RPC sécurisé
+    if (data && !error) {
+      for (const variante of variantes) {
+        await supabase.rpc('deduire_stock', { stock_id: variante.id })
+      }
+    }
+
     return { ref, error }
   }
 
@@ -157,14 +165,31 @@ function CommandeContent() {
               <span style={{ fontSize: 14, fontWeight: 600, color: '#d4a853' }}>{produit?.prix_vente?.toLocaleString('fr-FR')} F</span>
             </div>
           ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, paddingBottom: 6 }}>
+            <span style={{ fontSize: 13, color: '#888' }}>Sous-total</span>
+            <span style={{ fontSize: 13, color: '#888' }}>{sousTotal.toLocaleString('fr-FR')} F</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '1px solid #f0f0f0' }}>
+            <span style={{ fontSize: 13, color: '#888' }}>{typeCommande === 'abidjan' ? 'Frais livraison' : 'Frais expédition'}</span>
+            <span style={{ fontSize: 13, color: '#888' }}>{fraisLivraison.toLocaleString('fr-FR')} F</span>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10 }}>
             <span style={{ fontSize: 16, fontWeight: 700 }}>Total</span>
             <span style={{ fontSize: 16, fontWeight: 700 }}>{total.toLocaleString('fr-FR')} F</span>
           </div>
+          {typeCommande === 'expedition' && (
+            <div style={{ marginTop: 8, background: '#fef9ec', borderRadius: 8, padding: '8px 12px' }}>
+              <p style={{ margin: 0, fontSize: 12, color: '#b45309', fontWeight: 600 }}>
+                ⚠️ {total.toLocaleString('fr-FR')} F à payer avant expédition
+              </p>
+            </div>
+          )}
         </div>
 
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ece9e3', padding: '16px', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 16px', textTransform: 'uppercase' }}>Infos de livraison</h3>
+          <h3 style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 16px', textTransform: 'uppercase' }}>
+            {typeCommande === 'abidjan' ? 'Infos de livraison' : "Infos d'expédition"}
+          </h3>
           <div style={{ marginBottom: 14 }}>
             <label style={{ fontSize: 13, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>Téléphone *</label>
             <input type="tel" value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="Ex: 07 00 00 00 00"
