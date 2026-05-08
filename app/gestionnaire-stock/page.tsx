@@ -56,6 +56,7 @@ export default function GestionnaireStockPage() {
   const [produits, setProduits] = useState<any[]>([])
   const [boutiques, setBoutiques] = useState<any[]>([])
   const [mouvements, setMouvements] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [onglet, setOnglet] = useState<'stock' | 'produits' | 'nouveau_produit' | 'approvisionner' | 'historique'>('stock')
   const [user, setUser] = useState<any>(null)
@@ -77,18 +78,23 @@ export default function GestionnaireStockPage() {
   }, [])
 
   const fetchData = async () => {
-    const [{ data: stockData }, { data: prodsData }, { data: boutsData }, { data: ventesData }] = await Promise.all([
+    const [{ data: stockData }, { data: prodsData }, { data: boutsData }, { data: ventesData }, { data: catsData }] = await Promise.all([
       supabase.from('stock').select('*, produits(nom, reference, image_url)').order('quantite'),
       supabase.from('produits').select('*').order('nom'),
       supabase.from('boutiques').select('*').eq('actif', true),
       supabase.from('ventes_boutique').select('*').order('created_at', { ascending: false }).limit(30),
+      supabase.from('categories').select('*').order('activite').order('ordre'),
     ])
     setStock(stockData || [])
     setProduits(prodsData || [])
     setBoutiques(boutsData || [])
     setMouvements(ventesData || [])
+    setCategories(catsData || [])
     setLoading(false)
   }
+
+  // Filtrer les catégories selon l'activité sélectionnée
+  const categoriesFiltrees = categories.filter(c => c.activite === prodForm.activite)
 
   const updateCouleur = (index: number, field: string, value: any) =>
     setCouleurs(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
@@ -262,7 +268,8 @@ export default function GestionnaireStockPage() {
                 </div>
                 <div style={{ padding: '14px' }}>
                   <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
-                  <p style={{ margin: '0 0 10px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
+                  <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
+                  {prod.categorie && <p style={{ margin: '0 0 10px', color: '#0891b2', fontSize: '11px', fontWeight: 600 }}>🏷️ {prod.categorie}</p>}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
                     <button onClick={() => toggleDisponible(prod.id, prod.disponible)}
@@ -311,19 +318,32 @@ export default function GestionnaireStockPage() {
                     placeholder="Ex: 8000"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
-                <div>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Catégorie</label>
-                  <input value={prodForm.categorie} onChange={e => setProdForm(p => ({ ...p, categorie: e.target.value }))}
-                    placeholder="Ex: robe, polo"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
-                </div>
+
+                {/* ACTIVITÉ — doit être avant catégorie pour filtrer */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Activité</label>
-                  <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value }))}
+                  <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value, categorie: '' }))}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
                     <option value="ck_design">CK Design</option>
                     <option value="succes_design">Succès Design</option>
                   </select>
+                </div>
+
+                {/* CATÉGORIE — select dynamique filtré par activité */}
+                <div>
+                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Catégorie *</label>
+                  <select value={prodForm.categorie} onChange={e => setProdForm(p => ({ ...p, categorie: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                    <option value="">Choisir une catégorie...</option>
+                    {categoriesFiltrees.map(c => (
+                      <option key={c.id} value={c.nom}>{c.nom}</option>
+                    ))}
+                  </select>
+                  {categoriesFiltrees.length === 0 && (
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#E24B4A' }}>
+                      ⚠️ Aucune catégorie pour cette activité — <a href="/admin/utilisateurs" style={{ color: '#0891b2' }}>Ajouter</a>
+                    </p>
+                  )}
                 </div>
               </div>
 
