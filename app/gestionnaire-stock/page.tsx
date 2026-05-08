@@ -76,10 +76,14 @@ export default function GestionnaireStockPage() {
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
     setUser(u)
-    fetchData()
+    // Pré-remplir l'activité selon l'utilisateur connecté
+    if (u?.activite && u.activite !== 'ck_dress') {
+      setProdForm(p => ({ ...p, activite: u.activite }))
+    }
+    fetchData(u)
   }, [])
 
-  // ✅ Génération automatique de la référence
+  // Génération automatique de la référence
   useEffect(() => {
     if (!prodForm.categorie) return
     const prefix = prodForm.activite === 'ck_design' ? 'CK' : 'SD'
@@ -89,16 +93,39 @@ export default function GestionnaireStockPage() {
     setProdForm(p => ({ ...p, reference: ref }))
   }, [prodForm.activite, prodForm.categorie])
 
-  const fetchData = async () => {
-    const [{ data: stockData }, { data: prodsData }, { data: boutsData }, { data: ventesData }, { data: catsData }] = await Promise.all([
-      supabase.from('stock').select('*').order('quantite'),
-      supabase.from('produits').select('*').order('nom'),
+  const fetchData = async (u?: any) => {
+    const currentUser = u || user || JSON.parse(localStorage.getItem('ck_user') || '{}')
+    const isSuperAdmin = ['super_admin', 'manager'].includes(currentUser?.role)
+    const activite = currentUser?.activite
+
+    // Charger produits selon activité
+    const prodsQuery = isSuperAdmin
+      ? supabase.from('produits').select('*').order('nom')
+      : supabase.from('produits').select('*').eq('activite', activite || 'ck_design').order('nom')
+
+    const [{ data: prodsData }, { data: boutsData }, { data: ventesData }, { data: catsData }] = await Promise.all([
+      prodsQuery,
       supabase.from('boutiques').select('*').eq('actif', true),
       supabase.from('ventes_boutique').select('*').order('created_at', { ascending: false }).limit(30),
       supabase.from('categories').select('*').order('activite').order('ordre'),
     ])
-    setStock(stockData || [])
-    setProduits(prodsData || [])
+
+    const prodsFiltres = prodsData || []
+
+    // Charger stock uniquement pour les produits de l'activité
+    let stockFiltre: any[] = []
+    if (prodsFiltres.length > 0) {
+      const prodIds = prodsFiltres.map(p => p.id)
+      const { data: stockData } = await supabase
+        .from('stock')
+        .select('*')
+        .in('produit_id', prodIds)
+        .order('quantite')
+      stockFiltre = stockData || []
+    }
+
+    setStock(stockFiltre)
+    setProduits(prodsFiltres)
     setBoutiques(boutsData || [])
     setMouvements(ventesData || [])
     setCategories(catsData || [])
@@ -158,7 +185,8 @@ export default function GestionnaireStockPage() {
     }
     setSuccess('✅ Produit publié !')
     setTimeout(() => setSuccess(''), 3000)
-    setProdForm({ reference: '', nom: '', categorie: '', activite: 'ck_design', prix_vente: 0, prix_achat: 0, description: '', image_file: null, preview: '', disponible: true })
+    const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
+    setProdForm({ reference: '', nom: '', categorie: '', activite: u?.activite || 'ck_design', prix_vente: 0, prix_achat: 0, description: '', image_file: null, preview: '', disponible: true })
     setCouleurs([nouvelleCouleur()])
     fetchData()
     setOnglet('produits')
@@ -187,6 +215,7 @@ export default function GestionnaireStockPage() {
     fetchData()
   }
 
+  const isSuperAdmin = ['super_admin', 'manager'].includes(user?.role)
   const stockCritique = stock.filter(s => s.quantite <= 3)
   const totalArticles = stock.reduce((s, i) => s + i.quantite, 0)
 
@@ -236,7 +265,7 @@ export default function GestionnaireStockPage() {
               </div>
               <div style={{ background: stockCritique.some(s => s.produit_id === produitDetail.id) ? '#fff0f0' : '#f8f9fa', borderRadius: 10, padding: '10px 14px' }}>
                 <p style={{ margin: 0, fontSize: 11, color: '#888' }}>Alertes</p>
-                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: stockCritique.some(s => s.produit_id === produitDetail.id) ? '#E24B4A' : '#aaa' }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: stockCritique.some(s => s.produit_id === produitDetail.id) ? '#E24B4A' : '#aaa' }}>
                   {stockCritique.filter(s => s.produit_id === produitDetail.id).length > 0 ? '⚠️ Critique' : '✅ OK'}
                 </p>
               </div>
@@ -267,12 +296,7 @@ export default function GestionnaireStockPage() {
                       onChange={e => setAjustements(prev => ({ ...prev, [v.id]: Number(e.target.value) }))}
                       onBlur={() => sauvegarderAjustement(v.id)}
                       min={0}
-                      style={{
-                        width: 56, padding: '4px 8px', borderRadius: 8, textAlign: 'center',
-                        border: '1.5px solid #0891b2', fontSize: 14, fontWeight: 700,
-                        color: v.quantite <= 3 ? '#E24B4A' : '#1D9E75', outline: 'none',
-                        background: '#fff'
-                      }} />
+                      style={{ width: 56, padding: '4px 8px', borderRadius: 8, textAlign: 'center', border: '1.5px solid #0891b2', fontSize: 14, fontWeight: 700, color: v.quantite <= 3 ? '#E24B4A' : '#1D9E75', outline: 'none', background: '#fff' }} />
                     <button onClick={() => ajusterQuantite(v.id, 1)}
                       style={{ width: 28, height: 28, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                     <span style={{ fontSize: 11, color: '#aaa' }}>pcs</span>
@@ -286,11 +310,7 @@ export default function GestionnaireStockPage() {
 
             <div style={{ marginTop: 16 }}>
               <button onClick={() => toggleDisponible(produitDetail.id, produitDetail.disponible)}
-                style={{
-                  width: '100%', padding: '11px', borderRadius: 10, cursor: 'pointer', border: 'none', fontWeight: 600, fontSize: 13,
-                  background: produitDetail.disponible ? '#fff5f5' : '#f0fdf4',
-                  color: produitDetail.disponible ? '#E24B4A' : '#1D9E75',
-                }}>
+                style={{ width: '100%', padding: '11px', borderRadius: 10, cursor: 'pointer', border: 'none', fontWeight: 600, fontSize: 13, background: produitDetail.disponible ? '#fff5f5' : '#f0fdf4', color: produitDetail.disponible ? '#E24B4A' : '#1D9E75' }}>
                 {produitDetail.disponible ? '❌ Masquer du catalogue' : '✅ Publier dans catalogue'}
               </button>
             </div>
@@ -302,7 +322,10 @@ export default function GestionnaireStockPage() {
       <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
         <div>
           <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '16px', fontWeight: 700 }}>📦 Gestionnaire Stock</h1>
-          <p style={{ color: '#94a3b8', margin: '2px 0 0', fontSize: '11px' }}>{user?.nom} — {user?.activite}</p>
+          <p style={{ color: '#94a3b8', margin: '2px 0 0', fontSize: '11px' }}>
+            {user?.nom} — {user?.activite === 'ck_design' ? 'CK Design' : user?.activite === 'succes_design' ? 'Succès Design' : 'Tous'}
+            {isSuperAdmin && <span style={{ marginLeft: 6, background: '#d4a853', color: '#1a1a1a', fontSize: 10, padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>ADMIN</span>}
+          </p>
         </div>
         <button onClick={() => { localStorage.removeItem('ck_user'); window.location.href = '/login' }}
           style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', padding: '6px 12px', fontSize: '11px', cursor: 'pointer' }}>
@@ -334,12 +357,7 @@ export default function GestionnaireStockPage() {
           { key: 'historique', label: '📋 Historique' },
         ].map(o => (
           <button key={o.key} onClick={() => setOnglet(o.key as any)}
-            style={{
-              flexShrink: 0, padding: '9px 14px', borderRadius: '9px', border: 'none', cursor: 'pointer',
-              fontSize: '12px', fontWeight: 600, transition: 'all 0.15s',
-              background: onglet === o.key ? '#0891b2' : 'transparent',
-              color: onglet === o.key ? '#fff' : '#888',
-            }}>
+            style={{ flexShrink: 0, padding: '9px 14px', borderRadius: '9px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, transition: 'all 0.15s', background: onglet === o.key ? '#0891b2' : 'transparent', color: onglet === o.key ? '#fff' : '#888' }}>
             {o.label}
           </button>
         ))}
@@ -370,28 +388,24 @@ export default function GestionnaireStockPage() {
                 const hasCritique = variantes.some(v => v.quantite <= 3)
                 const couleursUniques = [...new Set(variantes.map(v => v.couleur))]
                 return (
-                  <div key={prod.id} style={{
-                    background: '#fff', borderRadius: '14px', overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                    border: hasCritique ? '1.5px solid #E24B4A66' : '1.5px solid transparent',
-                    cursor: 'pointer',
-                  }} onClick={() => setProduitDetail(prod)}>
+                  <div key={prod.id} style={{ background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: hasCritique ? '1.5px solid #E24B4A66' : '1.5px solid transparent', cursor: 'pointer' }}
+                    onClick={() => setProduitDetail(prod)}>
                     <div style={{ height: '170px', background: '#f5f5f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                       {prod.image_url
                         ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>
                       }
-                      <div style={{
-                        position: 'absolute', bottom: 8, right: 8,
-                        fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-                        background: stockTotal === 0 ? '#E24B4A' : hasCritique ? '#EF9F27' : '#1D9E75',
-                        color: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
-                      }}>
+                      <div style={{ position: 'absolute', bottom: 8, right: 8, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stockTotal === 0 ? '#E24B4A' : hasCritique ? '#EF9F27' : '#1D9E75', color: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
                         {stockTotal} pcs
                       </div>
                       {hasCritique && (
                         <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
                           ⚠️ Critique
+                        </div>
+                      )}
+                      {isSuperAdmin && (
+                        <div style={{ position: 'absolute', top: 8, right: 8, background: prod.activite === 'ck_design' ? '#0891b2' : '#d4a853', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 20 }}>
+                          {prod.activite === 'ck_design' ? 'CK' : 'SD'}
                         </div>
                       )}
                     </div>
@@ -405,11 +419,7 @@ export default function GestionnaireStockPage() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
                         <button onClick={e => { e.stopPropagation(); toggleDisponible(prod.id, prod.disponible) }}
-                          style={{
-                            fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none',
-                            background: prod.disponible ? '#f0fdf4' : '#fff5f5',
-                            color: prod.disponible ? '#1D9E75' : '#E24B4A',
-                          }}>
+                          style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none', background: prod.disponible ? '#f0fdf4' : '#fff5f5', color: prod.disponible ? '#1D9E75' : '#E24B4A' }}>
                           {prod.disponible ? '✅ Publié' : '❌ Masqué'}
                         </button>
                       </div>
@@ -429,34 +439,26 @@ export default function GestionnaireStockPage() {
               <p style={{ margin: '0 0 20px', fontSize: '12px', color: '#aaa' }}>Ce produit sera visible dans le catalogue client.</p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-
-                {/* NOM */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Nom *</label>
                   <input value={prodForm.nom} onChange={e => setProdForm(p => ({ ...p, nom: e.target.value }))}
                     placeholder="Ex: Robe Wax"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
-
-                {/* RÉFÉRENCE AUTO */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
-                    Référence <span style={{ color: '#0891b2', fontWeight: 400 }}>(générée auto)</span>
+                    Référence <span style={{ color: '#0891b2', fontWeight: 400 }}>(auto)</span>
                   </label>
                   <input value={prodForm.reference} readOnly
-                    placeholder="Choisissez activité + catégorie"
+                    placeholder="Choisissez catégorie d'abord"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#e8f4fd', border: '1.5px solid #bae6fd', color: '#0891b2', fontSize: '13px', boxSizing: 'border-box', outline: 'none', fontWeight: 600 }} />
                 </div>
-
-                {/* PRIX VENTE */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Prix de vente (F) *</label>
                   <input type="number" value={prodForm.prix_vente} onChange={e => setProdForm(p => ({ ...p, prix_vente: Number(e.target.value) }))}
                     placeholder="Ex: 15000"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
-
-                {/* PRIX ACHAT */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Prix d'achat (F)</label>
                   <input type="number" value={prodForm.prix_achat} onChange={e => setProdForm(p => ({ ...p, prix_achat: Number(e.target.value) }))}
@@ -464,17 +466,18 @@ export default function GestionnaireStockPage() {
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
 
-                {/* ACTIVITÉ */}
-                <div>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Activité</label>
-                  <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value, categorie: '', reference: '' }))}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
-                    <option value="ck_design">CK Design</option>
-                    <option value="succes_design">Succès Design</option>
-                  </select>
-                </div>
+                {/* Activité — visible seulement pour super admin */}
+                {isSuperAdmin && (
+                  <div>
+                    <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Activité</label>
+                    <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value, categorie: '', reference: '' }))}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                      <option value="ck_design">CK Design</option>
+                      <option value="succes_design">Succès Design</option>
+                    </select>
+                  </div>
+                )}
 
-                {/* CATÉGORIE */}
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Catégorie *</label>
                   <select value={prodForm.categorie} onChange={e => setProdForm(p => ({ ...p, categorie: e.target.value }))}
@@ -546,12 +549,7 @@ export default function GestionnaireStockPage() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {c.tailles.map((t, ti) => (
                         <div key={t.taille} onClick={() => updateTailleCouleur(ci, ti, 'active', !t.active)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
-                            background: t.active ? '#0891b2' : '#fff',
-                            border: `1.5px solid ${t.active ? '#0891b2' : '#e5e5e5'}`,
-                            borderRadius: '8px', padding: '5px 9px',
-                          }}>
+                          style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: t.active ? '#0891b2' : '#fff', border: `1.5px solid ${t.active ? '#0891b2' : '#e5e5e5'}`, borderRadius: '8px', padding: '5px 9px' }}>
                           <span style={{ fontSize: '12px', fontWeight: 700, color: t.active ? 'white' : '#888' }}>{t.taille}</span>
                           {t.active && (
                             <input type="number" value={t.quantite} min={1}
