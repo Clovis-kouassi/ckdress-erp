@@ -20,8 +20,8 @@ const MENU_LINKS = [
   { label: '🚚 Livraisons', href: '/livraisons' },
   { label: '⚙️ Production', href: '/production' },
   { label: '🏪 Boutiques', href: '/admin/boutiques' },
-  { label: '🌐 Catalogue', href: '/catalogue' },
-  { label: '✨ Succès Design', href: '/succes-design' },
+  { label: '🎨 Catalogue CK Design', href: '/catalogue' },
+  { label: '✨ Catalogue Succès Design', href: '/succes-design' },
   { label: '👤 Utilisateurs', href: '/admin/utilisateurs' },
 ]
 
@@ -128,7 +128,7 @@ export default function Dashboard() {
             </button>
 
             {showMenu && (
-              <div style={{ position: 'absolute', right: 0, top: '46px', width: '220px', background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', right: 0, top: '46px', width: '240px', background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
                 <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
                   <p style={{ margin: 0, fontSize: '11px', color: '#aaa', textTransform: 'uppercase', fontWeight: 600 }}>Navigation</p>
                 </div>
@@ -206,7 +206,7 @@ export default function Dashboard() {
             </div>
 
             {/* MENU RACCOURCIS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', marginBottom: '20px' }}>
               {MENU_LINKS.map((link, i) => (
                 <a key={i} href={link.href} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '14px', textAlign: 'center', textDecoration: 'none', color: '#666', fontSize: '13px', fontWeight: 500, display: 'block', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1D9E75'; (e.currentTarget as HTMLElement).style.color = '#1D9E75' }}
