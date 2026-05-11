@@ -27,13 +27,17 @@ const ACTIVITES = [
 
 export default function UtilisateursPage() {
   const [utilisateurs, setUtilisateurs] = useState<any[]>([])
+  const [livreurs, setLivreurs] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [onglet, setOnglet] = useState<'utilisateurs' | 'categories'>('utilisateurs')
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [form, setForm] = useState({ nom: '', email: '', mot_de_passe: '', role: 'commercial', activite: 'ck_design', code_ref: '' })
+  const [form, setForm] = useState({
+    nom: '', email: '', telephone: '', mot_de_passe: '',
+    role: 'commercial', activite: 'ck_design', code_ref: ''
+  })
   const [catForm, setCatForm] = useState({ nom: '', activite: 'ck_design', ordre: 0 })
 
   useEffect(() => {
@@ -43,20 +47,63 @@ export default function UtilisateursPage() {
   }, [])
 
   const fetchData = async () => {
-    const [{ data: users }, { data: cats }] = await Promise.all([
+    const [{ data: users }, { data: cats }, { data: livs }] = await Promise.all([
       supabase.from('utilisateurs').select('*').order('created_at', { ascending: false }),
       supabase.from('categories').select('*').order('activite').order('ordre'),
+      supabase.from('livreurs').select('*').order('created_at'),
     ])
     setUtilisateurs(users || [])
     setCategories(cats || [])
+    setLivreurs(livs || [])
     setLoading(false)
   }
 
   const addUser = async () => {
-    if (!form.nom || !form.email || !form.mot_de_passe) return
+    const isLivreur = form.role === 'livreur'
+
+    if (!form.nom) return
+    if (isLivreur && !form.telephone) { alert('Le téléphone est obligatoire pour un livreur.'); return }
+    if (!isLivreur && (!form.email || !form.mot_de_passe)) { alert('Email et mot de passe obligatoires.'); return }
+
     setSaving(true)
-    await supabase.from('utilisateurs').insert(form)
-    setForm({ nom: '', email: '', mot_de_passe: '', role: 'commercial', activite: 'ck_design', code_ref: '' })
+
+    if (isLivreur) {
+      // Générer code automatique
+      const code = `LIV-${String(livreurs.length + 1).padStart(3, '0')}`
+
+      // Créer dans table livreurs
+      const { data: livreurData } = await supabase.from('livreurs').insert({
+        nom: form.nom,
+        telephone: form.telephone.trim(),
+        code,
+        actif: true,
+        mot_de_passe: null,
+      }).select().single()
+
+      // Créer aussi dans utilisateurs avec email fictif
+      await supabase.from('utilisateurs').insert({
+        nom: form.nom,
+        email: `${form.telephone.trim()}@livreur.ck`,
+        mot_de_passe: form.mot_de_passe || '1234',
+        role: 'livreur',
+        activite: form.activite,
+        code_ref: code,
+        actif: true,
+      })
+
+    } else {
+      await supabase.from('utilisateurs').insert({
+        nom: form.nom,
+        email: form.email,
+        mot_de_passe: form.mot_de_passe,
+        role: form.role,
+        activite: form.activite,
+        code_ref: form.code_ref,
+        actif: true,
+      })
+    }
+
+    setForm({ nom: '', email: '', telephone: '', mot_de_passe: '', role: 'commercial', activite: 'ck_design', code_ref: '' })
     setShowForm(false)
     fetchData()
     setSaving(false)
@@ -91,8 +138,7 @@ export default function UtilisateursPage() {
     return colors[role] || '#888'
   }
 
-  const needsCodeRef = (role: string) => ['livreur', 'boutique', 'atelier'].includes(role)
-
+  const isLivreur = form.role === 'livreur'
   const categoriesCK = categories.filter(c => c.activite === 'ck_design')
   const categoriesSD = categories.filter(c => c.activite === 'succes_design')
 
@@ -145,30 +191,47 @@ export default function UtilisateursPage() {
             {showForm && (
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
                 <h3 style={{ color: '#1a1a1a', margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>Nouvel utilisateur</h3>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '14px' }}>
                   <input value={form.nom} onChange={e => setForm(p => ({ ...p, nom: e.target.value }))}
                     placeholder="Nom complet *"
                     style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
-                  <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                    placeholder="Email *" type="email"
-                    style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
-                  <input value={form.mot_de_passe} onChange={e => setForm(p => ({ ...p, mot_de_passe: e.target.value }))}
-                    placeholder="Mot de passe *" type="password"
-                    style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+
                   <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
                     style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
                     {ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
                   </select>
+
                   <select value={form.activite} onChange={e => setForm(p => ({ ...p, activite: e.target.value }))}
                     style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
                     {ACTIVITES.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
                   </select>
-                  {needsCodeRef(form.role) && (
-                    <input value={form.code_ref} onChange={e => setForm(p => ({ ...p, code_ref: e.target.value }))}
-                      placeholder={form.role === 'livreur' ? 'Code livreur (ex: LIV-001)' : form.role === 'boutique' ? 'Token boutique' : 'Code atelier (ex: ATL-001)'}
-                      style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+
+                  {/* CHAMPS SELON LE ROLE */}
+                  {isLivreur ? (
+                    <input value={form.telephone} onChange={e => setForm(p => ({ ...p, telephone: e.target.value }))}
+                      placeholder="📞 Téléphone * (Ex: 0555303010)"
+                      type="tel"
+                      style={{ padding: '10px 12px', borderRadius: '9px', background: '#fff8e6', border: '1.5px solid #fde68a', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+                  ) : (
+                    <>
+                      <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                        placeholder="Email *" type="email"
+                        style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+                      <input value={form.mot_de_passe} onChange={e => setForm(p => ({ ...p, mot_de_passe: e.target.value }))}
+                        placeholder="Mot de passe *" type="password"
+                        style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+                    </>
                   )}
                 </div>
+
+                {/* Info livreur */}
+                {isLivreur && (
+                  <div style={{ background: '#fff8e6', border: '1px solid #fde68a', borderRadius: '9px', padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#92400e' }}>
+                    ⚠️ Le livreur se connectera avec son <strong>numéro de téléphone</strong> sur <strong>/livreur/login</strong> et créera son mot de passe à la première connexion. Le code est généré automatiquement.
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button onClick={() => setShowForm(false)}
                     style={{ padding: '10px 20px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', borderRadius: '9px', color: '#888', cursor: 'pointer', fontWeight: 600 }}>
@@ -196,7 +259,9 @@ export default function UtilisateursPage() {
                           {ACTIVITES.find(a => a.id === u.activite)?.label || u.activite}
                         </span>
                       </div>
-                      <p style={{ color: '#888', margin: '0 0 2px', fontSize: '13px' }}>✉️ {u.email}</p>
+                      <p style={{ color: '#888', margin: '0 0 2px', fontSize: '13px' }}>
+                        {u.role === 'livreur' ? `📞 ${u.email?.replace('@livreur.ck', '')}` : `✉️ ${u.email}`}
+                      </p>
                       {u.code_ref && (
                         <p style={{ color: '#aaa', margin: 0, fontSize: '12px', fontFamily: 'monospace' }}>🔗 {u.code_ref}</p>
                       )}
@@ -222,7 +287,6 @@ export default function UtilisateursPage() {
         {/* ONGLET CATEGORIES */}
         {onglet === 'categories' && (
           <div>
-            {/* FORMULAIRE AJOUT */}
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: '#0891b2' }}>🏷️ Ajouter une catégorie</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: '12px', marginBottom: '14px' }}>
@@ -239,57 +303,46 @@ export default function UtilisateursPage() {
                   style={{ padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
               </div>
               <button onClick={addCategorie} disabled={saving}
-                style={{ padding: '10px 24px', background: '#0891b2', border: 'none', borderRadius: '9px', color: 'white', cursor: 'pointer', fontWeight: 700, boxShadow: '0 4px 12px rgba(8,145,178,0.3)' }}>
+                style={{ padding: '10px 24px', background: '#0891b2', border: 'none', borderRadius: '9px', color: 'white', cursor: 'pointer', fontWeight: 700 }}>
                 {saving ? '...' : '+ Ajouter'}
               </button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-              {/* CK DESIGN */}
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 700, color: '#1D9E75', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  🎨 CK Design — {categoriesCK.length} catégorie(s)
+                  🎨 CK Design — {categoriesCK.length}
                 </h3>
-                {categoriesCK.length === 0 ? (
-                  <p style={{ color: '#ccc', fontSize: '13px', textAlign: 'center' }}>Aucune catégorie</p>
-                ) : (
-                  categoriesCK.map(c => (
-                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', borderRadius: '9px', padding: '10px 14px', marginBottom: '8px', border: '1px solid #e5e7eb' }}>
-                      <div>
-                        <span style={{ fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{c.nom}</span>
-                        <span style={{ marginLeft: 8, fontSize: '11px', color: '#aaa' }}>ordre: {c.ordre}</span>
-                      </div>
-                      <button onClick={() => deleteCategorie(c.id)}
-                        style={{ background: '#fff0f0', color: '#E24B4A', border: 'none', borderRadius: '7px', padding: '5px 10px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
-                        🗑️ Supprimer
-                      </button>
+                {categoriesCK.map(c => (
+                  <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', borderRadius: '9px', padding: '10px 14px', marginBottom: '8px', border: '1px solid #e5e7eb' }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: '14px' }}>{c.nom}</span>
+                      <span style={{ marginLeft: 8, fontSize: '11px', color: '#aaa' }}>ordre: {c.ordre}</span>
                     </div>
-                  ))
-                )}
+                    <button onClick={() => deleteCategorie(c.id)}
+                      style={{ background: '#fff0f0', color: '#E24B4A', border: 'none', borderRadius: '7px', padding: '5px 10px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                      🗑️
+                    </button>
+                  </div>
+                ))}
               </div>
 
-              {/* SUCCÈS DESIGN */}
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 700, color: '#d4a853', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  ✨ Succès Design — {categoriesSD.length} catégorie(s)
+                  ✨ Succès Design — {categoriesSD.length}
                 </h3>
-                {categoriesSD.length === 0 ? (
-                  <p style={{ color: '#ccc', fontSize: '13px', textAlign: 'center' }}>Aucune catégorie</p>
-                ) : (
-                  categoriesSD.map(c => (
-                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', borderRadius: '9px', padding: '10px 14px', marginBottom: '8px', border: '1px solid #e5e7eb' }}>
-                      <div>
-                        <span style={{ fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{c.nom}</span>
-                        <span style={{ marginLeft: 8, fontSize: '11px', color: '#aaa' }}>ordre: {c.ordre}</span>
-                      </div>
-                      <button onClick={() => deleteCategorie(c.id)}
-                        style={{ background: '#fff0f0', color: '#E24B4A', border: 'none', borderRadius: '7px', padding: '5px 10px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
-                        🗑️ Supprimer
-                      </button>
+                {categoriesSD.map(c => (
+                  <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', borderRadius: '9px', padding: '10px 14px', marginBottom: '8px', border: '1px solid #e5e7eb' }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: '14px' }}>{c.nom}</span>
+                      <span style={{ marginLeft: 8, fontSize: '11px', color: '#aaa' }}>ordre: {c.ordre}</span>
                     </div>
-                  ))
-                )}
+                    <button onClick={() => deleteCategorie(c.id)}
+                      style={{ background: '#fff0f0', color: '#E24B4A', border: 'none', borderRadius: '7px', padding: '5px 10px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                      🗑️
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
