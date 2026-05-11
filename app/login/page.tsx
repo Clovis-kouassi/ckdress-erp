@@ -75,6 +75,7 @@ export default function LoginPage() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="votre@email.com"
+            autoComplete="off"
             style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }}
           />
         </div>
@@ -86,6 +87,7 @@ export default function LoginPage() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="••••••••"
+            autoComplete="new-password"
             onKeyDown={e => e.key === 'Enter' && handleLogin()}
             style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }}
           />
