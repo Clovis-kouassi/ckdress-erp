@@ -21,7 +21,7 @@ const MENU_LINKS = [
   { label: '⚙️ Production', href: '/production' },
   { label: '🏪 Boutiques', href: '/admin/boutiques' },
   { label: '🎨 Catalogue CK Design', href: '/catalogue' },
-  { label: '✨ Catalogue Succès Design', href: '/succes-design' },
+  { label: '✨ Catalogue Succès Design', href: '/succes-design/catalogue' },
   { label: '👤 Utilisateurs', href: '/admin/utilisateurs' },
 ]
 
