@@ -16,16 +16,20 @@ export default function LivreurLoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // ETAPE 1 — Vérifier le téléphone
   async function handleVerifierTelephone() {
     if (!telephone) { setError('Entrez votre numéro de téléphone.'); return }
     setLoading(true)
     setError('')
 
+    // Normaliser — accepter avec ou sans indicatif pays 225
+    const tel = telephone.trim()
+    const telAvecIndicatif = tel.startsWith('225') ? tel : `225${tel}`
+    const telSansIndicatif = tel.startsWith('225') ? tel.slice(3) : tel
+
     const { data, error } = await supabase
       .from('livreurs')
       .select('*')
-      .eq('telephone', telephone.trim())
+      .or(`telephone.eq.${tel},telephone.eq.${telAvecIndicatif},telephone.eq.${telSansIndicatif}`)
       .eq('actif', true)
       .single()
 
@@ -36,8 +40,6 @@ export default function LivreurLoginPage() {
     }
 
     setLivreurData(data)
-
-    // Première connexion ou mot de passe non défini
     if (!data.mot_de_passe) {
       setEtape('creer_mdp')
     } else {
@@ -46,7 +48,6 @@ export default function LivreurLoginPage() {
     setLoading(false)
   }
 
-  // ETAPE 2A — Créer mot de passe (1ère connexion)
   async function handleCreerMotDePasse() {
     if (!motDePasse || motDePasse.length < 4) {
       setError('Le mot de passe doit avoir au moins 4 caractères.')
@@ -74,7 +75,6 @@ export default function LivreurLoginPage() {
     router.push(`/livreur/${livreurData.code}`)
   }
 
-  // ETAPE 2B — Saisir mot de passe
   async function handleSaisirMotDePasse() {
     if (!motDePasse) { setError('Entrez votre mot de passe.'); return }
     setLoading(true)
@@ -129,7 +129,7 @@ export default function LivreurLoginPage() {
                 type="tel"
                 value={telephone}
                 onChange={e => setTelephone(e.target.value)}
-                placeholder="Ex: 2250700000001"
+                placeholder="Ex: 0555303010"
                 onKeyDown={e => e.key === 'Enter' && handleVerifierTelephone()}
                 style={{ width: '100%', boxSizing: 'border-box', padding: '13px 16px', borderRadius: 12, border: '1.5px solid #e5e7eb', fontSize: 15, outline: 'none', color: '#1a1a1a', background: '#f8f9fa' }}
               />
