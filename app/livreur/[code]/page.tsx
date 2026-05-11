@@ -285,8 +285,20 @@ export default function LivreurPage() {
       <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
         {ONGLETS.map((o, i) => (
           <button key={i} onClick={() => {
-            setOnglet(i)
-            if (i === 0) setAfficherDisponibles(true)
+            if (i === 0) {
+              // Si on est déjà sur disponibles → toggle la liste
+              if (onglet === 0) {
+                setAfficherDisponibles(prev => !prev)
+              } else {
+                // On arrive sur disponibles depuis autre onglet → cacher la liste
+                setAfficherDisponibles(false)
+                setOnglet(0)
+              }
+            } else {
+              // Autre onglet → cacher la liste disponibles
+              setAfficherDisponibles(false)
+              setOnglet(i)
+            }
           }}
             style={{
               flex: 1, padding: '12px 8px', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
@@ -308,7 +320,11 @@ export default function LivreurPage() {
                 <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
                 <div style={{ fontSize: 36, fontWeight: 700, color: '#38bdf8', marginBottom: 8 }}>{disponibles.length}</div>
                 <p style={{ fontSize: 15, fontWeight: 600, color: '#1a1a1a', margin: 0 }}>colis disponible(s)</p>
-                <p style={{ fontSize: 13, color: '#888', marginTop: 6 }}>Cliquez sur l'onglet "Disponibles" pour voir la liste</p>
+                <button
+                  onClick={() => setAfficherDisponibles(true)}
+                  style={{ marginTop: 20, padding: '12px 28px', borderRadius: 12, border: 'none', background: '#38bdf8', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  Voir les colis →
+                </button>
               </div>
             ) : disponibles.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: '#ccc' }}>
