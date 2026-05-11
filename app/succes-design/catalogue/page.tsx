@@ -2,14 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-const TAILLES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+import { supabase } from '@/app/lib/supabase'
 
 type Produit = {
   id: string
@@ -35,7 +28,9 @@ type Categorie = {
   activite: string
 }
 
-export default function SuccesCataloguePage() {
+const TAILLES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+
+export default function CatalogueSuccesDesignPage() {
   const router = useRouter()
   const [categories, setCategories] = useState<Categorie[]>([])
   const [produits, setProduits] = useState<Produit[]>([])
@@ -46,15 +41,14 @@ export default function SuccesCataloguePage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // Charger uniquement les catégories succes_design
+    // Filtrer uniquement les catégories Succès Design
     supabase.from('categories').select('*').eq('activite', 'succes_design').order('ordre').then(({ data }) => {
       if (data) setCategories(data)
     })
-    supabase.from('produits').select('*')
-      .eq('disponible', true)
-      .eq('activite', 'succes_design')
-      .order('nom')
-      .then(({ data }) => { if (data) setProduits(data) })
+    // Filtrer uniquement les produits Succès Design
+    supabase.from('produits').select('*').eq('disponible', true).eq('activite', 'succes_design').order('nom').then(({ data }) => {
+      if (data) setProduits(data)
+    })
   }, [])
 
   useEffect(() => {
@@ -111,8 +105,12 @@ export default function SuccesCataloguePage() {
     if (selection.length === 0) return
     const produitRef = selection[0].produitRef
     const variantes = selection.map(s => s.stockId).join(',')
-    const query = new URLSearchParams({ produit: produitRef, taille, variantes })
-    router.push(`/succes-design/catalogue/commande?${query.toString()}`)
+    const query = new URLSearchParams({
+      produit: produitRef,
+      taille,
+      variantes,
+    })
+    router.push(`/catalogue/commande?${query.toString()}`)
   }
 
   const totalSelectionne = selection.length
@@ -126,13 +124,13 @@ export default function SuccesCataloguePage() {
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#d4a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>SD</div>
           <span style={{ color: '#fff', fontSize: 18, fontWeight: 600, letterSpacing: 2 }}>SUCCÈS DESIGN</span>
         </div>
-        <p style={{ color: '#888', fontSize: 12, margin: '4px 0 0', letterSpacing: 1 }}>CATALOGUE — TENUES IMPORTÉES</p>
+        <p style={{ color: '#888', fontSize: 12, margin: '4px 0 0', letterSpacing: 1 }}>CATALOGUE — ABIDJAN</p>
       </header>
 
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px' }}>
 
         <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: '0 0 20px', textAlign: 'center' }}>
-          Trouvez votre tenue
+          Trouvez votre article
         </h1>
 
         {/* FILTRES */}
@@ -142,7 +140,7 @@ export default function SuccesCataloguePage() {
               1. Votre taille
             </label>
             <select value={taille} onChange={e => setTaille(e.target.value)}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: taille ? '1.5px solid #d4a853' : '1.5px solid #e5e2dc', fontSize: 15, color: taille ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}>
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: taille ? '1.5px solid #1a1a1a' : '1.5px solid #e5e2dc', fontSize: 15, color: taille ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}>
               <option value="">Choisir...</option>
               {TAILLES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -153,7 +151,7 @@ export default function SuccesCataloguePage() {
               2. Catégorie
             </label>
             <select value={categorie} onChange={e => setCategorie(e.target.value)}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: categorie ? '1.5px solid #d4a853' : '1.5px solid #e5e2dc', fontSize: 15, color: categorie ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}>
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: categorie ? '1.5px solid #1a1a1a' : '1.5px solid #e5e2dc', fontSize: 15, color: categorie ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}>
               <option value="">Choisir...</option>
               {categories.map(c => (
                 <option key={c.id} value={c.nom}>{c.nom}</option>
@@ -176,15 +174,14 @@ export default function SuccesCataloguePage() {
         ) : produitsAffiches.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 20px', color: '#bbb' }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>😔</div>
-            <p style={{ margin: 0, fontSize: 15 }}>Aucune tenue disponible en taille {taille} dans cette catégorie</p>
+            <p style={{ margin: 0, fontSize: 15 }}>Aucun article disponible en taille {taille} dans cette catégorie</p>
           </div>
         ) : (
           <>
             <p style={{ margin: '0 0 16px', fontSize: 13, color: '#888', textAlign: 'center' }}>
-              {produitsAffiches.length} tenue{produitsAffiches.length > 1 ? 's' : ''} disponible{produitsAffiches.length > 1 ? 's' : ''} en taille {taille}
+              {produitsAffiches.length} article{produitsAffiches.length > 1 ? 's' : ''} disponible{produitsAffiches.length > 1 ? 's' : ''} en taille {taille}
             </p>
 
-            {/* GRILLE PRODUITS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
               {produitsAffiches.map(({ produit, stock }) =>
                 stock.map(s => {
@@ -196,15 +193,14 @@ export default function SuccesCataloguePage() {
                       onClick={() => toggleSelection(s, produit)}
                       style={{
                         background: '#fff',
-                        border: isSelected ? '2.5px solid #d4a853' : '1.5px solid #ece9e3',
+                        border: isSelected ? '2.5px solid #1a1a1a' : '1.5px solid #ece9e3',
                         borderRadius: 14, padding: 0, cursor: 'pointer',
                         overflow: 'hidden', position: 'relative',
                         transform: isSelected ? 'scale(0.97)' : 'scale(1)',
                         transition: 'transform 0.12s, border-color 0.12s',
-                        boxShadow: isSelected ? '0 4px 16px rgba(212,168,83,0.2)' : '0 1px 4px rgba(0,0,0,0.06)',
+                        boxShadow: isSelected ? '0 4px 16px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.06)',
                       }}>
 
-                      {/* IMAGE */}
                       <div style={{ width: '100%', aspectRatio: '3/4', background: 'linear-gradient(135deg, #f0ece4, #e8e1d5)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                         {imageUrl
                           ? <img src={imageUrl} alt={produit.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -212,19 +208,16 @@ export default function SuccesCataloguePage() {
                         }
                       </div>
 
-                      {/* BADGE STOCK CRITIQUE */}
                       {s.quantite <= 5 && (
                         <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
                           ⚠️ Plus que {s.quantite} !
                         </div>
                       )}
 
-                      {/* BADGE SÉLECTIONNÉ */}
                       {isSelected && (
-                        <div style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: '#d4a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#111', fontWeight: 700 }}>✓</div>
+                        <div style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#fff', fontWeight: 700 }}>✓</div>
                       )}
 
-                      {/* INFOS */}
                       <div style={{ padding: '10px 12px 12px', textAlign: 'left' }}>
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>{produit.nom}</p>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>{s.couleur}</p>
@@ -259,9 +252,9 @@ export default function SuccesCataloguePage() {
             <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Taille {taille} — {categorie}</p>
           </div>
           <button onClick={handleCommander}
-            style={{ background: '#d4a853', color: '#111', border: 'none', borderRadius: 12, padding: '14px 24px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#d4a853')}>
+            style={{ background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px 24px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#d4a853')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#1a1a1a')}>
             Commander →
           </button>
         </div>
