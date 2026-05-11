@@ -50,6 +50,7 @@ export default function LivreurPage() {
 
   const [livreur, setLivreur] = useState<Livreur | null>(null)
   const [onglet, setOnglet] = useState(0)
+  const [afficherDisponibles, setAfficherDisponibles] = useState(false)
   const [disponibles, setDisponibles] = useState<Commande[]>([])
   const [mesColis, setMesColis] = useState<Commande[]>([])
   const [historique, setHistorique] = useState<Commande[]>([])
@@ -127,20 +128,17 @@ export default function LivreurPage() {
   async function confirmerRetour() {
     if (!motifModal || !motifChoisi) return
     setSaving(motifModal.id)
-
     const qtteTotale = motifModal.quantite || 1
     const prixUnitaire = (motifModal.montant_total - motifModal.frais_livraison) / qtteTotale
     const montantLivre = quantiteLivree * prixUnitaire
     const fraisLivraison = quantiteLivree > 0 ? motifModal.frais_livraison : 0
     const statut = quantiteLivree > 0 ? 'livre' : 'retour'
-
     await supabase.from('commandes_catalogue').update({
       statut,
       motif_retour: motifChoisi,
       quantite_livree: quantiteLivree,
       montant_livree: montantLivre + fraisLivraison,
     }).eq('id', motifModal.id)
-
     setMotifModal(null)
     setMotifChoisi('')
     setQuantiteLivree(0)
@@ -286,7 +284,10 @@ export default function LivreurPage() {
       {/* ONGLETS */}
       <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
         {ONGLETS.map((o, i) => (
-          <button key={i} onClick={() => setOnglet(i)}
+          <button key={i} onClick={() => {
+            setOnglet(i)
+            if (i === 0) setAfficherDisponibles(true)
+          }}
             style={{
               flex: 1, padding: '12px 8px', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
               background: 'transparent', color: onglet === i ? '#38bdf8' : '#888',
@@ -302,7 +303,14 @@ export default function LivreurPage() {
         {/* ONGLET 1 — DISPONIBLES */}
         {onglet === 0 && (
           <div>
-            {disponibles.length === 0 ? (
+            {!afficherDisponibles ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+                <div style={{ fontSize: 36, fontWeight: 700, color: '#38bdf8', marginBottom: 8 }}>{disponibles.length}</div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: '#1a1a1a', margin: 0 }}>colis disponible(s)</p>
+                <p style={{ fontSize: 13, color: '#888', marginTop: 6 }}>Cliquez sur l'onglet "Disponibles" pour voir la liste</p>
+              </div>
+            ) : disponibles.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: '#ccc' }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
                 <p style={{ fontSize: 14 }}>Aucun colis disponible</p>
@@ -378,7 +386,6 @@ export default function LivreurPage() {
                         </span>
                       </div>
 
-                      {/* NOM + TELEPHONE */}
                       <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
                       <p style={{ margin: '0 0 8px', fontSize: 13, color: '#555' }}>📞 {cmd.telephone}</p>
 
