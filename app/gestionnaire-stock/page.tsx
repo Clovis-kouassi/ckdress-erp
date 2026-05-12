@@ -76,14 +76,12 @@ export default function GestionnaireStockPage() {
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
     setUser(u)
-    // Pré-remplir l'activité selon l'utilisateur connecté
     if (u?.activite && u.activite !== 'ck_dress') {
       setProdForm(p => ({ ...p, activite: u.activite }))
     }
     fetchData(u)
   }, [])
 
-  // Génération automatique de la référence
   useEffect(() => {
     if (!prodForm.categorie) return
     const prefix = prodForm.activite === 'ck_design' ? 'CK' : 'SD'
@@ -95,11 +93,11 @@ export default function GestionnaireStockPage() {
 
   const fetchData = async (u?: any) => {
     const currentUser = u || user || JSON.parse(localStorage.getItem('ck_user') || '{}')
-    const isSuperAdmin = ['super_admin', 'manager'].includes(currentUser?.role)
+    // CORRECTION : basé sur activite ck_dress OU role super_admin
+    const isSuperAdminOrGlobal = currentUser?.activite === 'ck_dress' || currentUser?.role === 'super_admin'
     const activite = currentUser?.activite
 
-    // Charger produits selon activité
-    const prodsQuery = isSuperAdmin
+    const prodsQuery = isSuperAdminOrGlobal
       ? supabase.from('produits').select('*').order('nom')
       : supabase.from('produits').select('*').eq('activite', activite || 'ck_design').order('nom')
 
@@ -112,7 +110,6 @@ export default function GestionnaireStockPage() {
 
     const prodsFiltres = prodsData || []
 
-    // Charger stock uniquement pour les produits de l'activité
     let stockFiltre: any[] = []
     if (prodsFiltres.length > 0) {
       const prodIds = prodsFiltres.map(p => p.id)
@@ -215,7 +212,8 @@ export default function GestionnaireStockPage() {
     fetchData()
   }
 
-  const isSuperAdmin = ['super_admin', 'manager'].includes(user?.role)
+  // CORRECTION : basé sur activite ck_dress OU role super_admin
+  const isSuperAdmin = user?.activite === 'ck_dress' || user?.role === 'super_admin'
   const stockCritique = stock.filter(s => s.quantite <= 3)
   const totalArticles = stock.reduce((s, i) => s + i.quantite, 0)
 
@@ -250,7 +248,7 @@ export default function GestionnaireStockPage() {
                 </span>
               )}
               <span style={{ background: '#ede9fe', color: '#6366f1', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
-                {produitDetail.activite === 'ck_design' ? 'CK Design' : 'Succès Design'}
+                {produitDetail.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
               </span>
             </div>
 
@@ -323,7 +321,7 @@ export default function GestionnaireStockPage() {
         <div>
           <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '16px', fontWeight: 700 }}>📦 Gestionnaire Stock</h1>
           <p style={{ color: '#94a3b8', margin: '2px 0 0', fontSize: '11px' }}>
-            {user?.nom} — {user?.activite === 'ck_design' ? 'CK Design' : user?.activite === 'succes_design' ? 'Succès Design' : 'Tous'}
+            {user?.nom} — {user?.activite === 'ck_design' ? '🎨 CK Design' : user?.activite === 'succes_design' ? '✨ Succès Design' : '🌐 Tous'}
             {isSuperAdmin && <span style={{ marginLeft: 6, background: '#d4a853', color: '#1a1a1a', fontSize: 10, padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>ADMIN</span>}
           </p>
         </div>
@@ -405,7 +403,7 @@ export default function GestionnaireStockPage() {
                       )}
                       {isSuperAdmin && (
                         <div style={{ position: 'absolute', top: 8, right: 8, background: prod.activite === 'ck_design' ? '#0891b2' : '#d4a853', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 20 }}>
-                          {prod.activite === 'ck_design' ? 'CK' : 'SD'}
+                          {prod.activite === 'ck_design' ? '🎨 CK' : '✨ SD'}
                         </div>
                       )}
                     </div>
@@ -466,14 +464,13 @@ export default function GestionnaireStockPage() {
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
 
-                {/* Activité — visible seulement pour super admin */}
                 {isSuperAdmin && (
                   <div>
                     <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Activité</label>
                     <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value, categorie: '', reference: '' }))}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
-                      <option value="ck_design">CK Design</option>
-                      <option value="succes_design">Succès Design</option>
+                      <option value="ck_design">🎨 CK Design</option>
+                      <option value="succes_design">✨ Succès Design</option>
                     </select>
                   </div>
                 )}

@@ -15,14 +15,14 @@ const STATUTS: Record<string, { label: string; color: string }> = {
   annule: { label: 'Annulé', color: '#999' },
 }
 
-const MENU_LINKS = [
-  { label: '📦 Commandes', href: '/commandes' },
-  { label: '🚚 Livraisons', href: '/livraisons' },
-  { label: '⚙️ Production', href: '/production' },
-  { label: '🏪 Boutiques', href: '/admin/boutiques' },
-  { label: '🎨 Catalogue CK Design', href: '/catalogue' },
-  { label: '✨ Catalogue Succès Design', href: '/succes-design/catalogue' },
-  { label: '👤 Utilisateurs', href: '/admin/utilisateurs' },
+const ALL_MENU_LINKS = [
+  { label: '📦 Commandes', href: '/commandes', activites: ['ck_dress', 'ck_design', 'succes_design'] },
+  { label: '🚚 Livraisons', href: '/livraisons', activites: ['ck_dress', 'ck_design', 'succes_design'] },
+  { label: '⚙️ Production', href: '/production', activites: ['ck_dress', 'ck_design', 'succes_design'] },
+  { label: '🏪 Boutiques', href: '/admin/boutiques', activites: ['ck_dress', 'ck_design', 'succes_design'] },
+  { label: '🎨 Catalogue CK Design', href: '/catalogue', activites: ['ck_dress', 'ck_design'] },
+  { label: '✨ Catalogue Succès Design', href: '/succes-design/catalogue', activites: ['ck_dress', 'succes_design'] },
+  { label: '👤 Utilisateurs', href: '/admin/utilisateurs', activites: ['ck_dress'] },
 ]
 
 export default function Dashboard() {
@@ -39,8 +39,8 @@ export default function Dashboard() {
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
     setUser(u)
-    fetchData()
-    setupRealtime()
+    fetchData(u)
+    setupRealtime(u)
     const handleClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowMenu(false)
@@ -49,6 +49,13 @@ export default function Dashboard() {
     document.addEventListener('mousedown', handleClick)
     return () => { supabase.removeAllChannels(); document.removeEventListener('mousedown', handleClick) }
   }, [])
+
+  // Retourne true si l'utilisateur peut voir cette activité
+  const peutVoir = (u: any, activite: string) => {
+    if (!u) return false
+    if (u.activite === 'ck_dress') return true // global voit tout
+    return u.activite === activite
+  }
 
   const playSound = () => {
     try {
@@ -66,33 +73,43 @@ export default function Dashboard() {
     } catch (e) {}
   }
 
-  const setupRealtime = () => {
+  const setupRealtime = (u: any) => {
     supabase.channel('commandes_realtime')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'commandes_catalogue' }, (payload) => {
         const cmd = payload.new as any
         const ancien = payload.old as any
+        // Filtre realtime selon activité
+        if (u.activite !== 'ck_dress' && cmd.activite && cmd.activite !== u.activite) return
         if (cmd.statut !== ancien.statut) {
           setNotifications(prev => [{ id: Date.now(), message: `Commande #${cmd.id.slice(0, 6).toUpperCase()} → ${STATUTS[cmd.statut]?.label}`, statut: cmd.statut, time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 20))
           setBadge(prev => prev + 1)
           playSound()
-          fetchData()
+          fetchData(u)
         }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'commandes_catalogue' }, (payload) => {
         const cmd = payload.new as any
+        if (u.activite !== 'ck_dress' && cmd.activite && cmd.activite !== u.activite) return
         setNotifications(prev => [{ id: Date.now(), message: `Nouvelle commande #${cmd.id.slice(0, 6).toUpperCase()} — ${cmd.telephone}`, statut: 'nouveau', time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 20))
         setBadge(prev => prev + 1)
         playSound()
-        fetchData()
+        fetchData(u)
       })
       .subscribe()
   }
 
-  async function fetchData() {
+  async function fetchData(u: any) {
+    // Si global (ck_dress) → pas de filtre, sinon filtre par activite
+    const isGlobal = u?.activite === 'ck_dress' || !u?.activite
+
+    const baseQuery = supabase.from('commandes_catalogue').select('*').order('created_at', { ascending: false }).limit(10)
+    const allQuery = supabase.from('commandes_catalogue').select('montant_total, statut, note, created_at, activite')
+
     const [{ data: cmds }, { data: all }] = await Promise.all([
-      supabase.from('commandes_catalogue').select('*').order('created_at', { ascending: false }).limit(10),
-      supabase.from('commandes_catalogue').select('montant_total, statut, note, created_at'),
+      isGlobal ? baseQuery : baseQuery.eq('activite', u.activite),
+      isGlobal ? allQuery : allQuery.eq('activite', u.activite),
     ])
+
     const caTotal = all?.reduce((s, c) => s + (c.montant_total || 0), 0) || 0
     setCommandes(cmds || [])
     setStats({
@@ -104,6 +121,13 @@ export default function Dashboard() {
     setLoading(false)
   }
 
+  // Filtre les liens du menu selon l'activité de l'utilisateur
+  const menuLinks = ALL_MENU_LINKS.filter(l => {
+    if (!user) return false
+    if (user.activite === 'ck_dress') return true
+    return l.activites.includes(user.activite)
+  })
+
   return (
     <div style={{ minHeight: '100vh', background: '#f4f4f5', fontFamily: 'sans-serif', color: '#1a1a1a' }}>
 
@@ -113,6 +137,11 @@ export default function Dashboard() {
           <h1 style={{ color: '#1D9E75', fontSize: '1.3rem', margin: 0 }}>CK Dress ERP</h1>
           <span style={{ color: '#ddd' }}>|</span>
           <span style={{ color: '#999', fontSize: '12px' }}>{user?.nom || 'Super Admin'}</span>
+          {user?.activite && user.activite !== 'ck_dress' && (
+            <span style={{ background: '#f0fdf4', color: '#1D9E75', fontSize: '11px', padding: '2px 10px', borderRadius: '20px', fontWeight: 600 }}>
+              {user.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
+            </span>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -132,7 +161,7 @@ export default function Dashboard() {
                 <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
                   <p style={{ margin: 0, fontSize: '11px', color: '#aaa', textTransform: 'uppercase', fontWeight: 600 }}>Navigation</p>
                 </div>
-                {MENU_LINKS.map(l => (
+                {menuLinks.map(l => (
                   <a key={l.href} href={l.href}
                     style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', textDecoration: 'none', color: '#555', fontSize: '13px', fontWeight: 500, borderBottom: '1px solid #f9f9f9' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f0fdf4'; (e.currentTarget as HTMLElement).style.color = '#1D9E75' }}
@@ -207,7 +236,7 @@ export default function Dashboard() {
 
             {/* MENU RACCOURCIS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', marginBottom: '20px' }}>
-              {MENU_LINKS.map((link, i) => (
+              {menuLinks.map((link, i) => (
                 <a key={i} href={link.href} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '14px', textAlign: 'center', textDecoration: 'none', color: '#666', fontSize: '13px', fontWeight: 500, display: 'block', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1D9E75'; (e.currentTarget as HTMLElement).style.color = '#1D9E75' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#e5e5e5'; (e.currentTarget as HTMLElement).style.color = '#666' }}>
@@ -234,6 +263,11 @@ export default function Dashboard() {
                           <span style={{ fontSize: '11px', background: (STATUTS[cmd.statut]?.color || '#aaa') + '22', color: STATUTS[cmd.statut]?.color || '#aaa', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
                             {STATUTS[cmd.statut]?.label || cmd.statut}
                           </span>
+                          {user?.activite === 'ck_dress' && cmd.activite && (
+                            <span style={{ fontSize: '11px', background: '#f0f0f0', color: '#888', padding: '2px 8px', borderRadius: '10px' }}>
+                              {cmd.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
+                            </span>
+                          )}
                         </div>
                         <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>📞 {cmd.telephone} · 📍 {cmd.adresse}</p>
                         <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#aaa' }}>

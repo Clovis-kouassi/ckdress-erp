@@ -7,7 +7,7 @@ type Commande = {
   id: string; telephone: string; adresse: string; produit_ref: string; taille: string
   variantes: string; montant_total: number; frais_livraison: number; statut: string
   source: string; nom_client: string; note: string; created_at: string; livreur_id?: string
-  image_url?: string; images?: { couleur: string; url: string }[]
+  image_url?: string; images?: { couleur: string; url: string }[]; activite?: string
 }
 type Livreur = { id: string; nom: string; code: string }
 
@@ -32,22 +32,39 @@ export default function CommandesPage() {
   const [commandeDetail, setCommandeDetail] = useState<Commande | null>(null)
   const [livreurChoisi, setLivreurChoisi] = useState('')
   const [saving, setSaving] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
+    setUser(u)
+    fetchData(u)
+  }, [])
 
-  async function fetchData() {
+  async function fetchData(u?: any) {
     setLoading(true)
+    const currentUser = u || user
+
+    // Filtre selon activité
+    const isGlobal = !currentUser?.activite || currentUser.activite === 'ck_dress'
+
+    let cmdsQuery = supabase
+      .from('commandes_catalogue')
+      .select('*')
+      .neq('statut', 'annule')
+      .order('created_at', { ascending: false })
+
+    if (!isGlobal) {
+      cmdsQuery = cmdsQuery.eq('activite', currentUser.activite)
+    }
 
     const [{ data: cmds }, { data: livs }, { data: stockData }] = await Promise.all([
-      supabase.from('commandes_catalogue').select('*').neq('statut', 'annule').order('created_at', { ascending: false }),
+      cmdsQuery,
       supabase.from('livreurs').select('*').eq('actif', true).order('nom'),
       supabase.from('boutique_stock').select('produit_id, couleur, image_url, produits(reference)'),
     ])
 
     const commandesAvecImages = (cmds || []).map(cmd => {
       const couleurs = (cmd.variantes || '').split(',').map((c: string) => c.trim()).filter(Boolean)
-
-      // Toutes les images pour toutes les couleurs commandées
       const images = couleurs.map((couleur: string) => {
         const match = (stockData || []).find((s: any) =>
           s.produits?.reference === cmd.produit_ref &&
@@ -59,8 +76,8 @@ export default function CommandesPage() {
 
       return {
         ...cmd,
-        image_url: images[0]?.url || null, // première image pour la carte
-        images, // toutes les images pour le modal
+        image_url: images[0]?.url || null,
+        images,
       }
     })
 
@@ -108,6 +125,8 @@ export default function CommandesPage() {
     setLivreurChoisi(cmd.livreur_id || '')
   }
 
+  const isGlobal = !user?.activite || user?.activite === 'ck_dress'
+
   return (
     <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
 
@@ -133,27 +152,23 @@ export default function CommandesPage() {
               return s ? (
                 <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.label}</span>
+                  {isGlobal && commandeDetail.activite && (
+                    <span style={{ marginLeft: 10, fontSize: 11, color: '#888' }}>
+                      {commandeDetail.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
+                    </span>
+                  )}
                 </div>
               ) : null
             })()}
 
-            {/* IMAGES DÉFILEMENT HORIZONTAL */}
             {commandeDetail.images && commandeDetail.images.length > 0 ? (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
                   {commandeDetail.images.map((img, i) => (
                     <div key={i} style={{ flexShrink: 0, borderRadius: 10, overflow: 'hidden', border: '1px solid #e5e7eb', position: 'relative' }}>
-                      <img
-                        src={img.url}
-                        alt={img.couleur}
-                        style={{
-                          width: commandeDetail.images!.length === 1 ? '100%' : 160,
-                          height: 180,
-                          objectFit: 'cover',
-                          display: 'block'
-                        }}
-                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                      />
+                      <img src={img.url} alt={img.couleur}
+                        style={{ width: commandeDetail.images!.length === 1 ? '100%' : 160, height: 180, objectFit: 'cover', display: 'block' }}
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                       <div style={{ position: 'absolute', bottom: 6, left: 6, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20 }}>
                         {img.couleur}
                       </div>
@@ -203,39 +218,23 @@ export default function CommandesPage() {
 
                 {commandeDetail.statut === 'en_preparation' && (
                   <div style={{ marginBottom: 12 }}>
-                    <button
-                      onClick={() => changerStatut(commandeDetail.id, 'en_livraison')}
-                      disabled={saving}
-                      style={{
-                        width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-                        cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14,
-                        background: saving ? '#aaa' : '#BA7517', color: '#fff',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)', marginBottom: 10
-                      }}>
+                    <button onClick={() => changerStatut(commandeDetail.id, 'en_livraison')} disabled={saving}
+                      style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, background: saving ? '#aaa' : '#BA7517', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', marginBottom: 10 }}>
                       {saving ? '...' : '🚚 Envoyer en livraison'}
                     </button>
-
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
                       <span style={{ fontSize: 11, color: '#aaa', fontWeight: 500 }}>ou assigner à un livreur spécifique</span>
                       <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
                     </div>
-
                     <select value={livreurChoisi} onChange={e => setLivreurChoisi(e.target.value)}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e5e5', background: '#f8f9fa', color: '#1a1a1a', fontSize: 13, outline: 'none', marginBottom: 8 }}>
                       <option value="">Choisir un livreur... (optionnel)</option>
                       {livreurs.map(l => <option key={l.id} value={l.id}>{l.nom} ({l.code})</option>)}
                     </select>
-
                     {livreurChoisi && (
-                      <button
-                        onClick={() => changerStatut(commandeDetail.id, 'en_livraison', livreurChoisi)}
-                        disabled={saving}
-                        style={{
-                          width: '100%', padding: '10px', borderRadius: 10, border: '1.5px solid #BA7517',
-                          cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 13,
-                          background: '#fff8e6', color: '#BA7517'
-                        }}>
+                      <button onClick={() => changerStatut(commandeDetail.id, 'en_livraison', livreurChoisi)} disabled={saving}
+                        style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1.5px solid #BA7517', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 13, background: '#fff8e6', color: '#BA7517' }}>
                         {saving ? '...' : `🎯 Assigner à ${livreurs.find(l => l.id === livreurChoisi)?.nom}`}
                       </button>
                     )}
@@ -243,15 +242,8 @@ export default function CommandesPage() {
                 )}
 
                 {commandeDetail.statut !== 'en_preparation' && (
-                  <button
-                    onClick={() => changerStatut(commandeDetail.id, STATUTS_SUIVANTS[commandeDetail.statut].key)}
-                    disabled={saving}
-                    style={{
-                      width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-                      cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14,
-                      background: saving ? '#aaa' : STATUTS_SUIVANTS[commandeDetail.statut].color,
-                      color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                    }}>
+                  <button onClick={() => changerStatut(commandeDetail.id, STATUTS_SUIVANTS[commandeDetail.statut].key)} disabled={saving}
+                    style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, background: saving ? '#aaa' : STATUTS_SUIVANTS[commandeDetail.statut].color, color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                     {saving ? '...' : STATUTS_SUIVANTS[commandeDetail.statut].label}
                   </button>
                 )}
@@ -278,6 +270,11 @@ export default function CommandesPage() {
       <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '16px', fontWeight: 700 }}>📋 Commandes</h1>
+          {!isGlobal && (
+            <span style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: '11px', padding: '3px 10px', borderRadius: '20px', fontWeight: 600 }}>
+              {user?.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
+            </span>
+          )}
           <div style={{ display: 'flex', gap: 12 }}>
             {[
               { label: 'Dashboard', path: '/dashboard' },
@@ -290,7 +287,7 @@ export default function CommandesPage() {
             ))}
           </div>
         </div>
-        <button onClick={fetchData} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', padding: '6px 12px', fontSize: '11px', cursor: 'pointer' }}>
+        <button onClick={() => fetchData()} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', padding: '6px 12px', fontSize: '11px', cursor: 'pointer' }}>
           ↺ Actualiser
         </button>
       </div>
@@ -347,23 +344,15 @@ export default function CommandesPage() {
                   ) : (
                     <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
                       {cmds.map(cmd => (
-                        <div key={cmd.id}
-                          onClick={() => ouvrirDetail(cmd)}
-                          style={{
-                            background: '#fff', borderRadius: 14, padding: 0, minWidth: 200, maxWidth: 200,
-                            border: `1.5px solid ${statut.border}`, cursor: 'pointer', flexShrink: 0,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.07)', transition: 'transform 0.1s', overflow: 'hidden'
-                          }}
+                        <div key={cmd.id} onClick={() => ouvrirDetail(cmd)}
+                          style={{ background: '#fff', borderRadius: 14, padding: 0, minWidth: 200, maxWidth: 200, border: `1.5px solid ${statut.border}`, cursor: 'pointer', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', transition: 'transform 0.1s', overflow: 'hidden' }}
                           onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
                           onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
 
                           {cmd.image_url ? (
-                            <img
-                              src={cmd.image_url}
-                              alt={cmd.produit_ref}
+                            <img src={cmd.image_url} alt={cmd.produit_ref}
                               style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }}
-                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                            />
+                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                           ) : (
                             <div style={{ width: '100%', height: 110, background: 'linear-gradient(135deg, #f0ece4, #e8e1d5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, opacity: 0.3 }}>
                               👗
@@ -379,6 +368,14 @@ export default function CommandesPage() {
                                 {cmd.montant_total?.toLocaleString('fr-FR')} F
                               </span>
                             </div>
+
+                            {/* Badge activité visible uniquement en vue globale */}
+                            {isGlobal && cmd.activite && (
+                              <span style={{ fontSize: 10, background: '#f0f0f0', color: '#888', padding: '1px 7px', borderRadius: 20, marginBottom: 6, display: 'inline-block' }}>
+                                {cmd.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
+                              </span>
+                            )}
+
                             <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {cmd.nom_client || '—'}
                             </p>
