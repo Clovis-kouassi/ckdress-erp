@@ -41,10 +41,11 @@ export default function CataloguePage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    supabase.from('categories').select('*').order('ordre').then(({ data }) => {
+    // Catalogue CK Design → filtre activite = ck_design
+    supabase.from('categories').select('*').eq('activite', 'ck_design').order('ordre').then(({ data }) => {
       if (data) setCategories(data)
     })
-    supabase.from('produits').select('*').eq('disponible', true).order('nom').then(({ data }) => {
+    supabase.from('produits').select('*').eq('disponible', true).eq('activite', 'ck_design').order('nom').then(({ data }) => {
       if (data) setProduits(data)
     })
   }, [])
@@ -200,7 +201,6 @@ export default function CataloguePage() {
                         boxShadow: isSelected ? '0 4px 16px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.06)',
                       }}>
 
-                      {/* IMAGE */}
                       <div style={{ width: '100%', aspectRatio: '3/4', background: 'linear-gradient(135deg, #f0ece4, #e8e1d5)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                         {imageUrl
                           ? <img src={imageUrl} alt={produit.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -208,19 +208,16 @@ export default function CataloguePage() {
                         }
                       </div>
 
-                      {/* BADGE STOCK CRITIQUE */}
                       {s.quantite <= 5 && (
                         <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
                           ⚠️ Plus que {s.quantite} !
                         </div>
                       )}
 
-                      {/* BADGE SÉLECTIONNÉ */}
                       {isSelected && (
                         <div style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#fff', fontWeight: 700 }}>✓</div>
                       )}
 
-                      {/* INFOS */}
                       <div style={{ padding: '10px 12px 12px', textAlign: 'left' }}>
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>{produit.nom}</p>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>{s.couleur}</p>
