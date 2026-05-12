@@ -271,7 +271,7 @@ export default function UtilisateursPage() {
         {onglet === 'utilisateurs' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-              {(currentUser?.role === 'super_admin' || currentUser?.role === 'manager') && (
+              {currentUser?.role === 'super_admin' && (
                 <button onClick={() => setShowForm(!showForm)}
                   style={{ background: '#1D9E75', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '9px', cursor: 'pointer', fontWeight: 600, boxShadow: '0 4px 12px rgba(29,158,117,0.3)' }}>
                   + Nouvel utilisateur
