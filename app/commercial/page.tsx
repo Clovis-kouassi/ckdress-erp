@@ -33,14 +33,31 @@ export default function CommercialPage() {
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
     setUser(u)
-    fetchData()
+    fetchData(u)
   }, [])
 
-  const fetchData = async () => {
-    const [{ data: cmds }, { data: prods }] = await Promise.all([
-      supabase.from('commandes_catalogue').select('*').order('created_at', { ascending: false }),
-      supabase.from('produits').select('*').eq('disponible', true),
-    ])
+  const fetchData = async (u?: any) => {
+    const currentUser = u || user
+    const isGlobal = !currentUser?.activite || currentUser.activite === 'ck_dress'
+
+    let cmdsQuery = supabase
+      .from('commandes_catalogue')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    let prodsQuery = supabase
+      .from('produits')
+      .select('*')
+      .eq('disponible', true)
+
+    // Filtre par activité
+    if (!isGlobal) {
+      cmdsQuery = cmdsQuery.eq('activite', currentUser.activite)
+      prodsQuery = prodsQuery.eq('activite', currentUser.activite)
+    }
+
+    const [{ data: cmds }, { data: prods }] = await Promise.all([cmdsQuery, prodsQuery])
+
     setCommandes(cmds || [])
     setProduits(prods || [])
     setLoading(false)
@@ -54,6 +71,7 @@ export default function CommercialPage() {
       ...form,
       statut: 'nouveau',
       source: 'commercial',
+      activite: user?.activite || 'ck_design',
       note: `REF: ${ref} | Créé par commercial`,
     })
     setForm({ telephone: '', adresse: '', produit_ref: '', taille: '', variantes: '', montant_total: 0, frais_livraison: 1500, note: '' })
@@ -69,6 +87,8 @@ export default function CommercialPage() {
   const nouvelles = commandes.filter(c => c.statut === 'nouveau').length
   const livrees = commandes.filter(c => c.statut === 'livre').length
 
+  const isGlobal = !user?.activite || user?.activite === 'ck_dress'
+
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: 'sans-serif', color: 'white' }}>
 
@@ -76,7 +96,14 @@ export default function CommercialPage() {
       <div style={{ background: '#111', borderBottom: '1px solid #222', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ color: '#378ADD', margin: 0, fontSize: '16px', fontWeight: 700 }}>💼 Espace Commercial</h1>
-          <p style={{ color: '#555', margin: '2px 0 0', fontSize: '11px' }}>{user?.nom} — {user?.activite}</p>
+          <p style={{ color: '#555', margin: '2px 0 0', fontSize: '11px' }}>
+            {user?.nom}
+            {user?.activite && user.activite !== 'ck_dress' && (
+              <span style={{ marginLeft: 6, background: '#1a2a3a', color: '#378ADD', fontSize: 10, padding: '1px 7px', borderRadius: 10, fontWeight: 600 }}>
+                {user.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
+              </span>
+            )}
+          </p>
         </div>
         <button onClick={() => { localStorage.removeItem('ck_user'); window.location.href = '/login' }}
           style={{ background: 'none', border: '0.5px solid #333', borderRadius: '6px', color: '#555', padding: '5px 10px', fontSize: '11px', cursor: 'pointer' }}>
@@ -133,6 +160,11 @@ export default function CommercialPage() {
                         <span style={{ fontSize: '10px', background: (STATUTS[cmd.statut]?.color || '#555') + '22', color: STATUTS[cmd.statut]?.color || '#555', padding: '2px 8px', borderRadius: '10px' }}>
                           {STATUTS[cmd.statut]?.label || cmd.statut}
                         </span>
+                        {isGlobal && cmd.activite && (
+                          <span style={{ fontSize: 10, background: '#1a1a2a', color: '#888', padding: '2px 8px', borderRadius: 10 }}>
+                            {cmd.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
+                          </span>
+                        )}
                       </div>
                       <p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>{cmd.produit_ref} — Taille {cmd.taille}</p>
                       <p style={{ margin: '2px 0 0', color: '#888', fontSize: '12px' }}>📞 {cmd.telephone} · 📍 {cmd.adresse}</p>
@@ -226,7 +258,6 @@ export default function CommercialPage() {
               })}
             </div>
 
-            {/* Top produits */}
             <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '16px' }}>
               <h3 style={{ margin: '0 0 14px', fontSize: '13px', color: '#888', textTransform: 'uppercase' }}>🏆 Top produits commandés</h3>
               {Object.entries(
@@ -234,7 +265,7 @@ export default function CommercialPage() {
                   acc[c.produit_ref] = (acc[c.produit_ref] || 0) + 1
                   return acc
                 }, {})
-              ).sort(([,a]: any, [,b]: any) => b - a).slice(0, 5).map(([ref, count]: any) => (
+              ).sort(([, a]: any, [, b]: any) => b - a).slice(0, 5).map(([ref, count]: any) => (
                 <div key={ref} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1a1a1a' }}>
                   <span style={{ color: '#888', fontSize: '13px' }}>{ref}</span>
                   <span style={{ color: '#378ADD', fontWeight: 600, fontSize: '13px' }}>{count} commandes</span>
