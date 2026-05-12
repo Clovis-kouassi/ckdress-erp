@@ -18,6 +18,7 @@ type Commande = {
   created_at: string
   livreur_id?: string
   motif_retour?: string
+  activite?: string
 }
 
 type Livreur = {
@@ -33,17 +34,34 @@ export default function LivraisonsPage() {
   const [loading, setLoading] = useState(true)
   const [filtreStatut, setFiltreStatut] = useState<string>('tous')
   const [filtreLivreur, setFiltreLivreur] = useState<string>('tous')
+  const [user, setUser] = useState<any>(null)
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
+    setUser(u)
+    fetchData(u)
+  }, [])
 
-  async function fetchData() {
+  async function fetchData(u?: any) {
     setLoading(true)
+    const currentUser = u || user
+    const isGlobal = !currentUser?.activite || currentUser.activite === 'ck_dress'
+
+    let query = supabase
+      .from('commandes_catalogue')
+      .select('*')
+      .in('statut', ['en_livraison', 'livre', 'retour'])
+      .order('created_at', { ascending: false })
+
+    if (!isGlobal) {
+      query = query.eq('activite', currentUser.activite)
+    }
+
     const [{ data: cmds }, { data: livs }] = await Promise.all([
-      supabase.from('commandes_catalogue').select('*')
-        .in('statut', ['en_livraison', 'livre', 'retour'])
-        .order('created_at', { ascending: false }),
+      query,
       supabase.from('livreurs').select('*').order('nom'),
     ])
+
     setCommandes(cmds || [])
     setLivreurs(livs || [])
     setLoading(false)
@@ -51,13 +69,14 @@ export default function LivraisonsPage() {
 
   const getLivreurNom = (id?: string) => livreurs.find(l => l.id === id)?.nom || '—'
 
+  const isGlobal = !user?.activite || user?.activite === 'ck_dress'
+
   const commandesFiltrees = commandes.filter(c => {
     const okStatut = filtreStatut === 'tous' || c.statut === filtreStatut
     const okLivreur = filtreLivreur === 'tous' || c.livreur_id === filtreLivreur
     return okStatut && okLivreur
   })
 
-  // Stats globales
   const stats = {
     enCours: commandes.filter(c => c.statut === 'en_livraison').length,
     livres: commandes.filter(c => c.statut === 'livre').length,
@@ -65,7 +84,6 @@ export default function LivraisonsPage() {
     ca: commandes.filter(c => c.statut === 'livre').reduce((s, c) => s + (c.frais_livraison || 0), 0),
   }
 
-  // Stats par livreur
   const statsByLivreur = livreurs.map(liv => {
     const colis = commandes.filter(c => c.livreur_id === liv.id)
     return {
@@ -84,6 +102,11 @@ export default function LivraisonsPage() {
       <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '16px', fontWeight: 700 }}>🚚 Livraisons</h1>
+          {!isGlobal && (
+            <span style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: '11px', padding: '3px 10px', borderRadius: '20px', fontWeight: 600 }}>
+              {user?.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
+            </span>
+          )}
           <div style={{ display: 'flex', gap: 12 }}>
             {[
               { label: 'Dashboard', path: '/dashboard' },
@@ -96,7 +119,7 @@ export default function LivraisonsPage() {
             ))}
           </div>
         </div>
-        <button onClick={fetchData} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', padding: '6px 12px', fontSize: '11px', cursor: 'pointer' }}>
+        <button onClick={() => fetchData()} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', padding: '6px 12px', fontSize: '11px', cursor: 'pointer' }}>
           ↺ Actualiser
         </button>
       </div>
@@ -122,10 +145,10 @@ export default function LivraisonsPage() {
         <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', padding: 16, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>📊 Performance par livreur</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-            {statsByLivreur.map(liv => (
+            {statsByLivreur.filter(l => l.enCours + l.livres + l.retours > 0).map(liv => (
               <div key={liv.id} style={{ background: '#f8f9fa', borderRadius: 12, padding: 14, border: '1px solid #e5e7eb' }}>
-                <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>🚚 {liv.nom}</p>
-                <p style={{ margin: '0 0 2px', fontSize: 11, color: '#888' }}>{liv.code}</p>
+                <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>🚚 {liv.nom}</p>
+                <p style={{ margin: '0 0 10px', fontSize: 11, color: '#aaa' }}>{liv.code}</p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 16, fontWeight: 700, color: '#f59e0b' }}>{liv.enCours}</div>
@@ -146,6 +169,9 @@ export default function LivraisonsPage() {
                 </div>
               </div>
             ))}
+            {statsByLivreur.filter(l => l.enCours + l.livres + l.retours > 0).length === 0 && (
+              <p style={{ color: '#aaa', fontSize: 13 }}>Aucune activité livreur pour le moment.</p>
+            )}
           </div>
         </div>
 
@@ -184,7 +210,7 @@ export default function LivraisonsPage() {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
                       <span style={{
                         fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
@@ -193,6 +219,12 @@ export default function LivraisonsPage() {
                       }}>
                         {cmd.statut === 'livre' ? '✅ Livré' : cmd.statut === 'retour' ? '❌ Retour' : '🚚 En livraison'}
                       </span>
+                      {/* Badge activité visible uniquement en vue globale */}
+                      {isGlobal && cmd.activite && (
+                        <span style={{ fontSize: 10, background: '#f0f0f0', color: '#888', padding: '2px 8px', borderRadius: 20 }}>
+                          {cmd.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
+                        </span>
+                      )}
                     </div>
                     <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
                     <p style={{ margin: '0 0 2px', fontSize: 12, color: '#888' }}>📞 {cmd.telephone}</p>
