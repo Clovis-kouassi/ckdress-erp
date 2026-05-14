@@ -112,24 +112,65 @@ export default function UtilisateursPage() {
     if (isLivreur && !form.telephone) { alert('Le téléphone est obligatoire pour un livreur.'); return }
     if (!isLivreur && (!form.email || !form.mot_de_passe)) { alert('Email et mot de passe obligatoires.'); return }
     setSaving(true)
+
     if (isLivreur) {
-      const code = `LIV-${String(livreurs.length + 1).padStart(3, '0')}`
-      await supabase.from('livreurs').insert({
-        nom: form.nom,
-        telephone: form.telephone.trim(),
-        code,
-        actif: true,
-        mot_de_passe: null,
-      }).select().single()
-      await supabase.from('utilisateurs').insert({
+      // CORRECTION : récupérer le vrai nombre de livreurs depuis la DB en temps réel
+      const { count } = await supabase
+        .from('livreurs')
+        .select('*', { count: 'exact', head: true })
+
+      const numeroSuivant = (count || 0) + 1
+      const code = `LIV-${String(numeroSuivant).padStart(3, '0')}`
+
+      // Vérifier que le code n'existe pas déjà
+      const { data: codeExist } = await supabase
+        .from('livreurs')
+        .select('id')
+        .eq('code', code)
+        .single()
+
+      const codeFinal = codeExist
+        ? `LIV-${String(numeroSuivant + 1).padStart(3, '0')}`
+        : code
+
+      // Insérer dans livreurs
+      const { data: livreurData, error: livreurError } = await supabase
+        .from('livreurs')
+        .insert({
+          nom: form.nom,
+          telephone: form.telephone.trim(),
+          code: codeFinal,
+          actif: true,
+          mot_de_passe: null,
+        })
+        .select()
+        .single()
+
+      if (livreurError || !livreurData) {
+        alert('Erreur lors de la création du livreur : ' + livreurError?.message)
+        setSaving(false)
+        return
+      }
+
+      // Insérer dans utilisateurs avec le même code
+      const { error: userError } = await supabase.from('utilisateurs').insert({
         nom: form.nom,
         email: `${form.telephone.trim()}@livreur.ck`,
-        mot_de_passe: form.mot_de_passe || '1234',
+        mot_de_passe: null,
         role: 'livreur',
         activite: form.activite,
-        code_ref: code,
+        code_ref: codeFinal,
         actif: true,
       })
+
+      if (userError) {
+        alert('Erreur lors de la création de l\'utilisateur livreur : ' + userError?.message)
+        // Supprimer le livreur créé pour éviter les doublons
+        await supabase.from('livreurs').delete().eq('id', livreurData.id)
+        setSaving(false)
+        return
+      }
+
     } else {
       await supabase.from('utilisateurs').insert({
         nom: form.nom,
@@ -141,6 +182,7 @@ export default function UtilisateursPage() {
         actif: true,
       })
     }
+
     setForm({ nom: '', email: '', telephone: '', mot_de_passe: '', role: 'commercial', activite: 'ck_design', code_ref: '' })
     setShowForm(false)
     fetchData()
