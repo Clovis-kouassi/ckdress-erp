@@ -112,59 +112,43 @@ export default function CataloguePage() {
   return (
     <div style={{ minHeight: '100vh', background: '#faf9f7', fontFamily: "'DM Sans', sans-serif", paddingBottom: 100 }}>
 
-      {/* HEADER */}
       <header style={{ background: '#1a1a1a', padding: '16px 20px', textAlign: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-          {/* LOGO */}
-          <img
-            src="/logo-ckdress.png"
-            alt="CK Dress"
-            style={{ height: '44px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
-          />
+          <img src="/logo-ckdress.jpg" alt="CK Dress"
+            style={{ height: '44px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
         </div>
         <p style={{ color: '#888', fontSize: 12, margin: '6px 0 0', letterSpacing: 1 }}>CATALOGUE — ABIDJAN</p>
       </header>
 
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px' }}>
-
         <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: '0 0 20px', textAlign: 'center' }}>
           Trouvez votre article
         </h1>
 
-        {/* FILTRES */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              1. Votre taille
-            </label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>1. Votre taille</label>
             <select value={taille} onChange={e => setTaille(e.target.value)}
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: taille ? '1.5px solid #1a1a1a' : '1.5px solid #e5e2dc', fontSize: 15, color: taille ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}>
               <option value="">Choisir...</option>
               {TAILLES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              2. Catégorie
-            </label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>2. Catégorie</label>
             <select value={categorie} onChange={e => setCategorie(e.target.value)}
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: categorie ? '1.5px solid #1a1a1a' : '1.5px solid #e5e2dc', fontSize: 15, color: categorie ? '#1a1a1a' : '#aaa', background: '#fff', outline: 'none', cursor: 'pointer' }}>
               <option value="">Choisir...</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.nom}>{c.nom}</option>
-              ))}
+              {categories.map(c => <option key={c.id} value={c.nom}>{c.nom}</option>)}
             </select>
           </div>
         </div>
 
-        {/* ÉTATS */}
         {!taille || !categorie ? (
           <div style={{ textAlign: 'center', padding: '48px 20px', color: '#bbb' }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>👗</div>
             <p style={{ margin: 0, fontSize: 15 }}>
-              {!taille && !categorie ? 'Sélectionnez votre taille et une catégorie' :
-               !taille ? 'Sélectionnez votre taille' : 'Sélectionnez une catégorie'}
+              {!taille && !categorie ? 'Sélectionnez votre taille et une catégorie' : !taille ? 'Sélectionnez votre taille' : 'Sélectionnez une catégorie'}
             </p>
           </div>
         ) : loading ? (
@@ -179,55 +163,29 @@ export default function CataloguePage() {
             <p style={{ margin: '0 0 16px', fontSize: 13, color: '#888', textAlign: 'center' }}>
               {produitsAffiches.length} article{produitsAffiches.length > 1 ? 's' : ''} disponible{produitsAffiches.length > 1 ? 's' : ''} en taille {taille}
             </p>
-
-            {/* GRILLE PRODUITS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
               {produitsAffiches.map(({ produit, stock }) =>
                 stock.map(s => {
                   const isSelected = selection.find(sel => sel.stockId === s.id)
                   const imageUrl = s.image_url || produit.image_url || null
                   return (
-                    <button
-                      key={s.id}
-                      onClick={() => toggleSelection(s, produit)}
-                      style={{
-                        background: '#fff',
-                        border: isSelected ? '2.5px solid #1a1a1a' : '1.5px solid #ece9e3',
-                        borderRadius: 14, padding: 0, cursor: 'pointer',
-                        overflow: 'hidden', position: 'relative',
-                        transform: isSelected ? 'scale(0.97)' : 'scale(1)',
-                        transition: 'transform 0.12s, border-color 0.12s',
-                        boxShadow: isSelected ? '0 4px 16px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.06)',
-                      }}>
-
+                    <button key={s.id} onClick={() => toggleSelection(s, produit)}
+                      style={{ background: '#fff', border: isSelected ? '2.5px solid #1a1a1a' : '1.5px solid #ece9e3', borderRadius: 14, padding: 0, cursor: 'pointer', overflow: 'hidden', position: 'relative', transform: isSelected ? 'scale(0.97)' : 'scale(1)', transition: 'transform 0.12s, border-color 0.12s', boxShadow: isSelected ? '0 4px 16px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.06)' }}>
                       <div style={{ width: '100%', aspectRatio: '3/4', background: 'linear-gradient(135deg, #f0ece4, #e8e1d5)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        {imageUrl
-                          ? <img src={imageUrl} alt={produit.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <div style={{ fontSize: 36, opacity: 0.2 }}>👗</div>
-                        }
+                        {imageUrl ? <img src={imageUrl} alt={produit.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: 36, opacity: 0.2 }}>👗</div>}
                       </div>
-
                       {s.quantite <= 5 && (
-                        <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
-                          ⚠️ Plus que {s.quantite} !
-                        </div>
+                        <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>⚠️ Plus que {s.quantite} !</div>
                       )}
-
                       {isSelected && (
                         <div style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#fff', fontWeight: 700 }}>✓</div>
                       )}
-
                       <div style={{ padding: '10px 12px 12px', textAlign: 'left' }}>
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>{produit.nom}</p>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>{s.couleur}</p>
                         <p style={{ margin: '4px 0 0', fontSize: 13, fontWeight: 700, color: '#d4a853' }}>{produit.prix_vente.toLocaleString('fr-FR')} F</p>
                         <div style={{ marginTop: 6 }}>
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                            background: s.quantite <= 5 ? '#fff0f0' : '#f0fdf4',
-                            color: s.quantite <= 5 ? '#E24B4A' : '#1D9E75',
-                            border: `1px solid ${s.quantite <= 5 ? '#fecaca' : '#bbf7d0'}`,
-                          }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: s.quantite <= 5 ? '#fff0f0' : '#f0fdf4', color: s.quantite <= 5 ? '#E24B4A' : '#1D9E75', border: `1px solid ${s.quantite <= 5 ? '#fecaca' : '#bbf7d0'}` }}>
                             {s.quantite <= 5 ? `⚠️ Plus que ${s.quantite} en stock !` : `${s.quantite} en stock`}
                           </span>
                         </div>
@@ -241,13 +199,10 @@ export default function CataloguePage() {
         )}
       </div>
 
-      {/* BARRE COMMANDER */}
       {selection.length > 0 && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #ece9e3', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, zIndex: 20 }}>
           <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>
-              {totalSelectionne} article{totalSelectionne > 1 ? 's' : ''} sélectionné{totalSelectionne > 1 ? 's' : ''}
-            </p>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{totalSelectionne} article{totalSelectionne > 1 ? 's' : ''} sélectionné{totalSelectionne > 1 ? 's' : ''}</p>
             <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Taille {taille} — {categorie}</p>
           </div>
           <button onClick={handleCommander}
@@ -258,7 +213,6 @@ export default function CataloguePage() {
           </button>
         </div>
       )}
-
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     </div>
   )
