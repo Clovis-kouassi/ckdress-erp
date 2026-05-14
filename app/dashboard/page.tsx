@@ -25,8 +25,17 @@ const ALL_MENU_LINKS = [
   { label: '👤 Utilisateurs', href: '/admin/utilisateurs', activites: ['ck_dress'] },
 ]
 
+const PERIODES = [
+  { key: 'tous', label: 'Tout' },
+  { key: 'jour', label: "Aujourd'hui" },
+  { key: 'semaine', label: 'Cette semaine' },
+  { key: 'mois', label: 'Ce mois' },
+  { key: 'annee', label: 'Cette année' },
+]
+
 export default function Dashboard() {
   const [commandes, setCommandes] = useState<any[]>([])
+  const [toutesCommandes, setToutesCommandes] = useState<any[]>([])
   const [stats, setStats] = useState({ total: 0, count: 0, nouvelles: 0, enLivraison: 0 })
   const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -34,6 +43,7 @@ export default function Dashboard() {
   const [showNotifs, setShowNotifs] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [filtrePeriode, setFiltrePeriode] = useState<'tous' | 'jour' | 'semaine' | 'mois' | 'annee'>('tous')
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -50,11 +60,23 @@ export default function Dashboard() {
     return () => { supabase.removeAllChannels(); document.removeEventListener('mousedown', handleClick) }
   }, [])
 
-  // Retourne true si l'utilisateur peut voir cette activité
-  const peutVoir = (u: any, activite: string) => {
-    if (!u) return false
-    if (u.activite === 'ck_dress') return true // global voit tout
-    return u.activite === activite
+  function filtrerParPeriode(date: string) {
+    if (filtrePeriode === 'tous') return true
+    const now = new Date()
+    const d = new Date(date)
+    if (filtrePeriode === 'jour') return d.toDateString() === now.toDateString()
+    if (filtrePeriode === 'semaine') return (now.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 7
+    if (filtrePeriode === 'mois') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    if (filtrePeriode === 'annee') return d.getFullYear() === now.getFullYear()
+    return true
+  }
+
+  const commandesFiltrees = toutesCommandes.filter(c => filtrerParPeriode(c.created_at))
+  const statsFiltres = {
+    total: commandesFiltrees.reduce((s, c) => s + (c.montant_total || 0), 0),
+    count: commandesFiltrees.length,
+    nouvelles: commandesFiltrees.filter(c => c.statut === 'nouveau').length,
+    enLivraison: commandesFiltrees.filter(c => c.statut === 'en_livraison').length,
   }
 
   const playSound = () => {
@@ -78,7 +100,6 @@ export default function Dashboard() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'commandes_catalogue' }, (payload) => {
         const cmd = payload.new as any
         const ancien = payload.old as any
-        // Filtre realtime selon activité
         if (u.activite !== 'ck_dress' && cmd.activite && cmd.activite !== u.activite) return
         if (cmd.statut !== ancien.statut) {
           setNotifications(prev => [{ id: Date.now(), message: `Commande #${cmd.id.slice(0, 6).toUpperCase()} → ${STATUTS[cmd.statut]?.label}`, statut: cmd.statut, time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 20))
@@ -99,9 +120,7 @@ export default function Dashboard() {
   }
 
   async function fetchData(u: any) {
-    // Si global (ck_dress) → pas de filtre, sinon filtre par activite
     const isGlobal = u?.activite === 'ck_dress' || !u?.activite
-
     const baseQuery = supabase.from('commandes_catalogue').select('*').order('created_at', { ascending: false }).limit(10)
     const allQuery = supabase.from('commandes_catalogue').select('montant_total, statut, note, created_at, activite')
 
@@ -110,18 +129,11 @@ export default function Dashboard() {
       isGlobal ? allQuery : allQuery.eq('activite', u.activite),
     ])
 
-    const caTotal = all?.reduce((s, c) => s + (c.montant_total || 0), 0) || 0
     setCommandes(cmds || [])
-    setStats({
-      total: caTotal,
-      count: all?.length || 0,
-      nouvelles: all?.filter(c => c.statut === 'nouveau').length || 0,
-      enLivraison: all?.filter(c => c.statut === 'en_livraison').length || 0,
-    })
+    setToutesCommandes(all || [])
     setLoading(false)
   }
 
-  // Filtre les liens du menu selon l'activité de l'utilisateur
   const menuLinks = ALL_MENU_LINKS.filter(l => {
     if (!user) return false
     if (user.activite === 'ck_dress') return true
@@ -145,17 +157,13 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-
-          {/* MENU HAMBURGER */}
           <div ref={menuRef} style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowMenu(!showMenu)}
+            <button onClick={() => setShowMenu(!showMenu)}
               style={{ background: showMenu ? '#f0fdf4' : 'none', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: '18px', height: '2px', background: showMenu ? '#1D9E75' : '#888', borderRadius: '2px' }} />
               <div style={{ width: '18px', height: '2px', background: showMenu ? '#1D9E75' : '#888', borderRadius: '2px' }} />
               <div style={{ width: '18px', height: '2px', background: showMenu ? '#1D9E75' : '#888', borderRadius: '2px' }} />
             </button>
-
             {showMenu && (
               <div style={{ position: 'absolute', right: 0, top: '46px', width: '240px', background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
                 <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
@@ -179,7 +187,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* NOTIFICATIONS */}
           <div style={{ position: 'relative' }}>
             <button onClick={() => { setShowNotifs(!showNotifs); setBadge(0) }}
               style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: '8px', color: badge > 0 ? '#1D9E75' : '#888', padding: '6px 12px', cursor: 'pointer', fontSize: '16px', position: 'relative' }}>
@@ -218,13 +225,23 @@ export default function Dashboard() {
           <div style={{ textAlign: 'center', color: '#aaa', padding: '60px' }}>Chargement...</div>
         ) : (
           <>
+            {/* FILTRE PÉRIODE */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+              {PERIODES.map(p => (
+                <button key={p.key} onClick={() => setFiltrePeriode(p.key as any)}
+                  style={{ padding: '7px 16px', borderRadius: 20, border: `1.5px solid ${filtrePeriode === p.key ? '#1D9E75' : '#e5e7eb'}`, background: filtrePeriode === p.key ? '#1D9E75' : '#fff', color: filtrePeriode === p.key ? '#fff' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             {/* KPIs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '20px' }}>
               {[
-                { label: 'CA Total', value: stats.total.toLocaleString('fr-FR') + ' F', color: '#1D9E75', sub: 'Toutes commandes' },
-                { label: 'Commandes', value: stats.count.toString(), color: '#1a1a1a', sub: 'Total enregistrées' },
-                { label: 'Nouvelles', value: stats.nouvelles.toString(), color: stats.nouvelles > 0 ? '#E24B4A' : '#aaa', sub: 'À traiter' },
-                { label: 'En livraison', value: stats.enLivraison.toString(), color: '#EF9F27', sub: 'En cours' },
+                { label: 'CA Total', value: statsFiltres.total.toLocaleString('fr-FR') + ' F', color: '#1D9E75', sub: 'Toutes commandes' },
+                { label: 'Commandes', value: statsFiltres.count.toString(), color: '#1a1a1a', sub: 'Total enregistrées' },
+                { label: 'Nouvelles', value: statsFiltres.nouvelles.toString(), color: statsFiltres.nouvelles > 0 ? '#E24B4A' : '#aaa', sub: 'À traiter' },
+                { label: 'En livraison', value: statsFiltres.enLivraison.toString(), color: '#EF9F27', sub: 'En cours' },
               ].map((kpi, i) => (
                 <div key={i} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                   <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', marginBottom: '8px' }}>{kpi.label}</div>
@@ -251,11 +268,11 @@ export default function Dashboard() {
                 <h2 style={{ fontSize: '14px', color: '#aaa', margin: 0, textTransform: 'uppercase' }}>Dernières commandes</h2>
                 <a href="/commandes" style={{ background: '#1D9E75', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', textDecoration: 'none', fontWeight: '600' }}>Voir tout →</a>
               </div>
-              {commandes.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#aaa', padding: '40px' }}>Aucune commande</div>
+              {commandes.filter(c => filtrerParPeriode(c.created_at)).length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#aaa', padding: '40px' }}>Aucune commande sur cette période</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {commandes.map((cmd, i) => (
+                  {commandes.filter(c => filtrerParPeriode(c.created_at)).map((cmd, i) => (
                     <div key={i} style={{ background: '#f9f9f9', borderRadius: '10px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', border: '1px solid #f0f0f0' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>

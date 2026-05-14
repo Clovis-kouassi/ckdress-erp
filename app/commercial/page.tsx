@@ -18,6 +18,14 @@ const STATUTS: Record<string, { label: string; color: string }> = {
 
 const TAILLES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 
+const PERIODES = [
+  { key: 'tous', label: 'Tout' },
+  { key: 'jour', label: "Aujourd'hui" },
+  { key: 'semaine', label: 'Cette semaine' },
+  { key: 'mois', label: 'Ce mois' },
+  { key: 'annee', label: 'Cette année' },
+]
+
 function calculerPrixReduit(produit: any): number | null {
   if (!produit.reduction_type) return null
   if (produit.reduction_type === 'fixe') return Math.max(0, produit.prix_vente - (produit.reduction_valeur || 0))
@@ -31,6 +39,8 @@ export default function CommercialPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState('')
+  const [filtrePeriode, setFiltrePeriode] = useState<'tous' | 'jour' | 'semaine' | 'mois' | 'annee'>('tous')
+  const [filtreStatut, setFiltreStatut] = useState('')
 
   // CATALOGUE
   const [produits, setProduits] = useState<any[]>([])
@@ -93,6 +103,23 @@ export default function CommercialPage() {
     setLoading(false)
   }
 
+  function filtrerParPeriode(date: string) {
+    if (filtrePeriode === 'tous') return true
+    const now = new Date()
+    const d = new Date(date)
+    if (filtrePeriode === 'jour') return d.toDateString() === now.toDateString()
+    if (filtrePeriode === 'semaine') return (now.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 7
+    if (filtrePeriode === 'mois') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    if (filtrePeriode === 'annee') return d.getFullYear() === now.getFullYear()
+    return true
+  }
+
+  const commandesFiltrees = commandes.filter(c => {
+    const okPeriode = filtrerParPeriode(c.created_at)
+    const okStatut = !filtreStatut || c.statut === filtreStatut
+    return okPeriode && okStatut
+  })
+
   // FILTRER PRODUITS
   const produitsFiltres = produits.filter(p => {
     const matchCat = !filtreCategorie || p.categorie?.toLowerCase() === filtreCategorie.toLowerCase()
@@ -100,7 +127,6 @@ export default function CommercialPage() {
     return matchCat && (filtreTaille ? stockProd.length > 0 : true)
   })
 
-  // OUVRIR PRODUIT
   async function ouvrirProduit(produit: any) {
     setProduitSelectionne(produit)
     setTailleChoisie('')
@@ -112,17 +138,12 @@ export default function CommercialPage() {
     setLoadingStock(false)
   }
 
-  // STOCK FILTRÉ PAR TAILLE
   const stockParTaille = tailleChoisie ? stockProduit.filter(s => s.taille === tailleChoisie) : []
   const stockChoisi = stockParTaille.find(s => s.couleur === couleurChoisie)
-  const taillsDisponibles = [...new Set(stockProduit.map(s => s.taille))]
-
-  // PRIX FINAL
   const prixReduit = produitSelectionne ? calculerPrixReduit(produitSelectionne) : null
   const prixUnitaire = prixReduit || produitSelectionne?.prix_vente || 0
   const montantTotal = prixUnitaire * quantite + form.frais_livraison
 
-  // CRÉER COMMANDE
   async function creerCommande() {
     if (!produitSelectionne || !form.telephone || !tailleChoisie || !couleurChoisie) {
       alert('Renseignez le téléphone, la taille et la couleur.')
@@ -158,10 +179,10 @@ export default function CommercialPage() {
     setSaving(false)
   }
 
-  const caTotal = commandes.reduce((s, c) => s + (c.montant_total || 0), 0)
+  const caTotal = commandesFiltrees.reduce((s, c) => s + (c.montant_total || 0), 0)
   const caJour = commandes.filter(c => c.created_at?.startsWith(new Date().toISOString().split('T')[0])).reduce((s, c) => s + (c.montant_total || 0), 0)
-  const nouvelles = commandes.filter(c => c.statut === 'nouveau').length
-  const livrees = commandes.filter(c => c.statut === 'livre').length
+  const nouvelles = commandesFiltrees.filter(c => c.statut === 'nouveau').length
+  const livrees = commandesFiltrees.filter(c => c.statut === 'livre').length
 
   return (
     <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
@@ -173,7 +194,6 @@ export default function CommercialPage() {
           <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}>
 
-            {/* IMAGE */}
             <div style={{ position: 'relative' }}>
               <div style={{ height: 240, background: 'linear-gradient(135deg, #f0ece4, #e8e1d5)', overflow: 'hidden', borderRadius: '20px 20px 0 0' }}>
                 {produitSelectionne.image_url
@@ -195,8 +215,6 @@ export default function CommercialPage() {
             <div style={{ padding: '20px 24px' }}>
               <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>{produitSelectionne.nom}</h2>
               <p style={{ margin: '0 0 4px', fontSize: 12, color: '#aaa' }}>Réf: {produitSelectionne.reference}</p>
-
-              {/* PRIX */}
               <div style={{ margin: '12px 0' }}>
                 {prixReduit ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -210,18 +228,14 @@ export default function CommercialPage() {
 
               {!showFormCommande ? (
                 <>
-                  {/* TAILLES */}
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 8, textTransform: 'uppercase' }}>Taille</label>
-                    {loadingStock ? (
-                      <p style={{ color: '#aaa', fontSize: 13 }}>Chargement stock...</p>
-                    ) : (
+                    {loadingStock ? <p style={{ color: '#aaa', fontSize: 13 }}>Chargement...</p> : (
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {TAILLES.map(t => {
                           const dispo = stockProduit.some(s => s.taille === t && s.quantite > 0)
                           return (
-                            <button key={t} onClick={() => { if (dispo) { setTailleChoisie(t); setCouleurChoisie('') } }}
-                              disabled={!dispo}
+                            <button key={t} onClick={() => { if (dispo) { setTailleChoisie(t); setCouleurChoisie('') } }} disabled={!dispo}
                               style={{ padding: '8px 14px', borderRadius: 9, border: `2px solid ${tailleChoisie === t ? '#378ADD' : dispo ? '#e5e7eb' : '#f0f0f0'}`, background: tailleChoisie === t ? '#378ADD' : dispo ? '#fff' : '#f8f8f8', color: tailleChoisie === t ? '#fff' : dispo ? '#1a1a1a' : '#ccc', fontWeight: 600, fontSize: 13, cursor: dispo ? 'pointer' : 'not-allowed' }}>
                               {t}
                             </button>
@@ -231,7 +245,6 @@ export default function CommercialPage() {
                     )}
                   </div>
 
-                  {/* COULEURS */}
                   {tailleChoisie && (
                     <div style={{ marginBottom: 16 }}>
                       <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 8, textTransform: 'uppercase' }}>Couleur</label>
@@ -239,15 +252,13 @@ export default function CommercialPage() {
                         {stockParTaille.map(s => (
                           <button key={s.id} onClick={() => setCouleurChoisie(s.couleur)}
                             style={{ padding: '8px 14px', borderRadius: 9, border: `2px solid ${couleurChoisie === s.couleur ? '#378ADD' : '#e5e7eb'}`, background: couleurChoisie === s.couleur ? '#eff6ff' : '#fff', color: couleurChoisie === s.couleur ? '#378ADD' : '#1a1a1a', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                            {s.couleur}
-                            <span style={{ marginLeft: 6, fontSize: 11, color: s.quantite <= 5 ? '#E24B4A' : '#aaa' }}>({s.quantite})</span>
+                            {s.couleur} <span style={{ fontSize: 11, color: s.quantite <= 5 ? '#E24B4A' : '#aaa' }}>({s.quantite})</span>
                           </button>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* QUANTITÉ */}
                   {couleurChoisie && (
                     <div style={{ marginBottom: 16 }}>
                       <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 8, textTransform: 'uppercase' }}>Quantité</label>
@@ -257,46 +268,37 @@ export default function CommercialPage() {
                         <span style={{ fontSize: 20, fontWeight: 700, minWidth: 30, textAlign: 'center' }}>{quantite}</span>
                         <button onClick={() => setQuantite(Math.min(stockChoisi?.quantite || 1, quantite + 1))}
                           style={{ width: 36, height: 36, borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#f8f9fa', fontSize: 18, cursor: 'pointer', fontWeight: 700 }}>+</button>
-                        <span style={{ fontSize: 12, color: '#aaa' }}>max {stockChoisi?.quantite || 0} en stock</span>
+                        <span style={{ fontSize: 12, color: '#aaa' }}>max {stockChoisi?.quantite || 0}</span>
                       </div>
                     </div>
                   )}
 
-                  <button
-                    onClick={() => setShowFormCommande(true)}
-                    disabled={!tailleChoisie || !couleurChoisie}
+                  <button onClick={() => setShowFormCommande(true)} disabled={!tailleChoisie || !couleurChoisie}
                     style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: !tailleChoisie || !couleurChoisie ? '#e5e7eb' : '#378ADD', color: !tailleChoisie || !couleurChoisie ? '#aaa' : '#fff', fontWeight: 700, fontSize: 15, cursor: !tailleChoisie || !couleurChoisie ? 'not-allowed' : 'pointer' }}>
                     Passer la commande →
                   </button>
                 </>
               ) : (
                 <>
-                  {/* FORMULAIRE COMMANDE */}
                   <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 14, marginBottom: 14 }}>
                     <p style={{ margin: 0, fontSize: 13, color: '#555' }}>
-                      🛍️ <strong>{produitSelectionne.nom}</strong> — Taille <strong>{tailleChoisie}</strong> — <strong>{couleurChoisie}</strong> × {quantite}
+                      🛍️ <strong>{produitSelectionne.nom}</strong> — {tailleChoisie} — {couleurChoisie} × {quantite}
                     </p>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Nom du client</label>
-                      <input value={form.nom_client} onChange={e => setForm(p => ({ ...p, nom_client: e.target.value }))}
-                        placeholder="Ex: Kouassi Jean"
-                        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', fontSize: 13, outline: 'none' }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>📞 Téléphone *</label>
-                      <input value={form.telephone} onChange={e => setForm(p => ({ ...p, telephone: e.target.value }))}
-                        placeholder="Ex: 0700000000" type="tel"
-                        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', fontSize: 13, outline: 'none' }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>📍 Adresse livraison</label>
-                      <input value={form.adresse} onChange={e => setForm(p => ({ ...p, adresse: e.target.value }))}
-                        placeholder="Quartier, commune..."
-                        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', fontSize: 13, outline: 'none' }} />
-                    </div>
+                    {[
+                      { label: 'Nom du client', key: 'nom_client', placeholder: 'Ex: Kouassi Jean', type: 'text' },
+                      { label: '📞 Téléphone *', key: 'telephone', placeholder: 'Ex: 0700000000', type: 'tel' },
+                      { label: '📍 Adresse livraison', key: 'adresse', placeholder: 'Quartier, commune...', type: 'text' },
+                    ].map(f => (
+                      <div key={f.key}>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>{f.label}</label>
+                        <input value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                          placeholder={f.placeholder} type={f.type}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', fontSize: 13, outline: 'none' }} />
+                      </div>
+                    ))}
                     <div style={{ display: 'flex', gap: 10 }}>
                       <div style={{ flex: 1 }}>
                         <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Frais livraison (F)</label>
@@ -320,10 +322,9 @@ export default function CommercialPage() {
                     </div>
                   </div>
 
-                  {/* RÉCAP MONTANT */}
                   <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span style={{ fontSize: 13, color: '#555' }}>Prix unitaire × {quantite}</span>
+                      <span style={{ fontSize: 13, color: '#555' }}>Prix × {quantite}</span>
                       <span style={{ fontSize: 13, fontWeight: 600 }}>{(prixUnitaire * quantite).toLocaleString('fr-FR')} F</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #e5e7eb' }}>
@@ -408,10 +409,21 @@ export default function CommercialPage() {
           </div>
         )}
 
+        {/* FILTRE PÉRIODE — visible sur commandes et stats */}
+        {(onglet === 'commandes' || onglet === 'stats') && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            {PERIODES.map(p => (
+              <button key={p.key} onClick={() => setFiltrePeriode(p.key as any)}
+                style={{ padding: '7px 16px', borderRadius: 20, border: `1.5px solid ${filtrePeriode === p.key ? '#378ADD' : '#e5e7eb'}`, background: filtrePeriode === p.key ? '#378ADD' : '#fff', color: filtrePeriode === p.key ? '#fff' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ONGLET CATALOGUE */}
         {onglet === 'catalogue' && (
           <div>
-            {/* FILTRES */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>Taille</label>
@@ -430,10 +442,7 @@ export default function CommercialPage() {
                 </select>
               </div>
             </div>
-
             <p style={{ margin: '0 0 12px', fontSize: 13, color: '#888' }}>{produitsFiltres.length} produit(s)</p>
-
-            {/* GRILLE PRODUITS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
               {produitsFiltres.map(prod => {
                 const stockProd = stock.filter(s => s.produit_id === prod.id)
@@ -480,24 +489,27 @@ export default function CommercialPage() {
         {/* ONGLET COMMANDES */}
         {onglet === 'commandes' && (
           <div>
-            {/* FILTRES STATUT */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 4 }}>
               {[{ key: '', label: 'Toutes' }, ...Object.entries(STATUTS).map(([k, v]) => ({ key: k, label: v.label }))].map(s => (
-                <button key={s.key}
-                  style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: '1.5px solid #e5e7eb', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                <button key={s.key} onClick={() => setFiltreStatut(s.key)}
+                  style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: `1.5px solid ${filtreStatut === s.key ? '#378ADD' : '#e5e7eb'}`, background: filtreStatut === s.key ? '#378ADD' : '#fff', color: filtreStatut === s.key ? '#fff' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   {s.label}
                 </button>
               ))}
             </div>
 
-            {loading ? <p style={{ color: '#aaa' }}>Chargement...</p> : commandes.length === 0 ? (
+            <div style={{ marginBottom: 12, fontSize: 13, color: '#888', fontWeight: 600 }}>
+              {commandesFiltrees.length} commande(s)
+            </div>
+
+            {loading ? <p style={{ color: '#aaa' }}>Chargement...</p> : commandesFiltrees.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: '#ccc' }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
-                <p>Aucune commande pour le moment</p>
+                <p>Aucune commande sur cette période</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {commandes.map(cmd => (
+                {commandesFiltrees.map(cmd => (
                   <div key={cmd.id} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -509,7 +521,7 @@ export default function CommercialPage() {
                       <span style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
                     </div>
                     <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{cmd.nom_client || '—'}</p>
-                    <p style={{ margin: '0 0 4px', fontSize: 12, color: '#555' }}>🛍️ {cmd.produit_ref} — Taille {cmd.taille} — {cmd.variantes}</p>
+                    <p style={{ margin: '0 0 4px', fontSize: 12, color: '#555' }}>🛍️ {cmd.produit_ref} — {cmd.taille} — {cmd.variantes}</p>
                     <p style={{ margin: '0 0 4px', fontSize: 12, color: '#888' }}>📞 {cmd.telephone} · 📍 {cmd.adresse}</p>
                     <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>
                       {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -526,8 +538,8 @@ export default function CommercialPage() {
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
               {Object.entries(STATUTS).map(([key, val]) => {
-                const count = commandes.filter(c => c.statut === key).length
-                const ca = commandes.filter(c => c.statut === key).reduce((s, c) => s + (c.montant_total || 0), 0)
+                const count = commandesFiltrees.filter(c => c.statut === key).length
+                const ca = commandesFiltrees.filter(c => c.statut === key).reduce((s, c) => s + (c.montant_total || 0), 0)
                 return (
                   <div key={key} style={{ background: '#fff', border: `1px solid ${val.color}22`, borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                     <div style={{ fontSize: 11, color: val.color, textTransform: 'uppercase', marginBottom: 6, fontWeight: 600 }}>{val.label}</div>
@@ -538,11 +550,10 @@ export default function CommercialPage() {
               })}
             </div>
 
-            {/* TOP PRODUITS */}
             <div style={{ background: '#fff', borderRadius: 14, padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
               <h3 style={{ margin: '0 0 14px', fontSize: '13px', color: '#888', textTransform: 'uppercase', fontWeight: 600, letterSpacing: 0.5 }}>🏆 Top produits commandés</h3>
               {Object.entries(
-                commandes.reduce((acc: any, c) => {
+                commandesFiltrees.reduce((acc: any, c) => {
                   acc[c.produit_ref] = (acc[c.produit_ref] || 0) + 1
                   return acc
                 }, {})
@@ -552,7 +563,7 @@ export default function CommercialPage() {
                   <span style={{ color: '#378ADD', fontWeight: 700, fontSize: '13px', background: '#eff6ff', padding: '2px 10px', borderRadius: 20 }}>{count} cmd</span>
                 </div>
               ))}
-              {commandes.length === 0 && <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center' }}>Aucune commande</p>}
+              {commandesFiltrees.length === 0 && <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center' }}>Aucune commande sur cette période</p>}
             </div>
           </div>
         )}
