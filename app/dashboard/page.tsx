@@ -146,7 +146,7 @@ export default function Dashboard() {
 
           {/* LOGO */}
           <img
-            src="/logo-ckdress.png"
+            src="/logo-ckdress.jpg"
             alt="CK Dress"
             style={{ height: '42px', objectFit: 'contain' }}
           />

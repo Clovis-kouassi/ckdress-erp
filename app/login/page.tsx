@@ -63,7 +63,7 @@ export default function LoginPage() {
         {/* LOGO */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <img
-            src="/logo-ckdress.png"
+            src="/logo-ckdress.jpg"
             alt="CK Dress"
             style={{ height: '70px', objectFit: 'contain', marginBottom: '16px', filter: 'brightness(0) invert(1)' }}
           />
