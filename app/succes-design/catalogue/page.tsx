@@ -41,11 +41,9 @@ export default function CatalogueSuccesDesignPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // Filtrer uniquement les catégories Succès Design
     supabase.from('categories').select('*').eq('activite', 'succes_design').order('ordre').then(({ data }) => {
       if (data) setCategories(data)
     })
-    // Filtrer uniquement les produits Succès Design
     supabase.from('produits').select('*').eq('disponible', true).eq('activite', 'succes_design').order('nom').then(({ data }) => {
       if (data) setProduits(data)
     })
@@ -105,12 +103,9 @@ export default function CatalogueSuccesDesignPage() {
     if (selection.length === 0) return
     const produitRef = selection[0].produitRef
     const variantes = selection.map(s => s.stockId).join(',')
-    const query = new URLSearchParams({
-      produit: produitRef,
-      taille,
-      variantes,
-    })
-    router.push(`/catalogue/commande?${query.toString()}`)
+    const query = new URLSearchParams({ produit: produitRef, taille, variantes })
+    // ✅ CORRECTION : lien succes-design
+    router.push(`/succes-design/catalogue/commande?${query.toString()}`)
   }
 
   const totalSelectionne = selection.length
@@ -119,12 +114,18 @@ export default function CatalogueSuccesDesignPage() {
     <div style={{ minHeight: '100vh', background: '#faf9f7', fontFamily: "'DM Sans', sans-serif", paddingBottom: 100 }}>
 
       {/* HEADER */}
-      <header style={{ background: '#1a1a1a', padding: '20px', textAlign: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#d4a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>SD</div>
-          <span style={{ color: '#fff', fontSize: 18, fontWeight: 600, letterSpacing: 2 }}>SUCCÈS DESIGN</span>
+      <header style={{ background: '#1a1a1a', padding: '16px 20px', textAlign: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          {/* ✅ LOGO */}
+          <img
+            src="/logo-ckdress.png"
+            alt="CK Dress"
+            style={{ height: '44px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+          />
         </div>
-        <p style={{ color: '#888', fontSize: 12, margin: '4px 0 0', letterSpacing: 1 }}>CATALOGUE — ABIDJAN</p>
+        <p style={{ color: '#d4a853', fontSize: 12, margin: '6px 0 0', letterSpacing: 1, fontWeight: 600 }}>
+          ✨ SUCCÈS DESIGN — ABIDJAN
+        </p>
       </header>
 
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px' }}>
