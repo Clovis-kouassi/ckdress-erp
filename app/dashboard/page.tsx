@@ -36,7 +36,6 @@ const PERIODES = [
 export default function Dashboard() {
   const [commandes, setCommandes] = useState<any[]>([])
   const [toutesCommandes, setToutesCommandes] = useState<any[]>([])
-  const [stats, setStats] = useState({ total: 0, count: 0, nouvelles: 0, enLivraison: 0 })
   const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState<any[]>([])
   const [badge, setBadge] = useState(0)
@@ -123,12 +122,10 @@ export default function Dashboard() {
     const isGlobal = u?.activite === 'ck_dress' || !u?.activite
     const baseQuery = supabase.from('commandes_catalogue').select('*').order('created_at', { ascending: false }).limit(10)
     const allQuery = supabase.from('commandes_catalogue').select('montant_total, statut, note, created_at, activite')
-
     const [{ data: cmds }, { data: all }] = await Promise.all([
       isGlobal ? baseQuery : baseQuery.eq('activite', u.activite),
       isGlobal ? allQuery : allQuery.eq('activite', u.activite),
     ])
-
     setCommandes(cmds || [])
     setToutesCommandes(all || [])
     setLoading(false)
@@ -144,9 +141,16 @@ export default function Dashboard() {
     <div style={{ minHeight: '100vh', background: '#f4f4f5', fontFamily: 'sans-serif', color: '#1a1a1a' }}>
 
       {/* TOPBAR */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e5', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e5', padding: '10px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <h1 style={{ color: '#1D9E75', fontSize: '1.3rem', margin: 0 }}>CK Dress ERP</h1>
+
+          {/* LOGO */}
+          <img
+            src="/logo-ckdress.png"
+            alt="CK Dress"
+            style={{ height: '42px', objectFit: 'contain' }}
+          />
+
           <span style={{ color: '#ddd' }}>|</span>
           <span style={{ color: '#999', fontSize: '12px' }}>{user?.nom || 'Super Admin'}</span>
           {user?.activite && user.activite !== 'ck_dress' && (
