@@ -24,6 +24,14 @@ const STATUTS_SUIVANTS: Record<string, { key: string; label: string; color: stri
   en_livraison: { key: 'livre', label: '✅ Confirmer livraison', color: '#1D9E75' },
 }
 
+const PERIODES = [
+  { key: 'tous', label: 'Tout' },
+  { key: 'jour', label: 'Aujourd\'hui' },
+  { key: 'semaine', label: 'Cette semaine' },
+  { key: 'mois', label: 'Ce mois' },
+  { key: 'annee', label: 'Cette année' },
+]
+
 export default function CommandesPage() {
   const [commandes, setCommandes] = useState<Commande[]>([])
   const [livreurs, setLivreurs] = useState<Livreur[]>([])
@@ -33,6 +41,7 @@ export default function CommandesPage() {
   const [livreurChoisi, setLivreurChoisi] = useState('')
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [filtrePeriode, setFiltrePeriode] = useState<'tous' | 'jour' | 'semaine' | 'mois' | 'annee'>('tous')
 
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
@@ -43,8 +52,6 @@ export default function CommandesPage() {
   async function fetchData(u?: any) {
     setLoading(true)
     const currentUser = u || user
-
-    // Filtre selon activité
     const isGlobal = !currentUser?.activite || currentUser.activite === 'ck_dress'
 
     let cmdsQuery = supabase
@@ -73,18 +80,26 @@ export default function CommandesPage() {
         )
         return match ? { couleur, url: match.image_url } : null
       }).filter(Boolean) as { couleur: string; url: string }[]
-
-      return {
-        ...cmd,
-        image_url: images[0]?.url || null,
-        images,
-      }
+      return { ...cmd, image_url: images[0]?.url || null, images }
     })
 
     setCommandes(commandesAvecImages)
     setLivreurs(livs || [])
     setLoading(false)
   }
+
+  function filtrerParPeriode(date: string) {
+    if (filtrePeriode === 'tous') return true
+    const now = new Date()
+    const d = new Date(date)
+    if (filtrePeriode === 'jour') return d.toDateString() === now.toDateString()
+    if (filtrePeriode === 'semaine') return (now.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 7
+    if (filtrePeriode === 'mois') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    if (filtrePeriode === 'annee') return d.getFullYear() === now.getFullYear()
+    return true
+  }
+
+  const commandesFiltrees = commandes.filter(c => filtrerParPeriode(c.created_at))
 
   async function changerStatut(id: string, statut: string, livreurId?: string) {
     setSaving(true)
@@ -112,12 +127,12 @@ export default function CommandesPage() {
   const getLivreurNom = (id?: string) => livreurs.find(l => l.id === id)?.nom || null
 
   const stats = {
-    total: commandes.length,
-    nouveau: commandes.filter(c => c.statut === 'nouveau').length,
-    en_preparation: commandes.filter(c => c.statut === 'en_preparation').length,
-    en_livraison: commandes.filter(c => c.statut === 'en_livraison').length,
-    livre: commandes.filter(c => c.statut === 'livre').length,
-    ca: commandes.filter(c => c.statut === 'livre').reduce((s, c) => s + (c.montant_total || 0), 0),
+    total: commandesFiltrees.length,
+    nouveau: commandesFiltrees.filter(c => c.statut === 'nouveau').length,
+    en_preparation: commandesFiltrees.filter(c => c.statut === 'en_preparation').length,
+    en_livraison: commandesFiltrees.filter(c => c.statut === 'en_livraison').length,
+    livre: commandesFiltrees.filter(c => c.statut === 'livre').length,
+    ca: commandesFiltrees.filter(c => c.statut === 'livre').reduce((s, c) => s + (c.montant_total || 0), 0),
   }
 
   const ouvrirDetail = (cmd: Commande) => {
@@ -219,12 +234,12 @@ export default function CommandesPage() {
                 {commandeDetail.statut === 'en_preparation' && (
                   <div style={{ marginBottom: 12 }}>
                     <button onClick={() => changerStatut(commandeDetail.id, 'en_livraison')} disabled={saving}
-                      style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, background: saving ? '#aaa' : '#BA7517', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', marginBottom: 10 }}>
+                      style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, background: saving ? '#aaa' : '#BA7517', color: '#fff', marginBottom: 10 }}>
                       {saving ? '...' : '🚚 Envoyer en livraison'}
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
-                      <span style={{ fontSize: 11, color: '#aaa', fontWeight: 500 }}>ou assigner à un livreur spécifique</span>
+                      <span style={{ fontSize: 11, color: '#aaa' }}>ou assigner à un livreur</span>
                       <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
                     </div>
                     <select value={livreurChoisi} onChange={e => setLivreurChoisi(e.target.value)}
@@ -243,7 +258,7 @@ export default function CommandesPage() {
 
                 {commandeDetail.statut !== 'en_preparation' && (
                   <button onClick={() => changerStatut(commandeDetail.id, STATUTS_SUIVANTS[commandeDetail.statut].key)} disabled={saving}
-                    style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, background: saving ? '#aaa' : STATUTS_SUIVANTS[commandeDetail.statut].color, color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                    style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14, background: saving ? '#aaa' : STATUTS_SUIVANTS[commandeDetail.statut].color, color: '#fff' }}>
                     {saving ? '...' : STATUTS_SUIVANTS[commandeDetail.statut].label}
                   </button>
                 )}
@@ -293,6 +308,21 @@ export default function CommandesPage() {
       </div>
 
       <div style={{ padding: '16px' }}>
+
+        {/* FILTRE PÉRIODE */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {PERIODES.map(p => (
+            <button key={p.key} onClick={() => setFiltrePeriode(p.key as any)}
+              style={{ padding: '7px 16px', borderRadius: 20, border: `1.5px solid ${filtrePeriode === p.key ? '#38bdf8' : '#e5e7eb'}`, background: filtrePeriode === p.key ? '#38bdf8' : '#fff', color: filtrePeriode === p.key ? '#fff' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              {p.label}
+            </button>
+          ))}
+          <div style={{ marginLeft: 'auto', padding: '7px 14px', background: '#f0f2f5', borderRadius: 20, fontSize: 12, color: '#888', fontWeight: 600 }}>
+            {commandesFiltrees.length} commande(s)
+          </div>
+        </div>
+
+        {/* KPIs */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '20px' }}>
           {[
             { label: 'Total', value: stats.total, color: '#1a1a1a', bg: '#fff' },
@@ -320,7 +350,7 @@ export default function CommandesPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {STATUTS.map(statut => {
-              const cmds = commandes.filter(c => c.statut === statut.key)
+              const cmds = commandesFiltrees.filter(c => c.statut === statut.key)
               return (
                 <div key={statut.key}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -330,11 +360,6 @@ export default function CommandesPage() {
                         {cmds.length}
                       </span>
                     </div>
-                    {cmds.length > 4 && (
-                      <button style={{ background: 'none', border: `1px solid ${statut.color}`, color: statut.color, borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                        Voir tout →
-                      </button>
-                    )}
                   </div>
 
                   {cmds.length === 0 ? (
@@ -345,7 +370,7 @@ export default function CommandesPage() {
                     <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
                       {cmds.map(cmd => (
                         <div key={cmd.id} onClick={() => ouvrirDetail(cmd)}
-                          style={{ background: '#fff', borderRadius: 14, padding: 0, minWidth: 200, maxWidth: 200, border: `1.5px solid ${statut.border}`, cursor: 'pointer', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', transition: 'transform 0.1s', overflow: 'hidden' }}
+                          style={{ background: '#fff', borderRadius: 14, padding: 0, minWidth: 200, maxWidth: 200, border: `1.5px solid ${statut.border}`, cursor: 'pointer', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' }}
                           onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
                           onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
 
@@ -369,7 +394,6 @@ export default function CommandesPage() {
                               </span>
                             </div>
 
-                            {/* Badge activité visible uniquement en vue globale */}
                             {isGlobal && cmd.activite && (
                               <span style={{ fontSize: 10, background: '#f0f0f0', color: '#888', padding: '1px 7px', borderRadius: 20, marginBottom: 6, display: 'inline-block' }}>
                                 {cmd.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
@@ -397,14 +421,6 @@ export default function CommandesPage() {
                           </div>
                         </div>
                       ))}
-
-                      {cmds.length > 4 && (
-                        <div style={{ minWidth: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <button style={{ background: statut.bg, border: `1.5px solid ${statut.border}`, color: statut.color, borderRadius: '50%', width: 44, height: 44, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                            →
-                          </button>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>

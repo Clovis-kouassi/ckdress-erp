@@ -28,12 +28,21 @@ type Livreur = {
   code: string
 }
 
+const PERIODES = [
+  { key: 'tous', label: 'Tout' },
+  { key: 'jour', label: "Aujourd'hui" },
+  { key: 'semaine', label: 'Cette semaine' },
+  { key: 'mois', label: 'Ce mois' },
+  { key: 'annee', label: 'Cette année' },
+]
+
 export default function LivraisonsPage() {
   const [commandes, setCommandes] = useState<Commande[]>([])
   const [livreurs, setLivreurs] = useState<Livreur[]>([])
   const [loading, setLoading] = useState(true)
   const [filtreStatut, setFiltreStatut] = useState<string>('tous')
   const [filtreLivreur, setFiltreLivreur] = useState<string>('tous')
+  const [filtrePeriode, setFiltrePeriode] = useState<'tous' | 'jour' | 'semaine' | 'mois' | 'annee'>('tous')
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
@@ -67,25 +76,36 @@ export default function LivraisonsPage() {
     setLoading(false)
   }
 
-  const getLivreurNom = (id?: string) => livreurs.find(l => l.id === id)?.nom || '—'
+  function filtrerParPeriode(date: string) {
+    if (filtrePeriode === 'tous') return true
+    const now = new Date()
+    const d = new Date(date)
+    if (filtrePeriode === 'jour') return d.toDateString() === now.toDateString()
+    if (filtrePeriode === 'semaine') return (now.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 7
+    if (filtrePeriode === 'mois') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    if (filtrePeriode === 'annee') return d.getFullYear() === now.getFullYear()
+    return true
+  }
 
+  const getLivreurNom = (id?: string) => livreurs.find(l => l.id === id)?.nom || '—'
   const isGlobal = !user?.activite || user?.activite === 'ck_dress'
 
   const commandesFiltrees = commandes.filter(c => {
     const okStatut = filtreStatut === 'tous' || c.statut === filtreStatut
     const okLivreur = filtreLivreur === 'tous' || c.livreur_id === filtreLivreur
-    return okStatut && okLivreur
+    const okPeriode = filtrerParPeriode(c.created_at)
+    return okStatut && okLivreur && okPeriode
   })
 
   const stats = {
-    enCours: commandes.filter(c => c.statut === 'en_livraison').length,
-    livres: commandes.filter(c => c.statut === 'livre').length,
-    retours: commandes.filter(c => c.statut === 'retour').length,
-    ca: commandes.filter(c => c.statut === 'livre').reduce((s, c) => s + (c.frais_livraison || 0), 0),
+    enCours: commandes.filter(c => c.statut === 'en_livraison' && filtrerParPeriode(c.created_at)).length,
+    livres: commandes.filter(c => c.statut === 'livre' && filtrerParPeriode(c.created_at)).length,
+    retours: commandes.filter(c => c.statut === 'retour' && filtrerParPeriode(c.created_at)).length,
+    ca: commandes.filter(c => c.statut === 'livre' && filtrerParPeriode(c.created_at)).reduce((s, c) => s + (c.frais_livraison || 0), 0),
   }
 
   const statsByLivreur = livreurs.map(liv => {
-    const colis = commandes.filter(c => c.livreur_id === liv.id)
+    const colis = commandes.filter(c => c.livreur_id === liv.id && filtrerParPeriode(c.created_at))
     return {
       ...liv,
       enCours: colis.filter(c => c.statut === 'en_livraison').length,
@@ -125,6 +145,16 @@ export default function LivraisonsPage() {
       </div>
 
       <div style={{ padding: 16 }}>
+
+        {/* FILTRE PÉRIODE */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {PERIODES.map(p => (
+            <button key={p.key} onClick={() => setFiltrePeriode(p.key as any)}
+              style={{ padding: '7px 16px', borderRadius: 20, border: `1.5px solid ${filtrePeriode === p.key ? '#38bdf8' : '#e5e7eb'}`, background: filtrePeriode === p.key ? '#38bdf8' : '#fff', color: filtrePeriode === p.key ? '#fff' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
 
         {/* STATS GLOBALES */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
@@ -170,12 +200,12 @@ export default function LivraisonsPage() {
               </div>
             ))}
             {statsByLivreur.filter(l => l.enCours + l.livres + l.retours > 0).length === 0 && (
-              <p style={{ color: '#aaa', fontSize: 13 }}>Aucune activité livreur pour le moment.</p>
+              <p style={{ color: '#aaa', fontSize: 13 }}>Aucune activité livreur pour cette période.</p>
             )}
           </div>
         </div>
 
-        {/* FILTRES */}
+        {/* FILTRES STATUT & LIVREUR */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
           <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)}
             style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, outline: 'none', color: '#1a1a1a' }}>
@@ -189,7 +219,7 @@ export default function LivraisonsPage() {
             <option value="tous">Tous les livreurs</option>
             {livreurs.map(l => <option key={l.id} value={l.id}>{l.nom}</option>)}
           </select>
-          <div style={{ padding: '8px 14px', background: '#f0f2f5', borderRadius: 8, fontSize: 13, color: '#888' }}>
+          <div style={{ padding: '8px 14px', background: '#f0f2f5', borderRadius: 8, fontSize: 13, color: '#888', fontWeight: 600 }}>
             {commandesFiltrees.length} colis
           </div>
         </div>
@@ -199,7 +229,7 @@ export default function LivraisonsPage() {
           <div style={{ textAlign: 'center', color: '#aaa', padding: 60 }}>Chargement...</div>
         ) : commandesFiltrees.length === 0 ? (
           <div style={{ background: '#fff', borderRadius: 12, padding: 40, textAlign: 'center', color: '#ccc', border: '1px solid #e5e7eb' }}>
-            Aucun colis trouvé
+            Aucun colis trouvé pour cette période
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -219,7 +249,6 @@ export default function LivraisonsPage() {
                       }}>
                         {cmd.statut === 'livre' ? '✅ Livré' : cmd.statut === 'retour' ? '❌ Retour' : '🚚 En livraison'}
                       </span>
-                      {/* Badge activité visible uniquement en vue globale */}
                       {isGlobal && cmd.activite && (
                         <span style={{ fontSize: 10, background: '#f0f0f0', color: '#888', padding: '2px 8px', borderRadius: 20 }}>
                           {cmd.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
