@@ -41,7 +41,6 @@ export default function CataloguePage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // Catalogue CK Design → filtre activite = ck_design
     supabase.from('categories').select('*').eq('activite', 'ck_design').order('ordre').then(({ data }) => {
       if (data) setCategories(data)
     })
@@ -104,11 +103,7 @@ export default function CataloguePage() {
     if (selection.length === 0) return
     const produitRef = selection[0].produitRef
     const variantes = selection.map(s => s.stockId).join(',')
-    const query = new URLSearchParams({
-      produit: produitRef,
-      taille,
-      variantes,
-    })
+    const query = new URLSearchParams({ produit: produitRef, taille, variantes })
     router.push(`/catalogue/commande?${query.toString()}`)
   }
 
@@ -118,12 +113,16 @@ export default function CataloguePage() {
     <div style={{ minHeight: '100vh', background: '#faf9f7', fontFamily: "'DM Sans', sans-serif", paddingBottom: 100 }}>
 
       {/* HEADER */}
-      <header style={{ background: '#1a1a1a', padding: '20px', textAlign: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#d4a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>CK</div>
-          <span style={{ color: '#fff', fontSize: 18, fontWeight: 600, letterSpacing: 2 }}>CK DRESS</span>
+      <header style={{ background: '#1a1a1a', padding: '16px 20px', textAlign: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          {/* LOGO */}
+          <img
+            src="/logo-ckdress.png"
+            alt="CK Dress"
+            style={{ height: '44px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+          />
         </div>
-        <p style={{ color: '#888', fontSize: 12, margin: '4px 0 0', letterSpacing: 1 }}>CATALOGUE — ABIDJAN</p>
+        <p style={{ color: '#888', fontSize: 12, margin: '6px 0 0', letterSpacing: 1 }}>CATALOGUE — ABIDJAN</p>
       </header>
 
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px' }}>
