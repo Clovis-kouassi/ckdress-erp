@@ -60,11 +60,13 @@ export default function LoginPage() {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0a0a0a', fontFamily: 'sans-serif' }}>
       <div style={{ background: '#111', border: '1px solid #222', borderRadius: '16px', padding: '40px', width: '100%', maxWidth: '400px' }}>
 
+        {/* LOGO */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ width: '60px', height: '60px', background: '#1D9E75', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '24px' }}>
-            👗
-          </div>
-          <h1 style={{ color: '#1D9E75', fontSize: '1.8rem', margin: '0 0 4px', fontWeight: 800 }}>CK Dress</h1>
+          <img
+            src="/logo-ckdress.png"
+            alt="CK Dress"
+            style={{ height: '70px', objectFit: 'contain', marginBottom: '16px', filter: 'brightness(0) invert(1)' }}
+          />
           <p style={{ color: '#555', fontSize: '13px', margin: 0 }}>Connectez-vous à votre espace</p>
         </div>
 
