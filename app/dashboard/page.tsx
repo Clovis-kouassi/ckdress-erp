@@ -23,6 +23,7 @@ const ALL_MENU_LINKS = [
   { label: '🎨 Catalogue CK Design', href: '/catalogue', activites: ['ck_dress', 'ck_design'] },
   { label: '✨ Catalogue Succès Design', href: '/succes-design/catalogue', activites: ['ck_dress', 'succes_design'] },
   { label: '👤 Utilisateurs', href: '/admin/utilisateurs', activites: ['ck_dress'] },
+  { label: '⚙️ Configuration', href: '/admin/configuration', activites: ['ck_dress'] },
 ]
 
 const PERIODES = [
@@ -143,14 +144,7 @@ export default function Dashboard() {
       {/* TOPBAR */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e5e5e5', padding: '10px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-
-          {/* LOGO */}
-          <img
-            src="/logo-ckdress.jpg"
-            alt="CK Dress"
-            style={{ height: '42px', objectFit: 'contain' }}
-          />
-
+          <img src="/logo-ckdress.jpg" alt="CK Dress" style={{ height: '42px', objectFit: 'contain' }} />
           <span style={{ color: '#ddd' }}>|</span>
           <span style={{ color: '#999', fontSize: '12px' }}>{user?.nom || 'Super Admin'}</span>
           {user?.activite && user.activite !== 'ck_dress' && (
@@ -161,6 +155,15 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+
+          {/* BOUTON CONFIGURATION — visible uniquement super_admin */}
+          {user?.role === 'super_admin' && (
+            <a href="/admin/configuration"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', border: 'none', borderRadius: '8px', color: '#38bdf8', textDecoration: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+              ⚙️ Configuration
+            </a>
+          )}
+
           <div ref={menuRef} style={{ position: 'relative' }}>
             <button onClick={() => setShowMenu(!showMenu)}
               style={{ background: showMenu ? '#f0fdf4' : 'none', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
