@@ -21,7 +21,6 @@ export default function LivreurLoginPage() {
     setLoading(true)
     setError('')
 
-    // Normaliser — accepter avec ou sans indicatif pays 225
     const tel = telephone.trim()
     const telAvecIndicatif = tel.startsWith('225') ? tel : `225${tel}`
     const telSansIndicatif = tel.startsWith('225') ? tel.slice(3) : tel
@@ -100,11 +99,13 @@ export default function LivreurLoginPage() {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 20, padding: '40px 28px', width: '100%', maxWidth: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
 
-        {/* Logo */}
+        {/* LOGO */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ width: 64, height: 64, background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28 }}>
-            🚚
-          </div>
+          <img
+            src="/logo-ckdress.png"
+            alt="CK Dress"
+            style={{ height: '60px', objectFit: 'contain', marginBottom: 16 }}
+          />
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1a1a1a' }}>Espace Livreur</h1>
           <p style={{ margin: '6px 0 0', fontSize: 14, color: '#888' }}>
             {etape === 'telephone' && 'Entrez votre numéro pour continuer'}
