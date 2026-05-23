@@ -8,8 +8,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const TAILLES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-
 async function compressImage(file: File): Promise<File> {
   return new Promise(resolve => {
     const canvas = document.createElement('canvas')
@@ -47,10 +45,6 @@ type CouleurVariante = {
   tailles: { taille: string; quantite: number; active: boolean }[]
 }
 
-function nouvelleCouleur(): CouleurVariante {
-  return { couleur: '', tailles: TAILLES.map(t => ({ taille: t, quantite: 5, active: false })) }
-}
-
 function calculerPrixReduit(produit: any, quantite: number = 1): number | null {
   if (!produit.reduction_type) return null
   const prix = produit.prix_vente
@@ -67,6 +61,7 @@ export default function GestionnaireStockPage() {
   const [boutiques, setBoutiques] = useState<any[]>([])
   const [mouvements, setMouvements] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
+  const [tailles, setTailles] = useState<string[]>([]) // ✅ Tailles depuis Supabase
   const [loading, setLoading] = useState(true)
   const [onglet, setOnglet] = useState<'produits' | 'nouveau_produit' | 'approvisionner' | 'historique'>('produits')
   const [user, setUser] = useState<any>(null)
@@ -81,17 +76,20 @@ export default function GestionnaireStockPage() {
     image_file: null as File | null, preview: '', disponible: true,
     reduction_type: null as string | null, reduction_valeur: 0, reduction_quantite_min: 1,
   })
-  const [couleurs, setCouleurs] = useState<CouleurVariante[]>([nouvelleCouleur()])
+  const [couleurs, setCouleurs] = useState<CouleurVariante[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // RÉDUCTION GLOBALE
   const [showReductionGlobale, setShowReductionGlobale] = useState(false)
   const [reductionGlobale, setReductionGlobale] = useState({ type: 'pourcentage', valeur: 0, quantite_min: 1 })
   const [savingReduction, setSavingReduction] = useState(false)
-
-  // RÉDUCTION INDIVIDUELLE (modal détail)
   const [showReductionIndiv, setShowReductionIndiv] = useState(false)
   const [reductionIndiv, setReductionIndiv] = useState({ type: 'pourcentage', valeur: 0, quantite_min: 1 })
+
+  // ✅ Créer une nouvelle couleur avec les tailles dynamiques
+  const nouvelleCouleur = (taillesActives: string[]): CouleurVariante => ({
+    couleur: '',
+    tailles: taillesActives.map(t => ({ taille: t, quantite: 5, active: false }))
+  })
 
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
@@ -119,12 +117,21 @@ export default function GestionnaireStockPage() {
       ? supabase.from('produits').select('*').order('nom')
       : supabase.from('produits').select('*').eq('activite', activite || 'ck_design').order('nom')
 
-    const [{ data: prodsData }, { data: boutsData }, { data: ventesData }, { data: catsData }] = await Promise.all([
+    const [{ data: prodsData }, { data: boutsData }, { data: ventesData }, { data: catsData }, { data: taillesData }] = await Promise.all([
       prodsQuery,
       supabase.from('boutiques').select('*').eq('actif', true),
       supabase.from('ventes_boutique').select('*').order('created_at', { ascending: false }).limit(30),
       supabase.from('categories').select('*').order('activite').order('ordre'),
+      supabase.from('tailles').select('nom').eq('actif', true).order('ordre'), // ✅ Charger tailles
     ])
+
+    const taillesActives = (taillesData || []).map((t: any) => t.nom)
+    setTailles(taillesActives)
+
+    // Initialiser couleurs avec tailles dynamiques
+    if (taillesActives.length > 0 && couleurs.length === 0) {
+      setCouleurs([nouvelleCouleur(taillesActives)])
+    }
 
     const prodsFiltres = prodsData || []
     let stockFiltre: any[] = []
@@ -142,7 +149,6 @@ export default function GestionnaireStockPage() {
     setLoading(false)
   }
 
-  // RÉDUCTION GLOBALE
   async function appliquerReductionGlobale() {
     if (!reductionGlobale.valeur) return
     setSavingReduction(true)
@@ -172,7 +178,6 @@ export default function GestionnaireStockPage() {
     setTimeout(() => setSuccess(''), 3000)
   }
 
-  // RÉDUCTION INDIVIDUELLE
   async function appliquerReductionIndiv() {
     if (!produitDetail || !reductionIndiv.valeur) return
     setSaving(true)
@@ -250,7 +255,7 @@ export default function GestionnaireStockPage() {
     setTimeout(() => setSuccess(''), 3000)
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
     setProdForm({ reference: '', nom: '', categorie: '', activite: u?.activite || 'ck_design', prix_vente: 0, prix_achat: 0, description: '', image_file: null, preview: '', disponible: true, reduction_type: null, reduction_valeur: 0, reduction_quantite_min: 1 })
-    setCouleurs([nouvelleCouleur()])
+    setCouleurs([nouvelleCouleur(tailles)])
     fetchData()
     setOnglet('produits')
     setSaving(false)
@@ -282,6 +287,10 @@ export default function GestionnaireStockPage() {
   const stockCritique = stock.filter(s => s.quantite <= 3)
   const totalArticles = stock.reduce((s, i) => s + i.quantite, 0)
   const prixReduitDetail = produitDetail ? calculerPrixReduit(produitDetail) : null
+
+  // Grouper tailles pour affichage
+  const taillesEnfant = tailles.filter(t => t.includes('mois') || t.includes('an') || t.includes('ans'))
+  const taillesAdulte = tailles.filter(t => !t.includes('mois') && !t.includes('an') && !t.includes('ans'))
 
   return (
     <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
@@ -315,28 +324,14 @@ export default function GestionnaireStockPage() {
               <div style={{ marginBottom: 16 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 8 }}>Quantité minimum</label>
                 <input type="number" value={reductionGlobale.quantite_min} onChange={e => setReductionGlobale(p => ({ ...p, quantite_min: Number(e.target.value) }))}
-                  placeholder="Ex: 3"
                   style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', fontSize: 14, outline: 'none' }} />
-              </div>
-            )}
-            {reductionGlobale.valeur > 0 && (
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
-                <p style={{ margin: 0, fontSize: 13, color: '#1D9E75', fontWeight: 600 }}>
-                  Aperçu : 5 000 F → {reductionGlobale.type === 'pourcentage'
-                    ? `${(5000 * (1 - reductionGlobale.valeur / 100)).toLocaleString('fr-FR')} F (-${reductionGlobale.valeur}%)`
-                    : `${(5000 - reductionGlobale.valeur).toLocaleString('fr-FR')} F (-${reductionGlobale.valeur.toLocaleString('fr-FR')} F)`}
-                </p>
               </div>
             )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowReductionGlobale(false)}
-                style={{ flex: 1, padding: '11px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: 'transparent', color: '#888', cursor: 'pointer', fontWeight: 600 }}>
-                Annuler
-              </button>
+                style={{ flex: 1, padding: '11px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: 'transparent', color: '#888', cursor: 'pointer', fontWeight: 600 }}>Annuler</button>
               <button onClick={supprimerReductionGlobale} disabled={savingReduction}
-                style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: '#fee2e2', color: '#991b1b', cursor: 'pointer', fontWeight: 600 }}>
-                🗑️ Supprimer
-              </button>
+                style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: '#fee2e2', color: '#991b1b', cursor: 'pointer', fontWeight: 600 }}>🗑️ Supprimer</button>
               <button onClick={appliquerReductionGlobale} disabled={savingReduction || !reductionGlobale.valeur}
                 style={{ flex: 2, padding: '11px', borderRadius: 9, border: 'none', background: !reductionGlobale.valeur ? '#e5e7eb' : '#f59e0b', color: !reductionGlobale.valeur ? '#888' : '#1a1a1a', cursor: !reductionGlobale.valeur ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
                 {savingReduction ? '...' : '✅ Appliquer à tous'}
@@ -366,7 +361,6 @@ export default function GestionnaireStockPage() {
               {produitDetail.categorie && <span style={{ background: '#f0fdf4', color: '#1D9E75', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>🏷️ {produitDetail.categorie}</span>}
             </div>
 
-            {/* PRIX */}
             <div style={{ background: '#f8f9fa', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
               {prixReduitDetail ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -381,7 +375,6 @@ export default function GestionnaireStockPage() {
               )}
             </div>
 
-            {/* RÉDUCTION INDIVIDUELLE */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
               <button onClick={() => { setShowReductionIndiv(!showReductionIndiv); setReductionIndiv({ type: produitDetail.reduction_type || 'pourcentage', valeur: produitDetail.reduction_valeur || 0, quantite_min: produitDetail.reduction_quantite_min || 1 }) }}
                 style={{ flex: 1, padding: '9px 12px', borderRadius: 9, border: '1.5px solid #f59e0b', background: '#fffbf0', color: '#92400e', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
@@ -411,15 +404,8 @@ export default function GestionnaireStockPage() {
                   style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', fontSize: 14, outline: 'none', marginBottom: 10 }} />
                 {reductionIndiv.type === 'quantite' && (
                   <input type="number" value={reductionIndiv.quantite_min} onChange={e => setReductionIndiv(p => ({ ...p, quantite_min: Number(e.target.value) }))}
-                    placeholder="Quantité minimum (ex: 3)"
+                    placeholder="Quantité minimum"
                     style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', fontSize: 14, outline: 'none', marginBottom: 10 }} />
-                )}
-                {reductionIndiv.valeur > 0 && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 12px', marginBottom: 10, fontSize: 12, color: '#1D9E75', fontWeight: 600 }}>
-                    {produitDetail.prix_vente?.toLocaleString('fr-FR')} F → {reductionIndiv.type === 'pourcentage'
-                      ? `${Math.round(produitDetail.prix_vente * (1 - reductionIndiv.valeur / 100)).toLocaleString('fr-FR')} F (-${reductionIndiv.valeur}%)`
-                      : `${(produitDetail.prix_vente - reductionIndiv.valeur).toLocaleString('fr-FR')} F (-${reductionIndiv.valeur.toLocaleString('fr-FR')} F)`}
-                  </div>
                 )}
                 <button onClick={appliquerReductionIndiv} disabled={saving || !reductionIndiv.valeur}
                   style={{ width: '100%', padding: '10px', borderRadius: 9, border: 'none', background: !reductionIndiv.valeur ? '#e5e7eb' : '#f59e0b', color: !reductionIndiv.valeur ? '#888' : '#1a1a1a', cursor: !reductionIndiv.valeur ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 13 }}>
@@ -496,7 +482,7 @@ export default function GestionnaireStockPage() {
           { label: 'Total articles', value: totalArticles, color: '#0891b2', bg: '#e0f7fa' },
           { label: 'Références', value: produits.length, color: '#6366f1', bg: '#ede9fe' },
           { label: 'Stock critique', value: stockCritique.length, color: stockCritique.length > 0 ? '#E24B4A' : '#1D9E75', bg: stockCritique.length > 0 ? '#fff0f0' : '#f0fdf4' },
-          { label: 'Boutiques', value: boutiques.length, color: '#1D9E75', bg: '#f0fdf4' },
+          { label: 'Tailles dispo', value: tailles.length, color: '#d4a853', bg: 'rgba(212,168,83,0.1)' },
         ].map((k, i) => (
           <div key={i} style={{ background: k.bg, border: `1px solid ${k.color}22`, borderRadius: '12px', padding: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: '10px', color: '#888', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 600, letterSpacing: 0.5 }}>{k.label}</div>
@@ -558,6 +544,11 @@ export default function GestionnaireStockPage() {
                           {prod.reduction_type === 'pourcentage' ? `-${prod.reduction_valeur}%` : `-${prod.reduction_valeur?.toLocaleString('fr-FR')} F`}
                         </div>
                       )}
+                      {isSuperAdmin && (
+                        <div style={{ position: 'absolute', top: 8, right: 8, background: prod.activite === 'ck_design' ? '#0891b2' : '#d4a853', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 20 }}>
+                          {prod.activite === 'ck_design' ? 'CK' : 'SD'}
+                        </div>
+                      )}
                       <div style={{ position: 'absolute', bottom: 8, right: 8, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stockTotal === 0 ? '#E24B4A' : hasCritique ? '#EF9F27' : '#1D9E75', color: '#fff' }}>
                         {stockTotal} pcs
                       </div>
@@ -566,14 +557,14 @@ export default function GestionnaireStockPage() {
                       <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
                       <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
                       {prixReduit ? (
-                        <div style={{ marginTop: 4 }}>
+                        <div style={{ marginTop: 4, marginBottom: 10 }}>
                           <span style={{ fontSize: 12, color: '#aaa', textDecoration: 'line-through', marginRight: 6 }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
                           <span style={{ fontSize: 15, fontWeight: 700, color: '#E24B4A' }}>{prixReduit.toLocaleString('fr-FR')} F</span>
                         </div>
                       ) : (
                         <p style={{ margin: '0 0 10px', color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</p>
                       )}
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                         <button onClick={e => { e.stopPropagation(); toggleDisponible(prod.id, prod.disponible) }}
                           style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none', background: prod.disponible ? '#f0fdf4' : '#fff5f5', color: prod.disponible ? '#1D9E75' : '#E24B4A' }}>
                           {prod.disponible ? '✅ Publié' : '❌ Masqué'}
@@ -602,9 +593,7 @@ export default function GestionnaireStockPage() {
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
                 <div>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
-                    Référence <span style={{ color: '#0891b2', fontWeight: 400 }}>(auto)</span>
-                  </label>
+                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Référence <span style={{ color: '#0891b2', fontWeight: 400 }}>(auto)</span></label>
                   <input value={prodForm.reference} readOnly
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#e8f4fd', border: '1.5px solid #bae6fd', color: '#0891b2', fontSize: '13px', boxSizing: 'border-box', outline: 'none', fontWeight: 600 }} />
                 </div>
@@ -635,11 +624,6 @@ export default function GestionnaireStockPage() {
                     <option value="">Choisir une catégorie...</option>
                     {categoriesFiltrees.map((c: any) => <option key={c.id} value={c.nom}>{c.nom}</option>)}
                   </select>
-                  {categoriesFiltrees.length === 0 && (
-                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#E24B4A' }}>
-                      ⚠️ Aucune catégorie — <a href="/admin/utilisateurs" style={{ color: '#0891b2' }}>Ajouter</a>
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -664,15 +648,40 @@ export default function GestionnaireStockPage() {
                 </div>
               </div>
 
-              {/* COULEURS & TAILLES */}
+              {/* COULEURS & TAILLES DYNAMIQUES */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600 }}>COULEURS & TAILLES</label>
-                  <button onClick={() => setCouleurs(prev => [...prev, nouvelleCouleur()])}
+                  <button onClick={() => setCouleurs(prev => [...prev, nouvelleCouleur(tailles)])}
                     style={{ background: '#f0f9ff', color: '#0891b2', border: '1px solid #0891b244', borderRadius: '8px', padding: '5px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                     + Couleur
                   </button>
                 </div>
+
+                {/* Info tailles disponibles */}
+                {tailles.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    {/* Tailles adultes */}
+                    {taillesAdulte.length > 0 && (
+                      <div style={{ marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, color: '#888', fontWeight: 600, marginRight: 8 }}>👕 Adulte :</span>
+                        {taillesAdulte.map(t => (
+                          <span key={t} style={{ fontSize: 11, background: '#e0f7fa', color: '#0891b2', padding: '2px 8px', borderRadius: 20, marginRight: 4, fontWeight: 600 }}>{t}</span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Tailles enfants */}
+                    {taillesEnfant.length > 0 && (
+                      <div>
+                        <span style={{ fontSize: 11, color: '#888', fontWeight: 600, marginRight: 8 }}>👶 Enfant :</span>
+                        {taillesEnfant.map(t => (
+                          <span key={t} style={{ fontSize: 11, background: '#f0fdf4', color: '#1D9E75', padding: '2px 8px', borderRadius: 20, marginRight: 4, fontWeight: 600 }}>{t}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {couleurs.map((c, ci) => (
                   <div key={ci} style={{ background: '#f8f9fa', borderRadius: '12px', padding: '14px', marginBottom: '10px', border: '1px solid #eee' }}>
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
@@ -694,25 +703,58 @@ export default function GestionnaireStockPage() {
                           style={{ background: '#fff5f5', color: '#E24B4A', border: 'none', borderRadius: '8px', padding: '7px 11px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}>✕</button>
                       )}
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {c.tailles.map((t, ti) => (
-                        <div key={t.taille} onClick={() => updateTailleCouleur(ci, ti, 'active', !t.active)}
-                          style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: t.active ? '#0891b2' : '#fff', border: `1.5px solid ${t.active ? '#0891b2' : '#e5e5e5'}`, borderRadius: '8px', padding: '5px 9px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: t.active ? 'white' : '#888' }}>{t.taille}</span>
-                          {t.active && (
-                            <input type="number" value={t.quantite} min={1}
-                              onClick={e => e.stopPropagation()}
-                              onChange={e => updateTailleCouleur(ci, ti, 'quantite', Number(e.target.value) || 1)}
-                              style={{ width: '40px', padding: '1px 4px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: 'white', fontSize: '11px', textAlign: 'center', outline: 'none' }} />
-                          )}
+
+                    {/* ✅ Tailles dynamiques groupées */}
+                    {taillesAdulte.length > 0 && (
+                      <div style={{ marginBottom: 8 }}>
+                        <p style={{ margin: '0 0 6px', fontSize: 11, color: '#888', fontWeight: 600 }}>👕 Adulte</p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {c.tailles.filter(t => !t.taille.includes('mois') && !t.taille.includes('an') && !t.taille.includes('ans')).map((t, ti) => {
+                            const realTi = c.tailles.findIndex(x => x.taille === t.taille)
+                            return (
+                              <div key={t.taille} onClick={() => updateTailleCouleur(ci, realTi, 'active', !t.active)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: t.active ? '#0891b2' : '#fff', border: `1.5px solid ${t.active ? '#0891b2' : '#e5e5e5'}`, borderRadius: '8px', padding: '5px 9px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: t.active ? 'white' : '#888' }}>{t.taille}</span>
+                                {t.active && (
+                                  <input type="number" value={t.quantite} min={1}
+                                    onClick={e => e.stopPropagation()}
+                                    onChange={e => updateTailleCouleur(ci, realTi, 'quantite', Number(e.target.value) || 1)}
+                                    style={{ width: '40px', padding: '1px 4px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: 'white', fontSize: '11px', textAlign: 'center', outline: 'none' }} />
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    )}
+
+                    {taillesEnfant.length > 0 && (
+                      <div>
+                        <p style={{ margin: '0 0 6px', fontSize: 11, color: '#888', fontWeight: 600 }}>👶 Enfant</p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {c.tailles.filter(t => t.taille.includes('mois') || t.taille.includes('an') || t.taille.includes('ans')).map((t) => {
+                            const realTi = c.tailles.findIndex(x => x.taille === t.taille)
+                            return (
+                              <div key={t.taille} onClick={() => updateTailleCouleur(ci, realTi, 'active', !t.active)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: t.active ? '#1D9E75' : '#fff', border: `1.5px solid ${t.active ? '#1D9E75' : '#e5e5e5'}`, borderRadius: '8px', padding: '5px 9px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: t.active ? 'white' : '#888' }}>{t.taille}</span>
+                                {t.active && (
+                                  <input type="number" value={t.quantite} min={1}
+                                    onClick={e => e.stopPropagation()}
+                                    onChange={e => updateTailleCouleur(ci, realTi, 'quantite', Number(e.target.value) || 1)}
+                                    style={{ width: '40px', padding: '1px 4px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: 'white', fontSize: '11px', textAlign: 'center', outline: 'none' }} />
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
 
-              {/* SECTION RÉDUCTION */}
+              {/* RÉDUCTION */}
               <div style={{ marginBottom: 20, background: '#fffbf0', borderRadius: 12, padding: 16, border: '1px solid #fde68a' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: prodForm.reduction_type ? 12 : 0 }}>
                   <label style={{ color: '#92400e', fontSize: '13px', fontWeight: 700 }}>🏷️ Réduction (optionnel)</label>
@@ -721,7 +763,6 @@ export default function GestionnaireStockPage() {
                     {prodForm.reduction_type ? '✕ Supprimer' : '+ Ajouter'}
                   </button>
                 </div>
-
                 {prodForm.reduction_type && (
                   <>
                     <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -732,32 +773,16 @@ export default function GestionnaireStockPage() {
                         </button>
                       ))}
                     </div>
-
                     <input type="number" value={prodForm.reduction_valeur || 0}
                       onChange={e => setProdForm(p => ({ ...p, reduction_valeur: Number(e.target.value) }))}
                       placeholder={prodForm.reduction_type === 'pourcentage' ? 'Ex: 10 pour 10%' : 'Ex: 500 F'}
                       style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', fontSize: 14, outline: 'none', marginBottom: 10 }} />
-
-                    {prodForm.reduction_type === 'quantite' && (
-                      <input type="number" value={prodForm.reduction_quantite_min || 1}
-                        onChange={e => setProdForm(p => ({ ...p, reduction_quantite_min: Number(e.target.value) }))}
-                        placeholder="Quantité minimum (ex: 3)"
-                        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', fontSize: 14, outline: 'none', marginBottom: 10 }} />
-                    )}
-
-                    {(prodForm.reduction_valeur || 0) > 0 && prodForm.prix_vente > 0 && (
-                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#1D9E75', fontWeight: 600 }}>
-                        {prodForm.prix_vente?.toLocaleString('fr-FR')} F → {prodForm.reduction_type === 'pourcentage'
-                          ? `${Math.round(prodForm.prix_vente * (1 - (prodForm.reduction_valeur || 0) / 100)).toLocaleString('fr-FR')} F (-${prodForm.reduction_valeur}%)`
-                          : `${(prodForm.prix_vente - (prodForm.reduction_valeur || 0)).toLocaleString('fr-FR')} F (-${prodForm.reduction_valeur?.toLocaleString('fr-FR')} F)`}
-                      </div>
-                    )}
                   </>
                 )}
               </div>
 
               <button onClick={publierProduit} disabled={saving}
-                style={{ width: '100%', padding: '14px', borderRadius: '10px', background: saving ? '#aaa' : '#0891b2', border: 'none', color: 'white', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '15px', boxShadow: saving ? 'none' : '0 4px 12px rgba(8,145,178,0.3)' }}>
+                style={{ width: '100%', padding: '14px', borderRadius: '10px', background: saving ? '#aaa' : '#0891b2', border: 'none', color: 'white', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '15px' }}>
                 {saving ? '⏳ Publication...' : '🚀 Publier le produit'}
               </button>
             </div>
@@ -792,7 +817,8 @@ export default function GestionnaireStockPage() {
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Taille</label>
                   <select value={approForm.taille} onChange={e => setApproForm(p => ({ ...p, taille: e.target.value }))}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
-                    {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(t => <option key={t}>{t}</option>)}
+                    <option value="">Choisir...</option>
+                    {tailles.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
