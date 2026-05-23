@@ -24,6 +24,7 @@ const ALL_MENU_LINKS = [
   { label: '✨ Catalogue Succès Design', href: '/succes-design/catalogue', activites: ['ck_dress', 'succes_design'] },
   { label: '👤 Utilisateurs', href: '/admin/utilisateurs', activites: ['ck_dress'] },
   { label: '⚙️ Configuration', href: '/admin/configuration', activites: ['ck_dress'] },
+  { label: '📊 Reporting', href: '/reporting', activites: ['ck_dress'] },
 ]
 
 const PERIODES = [
@@ -77,7 +78,14 @@ export default function Dashboard() {
     count: commandesFiltrees.length,
     nouvelles: commandesFiltrees.filter(c => c.statut === 'nouveau').length,
     enLivraison: commandesFiltrees.filter(c => c.statut === 'en_livraison').length,
+    livrees: commandesFiltrees.filter(c => c.statut === 'livre').length,
   }
+
+  // Calcul gains
+  const montantNetLivre = commandesFiltrees
+    .filter(c => c.statut === 'livre')
+    .reduce((s, c) => s + ((c.montant_total || 0) - (c.frais_livraison || 0)), 0)
+  const gains = Math.round(montantNetLivre * 0.30)
 
   const playSound = () => {
     try {
@@ -122,7 +130,7 @@ export default function Dashboard() {
   async function fetchData(u: any) {
     const isGlobal = u?.activite === 'ck_dress' || !u?.activite
     const baseQuery = supabase.from('commandes_catalogue').select('*').order('created_at', { ascending: false }).limit(10)
-    const allQuery = supabase.from('commandes_catalogue').select('montant_total, statut, note, created_at, activite')
+    const allQuery = supabase.from('commandes_catalogue').select('montant_total, frais_livraison, statut, note, created_at, activite')
     const [{ data: cmds }, { data: all }] = await Promise.all([
       isGlobal ? baseQuery : baseQuery.eq('activite', u.activite),
       isGlobal ? allQuery : allQuery.eq('activite', u.activite),
@@ -155,12 +163,18 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-
-          {/* BOUTON CONFIGURATION — visible uniquement super_admin */}
           {user?.role === 'super_admin' && (
             <a href="/admin/configuration"
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', border: 'none', borderRadius: '8px', color: '#38bdf8', textDecoration: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
               ⚙️ Configuration
+            </a>
+          )}
+
+          {/* BOUTON REPORTING */}
+          {user?.role === 'super_admin' && (
+            <a href="/reporting"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: 'none', borderRadius: '8px', color: '#fff', textDecoration: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+              📊 Reporting
             </a>
           )}
 
@@ -243,20 +257,35 @@ export default function Dashboard() {
             </div>
 
             {/* KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '20px' }}>
               {[
                 { label: 'CA Total', value: statsFiltres.total.toLocaleString('fr-FR') + ' F', color: '#1D9E75', sub: 'Toutes commandes' },
                 { label: 'Commandes', value: statsFiltres.count.toString(), color: '#1a1a1a', sub: 'Total enregistrées' },
                 { label: 'Nouvelles', value: statsFiltres.nouvelles.toString(), color: statsFiltres.nouvelles > 0 ? '#E24B4A' : '#aaa', sub: 'À traiter' },
                 { label: 'En livraison', value: statsFiltres.enLivraison.toString(), color: '#EF9F27', sub: 'En cours' },
+                { label: 'Vos Gains (30%)', value: gains.toLocaleString('fr-FR') + ' F', color: '#d4a853', sub: 'Sur commandes livrées' },
               ].map((kpi, i) => (
-                <div key={i} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                <div key={i} style={{ background: i === 4 ? 'linear-gradient(135deg, rgba(212,168,83,0.1), rgba(212,168,83,0.05))' : '#fff', border: i === 4 ? '1px solid rgba(212,168,83,0.3)' : '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                   <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', marginBottom: '8px' }}>{kpi.label}</div>
-                  <div style={{ fontSize: '24px', fontWeight: '700', color: kpi.color }}>{kpi.value}</div>
+                  <div style={{ fontSize: '22px', fontWeight: '700', color: kpi.color }}>{kpi.value}</div>
                   <div style={{ fontSize: '12px', color: '#bbb', marginTop: '4px' }}>{kpi.sub}</div>
                 </div>
               ))}
             </div>
+
+            {/* RACCOURCI REPORTING */}
+            {user?.role === 'super_admin' && (
+              <a href="/reporting" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', borderRadius: 12, padding: '16px 20px', marginBottom: 20, textDecoration: 'none', border: '1px solid rgba(124,58,237,0.3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 24 }}>📊</span>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#fff' }}>Voir le Reporting complet</p>
+                    <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>15 KPIs · Analyses · Gains · Stock · Clients</p>
+                  </div>
+                </div>
+                <span style={{ color: '#a78bfa', fontSize: 20 }}>→</span>
+              </a>
+            )}
 
             {/* MENU RACCOURCIS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', marginBottom: '20px' }}>

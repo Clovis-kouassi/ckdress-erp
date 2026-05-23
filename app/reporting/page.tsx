@@ -1,314 +1,476 @@
 'use client'
+
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
-export default function Reporting() {
-  const [stats, setStats] = useState<any>({})
-  const [topProduits, setTopProduits] = useState<any[]>([])
-  const [topClients, setTopClients] = useState<any[]>([])
-  const [commandesMois, setCommandesMois] = useState<any[]>([])
-  const [nonLivrees, setNonLivrees] = useState<any[]>([])
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+const PERIODES = [
+  { key: 'tous', label: 'Tout' },
+  { key: 'jour', label: "Aujourd'hui" },
+  { key: 'semaine', label: 'Cette semaine' },
+  { key: 'mois', label: 'Ce mois' },
+  { key: 'annee', label: 'Cette année' },
+]
+
+const PART_GAINS = 0.30
+const PART_REINVEST = 0.70
+
+export default function ReportingPage() {
+  const [commandes, setCommandes] = useState<any[]>([])
+  const [stock, setStock] = useState<any[]>([])
+  const [produits, setProduits] = useState<any[]>([])
+  const [livreurs, setLivreurs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [onglet, setOnglet] = useState('overview')
+  const [periode, setPeriode] = useState<string>('tous')
+  const [user, setUser] = useState<any>(null)
+  const [onglet, setOnglet] = useState<'finances' | 'commandes' | 'produits' | 'stock' | 'clients'>('finances')
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
+    setUser(u)
+    fetchData(u)
+  }, [])
 
-  async function fetchData() {
-    const { data: commandes } = await supabase
-      .from('commandes')
-      .select(`id, numero, montant_total, statut, source, motif_echec, created_at, adresse_livraison, clients(nom, telephone)`)
-      .neq('statut', 'annulee')
-
-    const { data: lignes } = await supabase
-      .from('lignes_commande')
-      .select(`quantite, prix_total, produits(nom, activite)`)
-
-    if (commandes && lignes) {
-      const caTotal = commandes.reduce((sum, c) => sum + (c.montant_total || 0), 0)
-      const nbCommandes = commandes.length
-      const nbLivrees = commandes.filter(c => c.statut === 'livree').length
-      const caLivre = commandes.filter(c => c.statut === 'livree').reduce((sum, c) => sum + (c.montant_total || 0), 0)
-      const caWhatsapp = commandes.filter(c => c.source === 'whatsapp').reduce((sum, c) => sum + (c.montant_total || 0), 0)
-      const caDirect = commandes.filter(c => c.source === 'direct').reduce((sum, c) => sum + (c.montant_total || 0), 0)
-      const caB2b = commandes.filter(c => c.source === 'b2b').reduce((sum, c) => sum + (c.montant_total || 0), 0)
-      const caImporte = lignes.filter(l => (l.produits as any)?.activite === 'importe').reduce((sum, l) => sum + (l.prix_total || 0), 0)
-      const caCkDesign = lignes.filter(l => (l.produits as any)?.activite === 'ck_design').reduce((sum, l) => sum + (l.prix_total || 0), 0)
-
-      // Non livrées = nouvelles + validees + en_livraison + echec
-      const nonLivreesData = commandes.filter(c => c.statut !== 'livree')
-      setNonLivrees(nonLivreesData)
-
-      // Top produits
-      const prodMap: any = {}
-      lignes.forEach(l => {
-        const nom = (l.produits as any)?.nom || 'Inconnu'
-        if (!prodMap[nom]) prodMap[nom] = { nom, quantite: 0, ca: 0 }
-        prodMap[nom].quantite += l.quantite
-        prodMap[nom].ca += l.prix_total || 0
-      })
-
-      // Top clients
-      const clientMap: any = {}
-      commandes.forEach(c => {
-        const nom = (c.clients as any)?.nom || (c.clients as any)?.telephone || 'Inconnu'
-        if (!clientMap[nom]) clientMap[nom] = { nom, nb: 0, ca: 0 }
-        clientMap[nom].nb += 1
-        clientMap[nom].ca += c.montant_total || 0
-      })
-
-      // Par jour
-      const parJour: any = {}
-      commandes.forEach(c => {
-        const jour = new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-        if (!parJour[jour]) parJour[jour] = 0
-        parJour[jour] += c.montant_total || 0
-      })
-
-      setStats({ caTotal, nbCommandes, nbLivrees, caLivre, caWhatsapp, caDirect, caB2b, caImporte, caCkDesign })
-      setTopProduits(Object.values(prodMap).sort((a: any, b: any) => b.ca - a.ca).slice(0, 5) as any)
-      setTopClients(Object.values(clientMap).sort((a: any, b: any) => b.ca - a.ca).slice(0, 5) as any)
-      setCommandesMois(Object.entries(parJour).map(([jour, ca]) => ({ jour, ca })).slice(-10))
-    }
+  const fetchData = async (u: any) => {
+    const isGlobal = u?.activite === 'ck_dress' || !u?.activite
+    const [{ data: cmds }, { data: stk }, { data: prods }, { data: livs }] = await Promise.all([
+      isGlobal
+        ? supabase.from('commandes_catalogue').select('*').order('created_at', { ascending: false })
+        : supabase.from('commandes_catalogue').select('*').eq('activite', u.activite).order('created_at', { ascending: false }),
+      supabase.from('stock').select('*, produits(nom, prix_achat, prix_vente, activite)').order('quantite'),
+      supabase.from('produits').select('*, stock(quantite)').eq('disponible', true).order('nom'),
+      supabase.from('livreurs').select('*').eq('actif', true),
+    ])
+    setCommandes(cmds || [])
+    setStock(stk || [])
+    setProduits(prods || [])
+    setLivreurs(livs || [])
     setLoading(false)
   }
 
-  const maxCa = Math.max(...commandesMois.map((c: any) => c.ca), 1)
-
-  const statutColor: any = {
-    nouvelle: '#E24B4A', validee: '#378ADD',
-    en_livraison: '#EF9F27', livree: '#1D9E75', echec: '#E24B4A'
+  // Filtrer par période
+  const filtrer = (date: string) => {
+    if (periode === 'tous') return true
+    const now = new Date()
+    const d = new Date(date)
+    if (periode === 'jour') return d.toDateString() === now.toDateString()
+    if (periode === 'semaine') return (now.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 7
+    if (periode === 'mois') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    if (periode === 'annee') return d.getFullYear() === now.getFullYear()
+    return true
   }
-  const statutLabel: any = {
-    nouvelle: 'Nouvelle', validee: 'Validée',
-    en_livraison: 'En livraison', livree: 'Livrée', echec: 'Échec'
-  }
 
-  const tabStyle = (t: string) => ({
-    padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px',
-    fontWeight: '500' as any, border: 'none',
-    background: onglet === t ? '#1D9E75' : '#1a1a1a',
-    color: onglet === t ? 'white' : '#666'
+  const cmdsFiltrees = commandes.filter(c => filtrer(c.created_at))
+  const cmdsLivrees = cmdsFiltrees.filter(c => c.statut === 'livre')
+  const cmdsAnnulees = cmdsFiltrees.filter(c => c.statut === 'annule')
+  const cmdsEnAttente = cmdsFiltrees.filter(c => ['nouveau', 'en_preparation'].includes(c.statut))
+  const cmdsEnLivraison = cmdsFiltrees.filter(c => c.statut === 'en_livraison')
+
+  // KPI 1 — CA Total
+  const caTotal = cmdsFiltrees.reduce((s, c) => s + (c.montant_total || 0), 0)
+
+  // KPI 2 — CA Livré
+  const caLivre = cmdsLivrees.reduce((s, c) => s + (c.montant_total || 0), 0)
+
+  // KPI 3 & 4 — Gains et Réinvestissement (sur CA livré - frais livraison)
+  const montantNetLivre = cmdsLivrees.reduce((s, c) => s + ((c.montant_total || 0) - (c.frais_livraison || 0)), 0)
+  const gains = montantNetLivre * PART_GAINS
+  const reinvest = montantNetLivre * PART_REINVEST
+
+  // KPI 5 — Panier moyen
+  const panierMoyen = cmdsFiltrees.length > 0 ? caTotal / cmdsFiltrees.length : 0
+
+  // KPI 6 — CA par activité
+  const caCkDesign = cmdsFiltrees.filter(c => c.note?.includes('CK DESIGN') || c.activite === 'ck_design').reduce((s, c) => s + (c.montant_total || 0), 0)
+  const caSuccesDesign = cmdsFiltrees.filter(c => c.note?.includes('SUCCES DESIGN') || c.activite === 'succes_design').reduce((s, c) => s + (c.montant_total || 0), 0)
+
+  // KPI 7 — Taux de livraison
+  const tauxLivraison = cmdsFiltrees.length > 0 ? Math.round((cmdsLivrees.length / cmdsFiltrees.length) * 100) : 0
+
+  // KPI 8 — Commandes en attente
+  const nbEnAttente = cmdsEnAttente.length
+
+  // KPI 9 — Commandes annulées + montant perdu
+  const montantPerdu = cmdsAnnulees.reduce((s, c) => s + (c.montant_total || 0), 0)
+
+  // KPI 10 — Délai moyen livraison (approximation)
+  const delaiMoyen = '~24h' // statique pour l'instant
+
+  // KPI 11 — Top 5 produits
+  const compteProduits: Record<string, { nom: string; count: number; ca: number }> = {}
+  cmdsFiltrees.forEach(c => {
+    const ref = c.produit_ref || 'Inconnu'
+    if (!compteProduits[ref]) compteProduits[ref] = { nom: ref, count: 0, ca: 0 }
+    compteProduits[ref].count++
+    compteProduits[ref].ca += c.montant_total || 0
   })
+  const top5 = Object.values(compteProduits).sort((a, b) => b.count - a.count).slice(0, 5)
+
+  // KPI 12 — Valeur totale du stock
+  const valeurStock = stock.reduce((s, item) => {
+    const prixAchat = (item.produits as any)?.prix_achat || 0
+    return s + (item.quantite * prixAchat)
+  }, 0)
+
+  // KPI 13 — Articles critiques
+  const articlesCritiques = stock.filter(s => s.quantite <= 3)
+
+  // KPI 14 — Abidjan vs Expédition
+  const nbAbidjan = cmdsFiltrees.filter(c => !c.note?.includes('EXPÉDITION') && !c.note?.toLowerCase().includes('expedition')).length
+  const nbExpedition = cmdsFiltrees.filter(c => c.note?.includes('EXPÉDITION') || c.note?.toLowerCase().includes('expedition')).length
+
+  // KPI 15 — Source commandes
+  const nbWhatsapp = cmdsFiltrees.filter(c => c.source === 'whatsapp').length
+  const nbFormulaire = cmdsFiltrees.filter(c => c.source === 'formulaire').length
+
+  const formatF = (n: number) => Math.round(n).toLocaleString('fr-FR') + ' F'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: 'sans-serif', color: 'white' }}>
-      {/* TOPBAR */}
-      <div style={{ background: '#111', borderBottom: '1px solid #222', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ color: '#1D9E75', fontSize: '1.4rem', margin: 0 }}>CK Dress ERP</h1>
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <a href="/dashboard" style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}>Dashboard</a>
-          <a href="/commandes" style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}>Commandes</a>
-          <a href="/stock" style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}>Stock</a>
-          <a href="/livraisons" style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}>Livraisons</a>
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
+
+      {/* HEADER */}
+      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+        <div>
+          <h1 style={{ color: '#38bdf8', margin: 0, fontSize: '16px', fontWeight: 700 }}>📊 Reporting & Analyses</h1>
+          <p style={{ color: '#94a3b8', margin: '2px 0 0', fontSize: '11px' }}>{user?.nom} — Données en temps réel</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => fetchData(user)}
+            style={{ background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 8, color: '#38bdf8', padding: '6px 14px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+            ↺ Actualiser
+          </button>
+          <a href="/dashboard" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: '#94a3b8', padding: '6px 14px', fontSize: 12, textDecoration: 'none' }}>
+            ← Dashboard
+          </a>
         </div>
       </div>
 
-      <div style={{ padding: '24px' }}>
+      <div style={{ padding: '16px 24px' }}>
+
+        {/* FILTRE PÉRIODE */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+          {PERIODES.map(p => (
+            <button key={p.key} onClick={() => setPeriode(p.key)}
+              style={{ padding: '8px 18px', borderRadius: 20, border: `1.5px solid ${periode === p.key ? '#0891b2' : '#e5e7eb'}`, background: periode === p.key ? '#0891b2' : '#fff', color: periode === p.key ? '#fff' : '#555', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: periode === p.key ? '0 4px 12px rgba(8,145,178,0.3)' : 'none' }}>
+              {p.label}
+            </button>
+          ))}
+          <div style={{ marginLeft: 'auto', background: '#fff', borderRadius: 20, padding: '6px 16px', border: '1px solid #e5e7eb', fontSize: 12, color: '#888' }}>
+            {cmdsFiltrees.length} commande{cmdsFiltrees.length > 1 ? 's' : ''} sur la période
+          </div>
+        </div>
+
         {loading ? (
-          <div style={{ textAlign: 'center', color: '#555', padding: '60px' }}>Chargement...</div>
+          <div style={{ textAlign: 'center', color: '#aaa', padding: '60px', fontSize: 16 }}>⏳ Chargement des données...</div>
         ) : (
           <>
-            {/* KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '24px' }}>
-              {[
-                { label: 'CA Total', value: stats.caTotal?.toLocaleString('fr-FR') + ' F', color: '#1D9E75' },
-                { label: 'Commandes', value: stats.nbCommandes, color: 'white' },
-                { label: 'Livrées', value: stats.nbLivrees, color: '#1D9E75' },
-                { label: 'Non livrées', value: nonLivrees.length, color: nonLivrees.length > 0 ? '#E24B4A' : '#1D9E75' },
-              ].map((k, i) => (
-                <div key={i} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
-                  <div style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', marginBottom: '8px' }}>{k.label}</div>
-                  <div style={{ fontSize: '24px', fontWeight: '700', color: k.color }}>{k.value}</div>
+            {/* ✅ SECTION GAINS — toujours visible en haut */}
+            <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', borderRadius: 16, padding: '24px 28px', marginBottom: 20, border: '1px solid rgba(212,168,83,0.3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                <span style={{ fontSize: 20 }}>💰</span>
+                <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#d4a853' }}>Répartition des Gains</h2>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>Sur commandes livrées uniquement</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+                {[
+                  { label: 'CA Livré', value: formatF(caLivre), color: '#38bdf8', sub: `${cmdsLivrees.length} commandes`, icon: '📦' },
+                  { label: 'Montant Net', value: formatF(montantNetLivre), color: '#a78bfa', sub: 'Après frais livraison', icon: '🧾' },
+                  { label: `Vos Gains (${Math.round(PART_GAINS * 100)}%)`, value: formatF(gains), color: '#d4a853', sub: 'Votre part', icon: '🎯' },
+                  { label: `Réinvestissement (${Math.round(PART_REINVEST * 100)}%)`, value: formatF(reinvest), color: '#1D9E75', sub: 'Part projet', icon: '🔄' },
+                ].map((k, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px 18px', border: `1px solid ${k.color}33` }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 8, fontWeight: 600 }}>{k.icon} {k.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: k.color }}>{k.value}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>{k.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Barre de répartition visuelle */}
+              <div style={{ marginTop: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: '#d4a853', fontWeight: 600 }}>🎯 Vos gains 30%</span>
+                  <span style={{ fontSize: 11, color: '#1D9E75', fontWeight: 600 }}>🔄 Réinvestissement 70%</span>
                 </div>
-              ))}
+                <div style={{ height: 10, borderRadius: 20, background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex' }}>
+                  <div style={{ width: '30%', background: 'linear-gradient(90deg, #d4a853, #f0c970)', borderRadius: '20px 0 0 20px' }} />
+                  <div style={{ width: '70%', background: 'linear-gradient(90deg, #1D9E75, #34d399)', borderRadius: '0 20px 20px 0' }} />
+                </div>
+              </div>
             </div>
 
             {/* ONGLETS */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-              <button style={tabStyle('overview')} onClick={() => setOnglet('overview')}>Vue générale</button>
-              <button style={tabStyle('nonlivrees')} onClick={() => setOnglet('nonlivrees')}>
-                Non livrées {nonLivrees.length > 0 && `(${nonLivrees.length})`}
-              </button>
-              <button style={tabStyle('produits')} onClick={() => setOnglet('produits')}>Top produits</button>
-              <button style={tabStyle('clients')} onClick={() => setOnglet('clients')}>Top clients</button>
+            <div style={{ display: 'flex', background: '#fff', borderRadius: 12, padding: 4, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', gap: 2, marginBottom: 16, overflowX: 'auto' }}>
+              {[
+                { key: 'finances', label: '💰 Finances' },
+                { key: 'commandes', label: '📦 Commandes' },
+                { key: 'produits', label: '🏆 Top Produits' },
+                { key: 'stock', label: '📊 Stock' },
+                { key: 'clients', label: '👥 Clients' },
+              ].map(o => (
+                <button key={o.key} onClick={() => setOnglet(o.key as any)}
+                  style={{ flexShrink: 0, padding: '9px 16px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, background: onglet === o.key ? '#0891b2' : 'transparent', color: onglet === o.key ? '#fff' : '#888' }}>
+                  {o.label}
+                </button>
+              ))}
             </div>
 
-            {/* ONGLET VUE GÉNÉRALE */}
-            {onglet === 'overview' && (
-              <>
-                <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
-                  <h2 style={{ fontSize: '13px', color: '#888', margin: '0 0 20px', textTransform: 'uppercase' }}>
-                    Évolution CA — 10 derniers jours
-                  </h2>
-                  {commandesMois.length === 0 ? (
-                    <div style={{ color: '#555', textAlign: 'center', padding: '30px' }}>Pas encore de données</div>
+            {/* ✅ ONGLET FINANCES */}
+            {onglet === 'finances' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                  {[
+                    { label: 'CA Total', value: formatF(caTotal), color: '#0891b2', bg: '#e0f7fa', sub: 'Toutes commandes', icon: '💵' },
+                    { label: 'CA Livré', value: formatF(caLivre), color: '#1D9E75', bg: '#f0fdf4', sub: 'Commandes livrées', icon: '✅' },
+                    { label: 'Panier Moyen', value: formatF(panierMoyen), color: '#7c3aed', bg: '#f5f3ff', sub: 'Par commande', icon: '🛒' },
+                  ].map((k, i) => (
+                    <div key={i} style={{ background: k.bg, borderRadius: 14, padding: '20px 22px', border: `1px solid ${k.color}22` }}>
+                      <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', marginBottom: 8, fontWeight: 600 }}>{k.icon} {k.label}</div>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: k.color }}>{k.value}</div>
+                      <div style={{ fontSize: 12, color: '#aaa', marginTop: 4 }}>{k.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* CA par activité */}
+                <div style={{ background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>📊 CA par activité</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    {[
+                      { label: 'CK Design', value: caCkDesign, color: '#d4a853', bg: 'rgba(212,168,83,0.08)', total: caTotal },
+                      { label: 'Succès Design', value: caSuccesDesign, color: '#0891b2', bg: 'rgba(8,145,178,0.08)', total: caTotal },
+                    ].map((a, i) => (
+                      <div key={i} style={{ background: a.bg, borderRadius: 12, padding: '18px 20px', border: `1px solid ${a.color}22` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{a.label}</span>
+                          <span style={{ fontSize: 12, color: a.color, fontWeight: 700 }}>
+                            {a.total > 0 ? Math.round((a.value / a.total) * 100) : 0}%
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: a.color, marginBottom: 10 }}>{formatF(a.value)}</div>
+                        <div style={{ height: 6, borderRadius: 20, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                          <div style={{ width: `${a.total > 0 ? (a.value / a.total) * 100 : 0}%`, height: '100%', background: a.color, borderRadius: 20 }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Montant perdu */}
+                {cmdsAnnulees.length > 0 && (
+                  <div style={{ background: '#fff5f5', borderRadius: 14, padding: '18px 22px', border: '1px solid #fecaca' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <h3 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#E24B4A' }}>❌ Commandes annulées</h3>
+                        <p style={{ margin: 0, fontSize: 13, color: '#888' }}>{cmdsAnnulees.length} commande{cmdsAnnulees.length > 1 ? 's' : ''} annulée{cmdsAnnulees.length > 1 ? 's' : ''}</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: '#E24B4A' }}>{formatF(montantPerdu)}</div>
+                        <div style={{ fontSize: 11, color: '#aaa' }}>Montant perdu</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ✅ ONGLET COMMANDES */}
+            {onglet === 'commandes' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+                  {[
+                    { label: 'Total', value: cmdsFiltrees.length, color: '#1a1a1a', bg: '#fff', icon: '📦' },
+                    { label: 'En attente', value: nbEnAttente, color: '#E24B4A', bg: '#fff0f0', icon: '⏳' },
+                    { label: 'En livraison', value: cmdsEnLivraison.length, color: '#EF9F27', bg: '#fff8e6', icon: '🚚' },
+                    { label: 'Livrées', value: cmdsLivrees.length, color: '#1D9E75', bg: '#f0fdf4', icon: '✅' },
+                  ].map((k, i) => (
+                    <div key={i} style={{ background: k.bg, borderRadius: 14, padding: '20px 22px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                      <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', marginBottom: 8, fontWeight: 600 }}>{k.icon} {k.label}</div>
+                      <div style={{ fontSize: 32, fontWeight: 800, color: k.color }}>{k.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Taux de livraison */}
+                <div style={{ background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>🎯 Taux de livraison</h3>
+                    <span style={{ fontSize: 28, fontWeight: 800, color: tauxLivraison >= 80 ? '#1D9E75' : tauxLivraison >= 50 ? '#EF9F27' : '#E24B4A' }}>
+                      {tauxLivraison}%
+                    </span>
+                  </div>
+                  <div style={{ height: 12, borderRadius: 20, background: '#f0f0f0', overflow: 'hidden' }}>
+                    <div style={{ width: `${tauxLivraison}%`, height: '100%', background: tauxLivraison >= 80 ? 'linear-gradient(90deg, #1D9E75, #34d399)' : tauxLivraison >= 50 ? 'linear-gradient(90deg, #EF9F27, #fbbf24)' : 'linear-gradient(90deg, #E24B4A, #f87171)', borderRadius: 20, transition: 'width 0.5s' }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+                    <span style={{ fontSize: 12, color: '#aaa' }}>0%</span>
+                    <span style={{ fontSize: 12, color: tauxLivraison >= 80 ? '#1D9E75' : '#EF9F27', fontWeight: 600 }}>
+                      {tauxLivraison >= 80 ? '✅ Excellent' : tauxLivraison >= 50 ? '⚠️ À améliorer' : '❌ Faible'}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#aaa' }}>100%</span>
+                  </div>
+                </div>
+
+                {/* Répartition statuts */}
+                <div style={{ background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>📊 Répartition par statut</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {[
+                      { label: 'Nouvelles', count: cmdsFiltrees.filter(c => c.statut === 'nouveau').length, color: '#E24B4A' },
+                      { label: 'En préparation', count: cmdsFiltrees.filter(c => c.statut === 'en_preparation').length, color: '#7c3aed' },
+                      { label: 'En livraison', count: cmdsEnLivraison.length, color: '#EF9F27' },
+                      { label: 'Livrées', count: cmdsLivrees.length, color: '#1D9E75' },
+                      { label: 'Annulées', count: cmdsAnnulees.length, color: '#aaa' },
+                    ].map((s, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 13, color: '#555', minWidth: 120, fontWeight: 500 }}>{s.label}</span>
+                        <div style={{ flex: 1, height: 8, borderRadius: 20, background: '#f0f0f0', overflow: 'hidden' }}>
+                          <div style={{ width: `${cmdsFiltrees.length > 0 ? (s.count / cmdsFiltrees.length) * 100 : 0}%`, height: '100%', background: s.color, borderRadius: 20 }} />
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: s.color, minWidth: 30, textAlign: 'right' }}>{s.count}</span>
+                        <span style={{ fontSize: 11, color: '#aaa', minWidth: 40 }}>
+                          {cmdsFiltrees.length > 0 ? Math.round((s.count / cmdsFiltrees.length) * 100) : 0}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ ONGLET TOP PRODUITS */}
+            {onglet === 'produits' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>🏆 Top 5 Produits les plus commandés</h3>
+                  {top5.length === 0 ? (
+                    <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Aucune donnée sur cette période</p>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '160px' }}>
-                      {commandesMois.map((c: any, i) => (
-                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
-                          <div style={{ fontSize: '10px', color: '#1D9E75', fontWeight: '600' }}>
-                            {c.ca > 0 ? (c.ca / 1000).toFixed(0) + 'k' : ''}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {top5.map((p, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, background: i === 0 ? 'rgba(212,168,83,0.06)' : '#f8f9fa', borderRadius: 10, padding: '12px 16px', border: i === 0 ? '1px solid rgba(212,168,83,0.2)' : '1px solid #e5e7eb' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: i === 0 ? 'linear-gradient(135deg, #d4a853, #f0c970)' : i === 1 ? '#e0e0e0' : i === 2 ? '#d4a47a' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: i < 3 ? '#1a1a1a' : '#888', flexShrink: 0 }}>
+                            {i + 1}
                           </div>
-                          <div style={{ width: '100%', background: '#1D9E75', borderRadius: '4px 4px 0 0', height: Math.max(4, (c.ca / maxCa) * 120) + 'px', opacity: 0.8 }} />
-                          <div style={{ fontSize: '10px', color: '#555' }}>{c.jour}</div>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{p.nom}</p>
+                            <div style={{ height: 4, borderRadius: 20, background: '#e5e7eb', marginTop: 6, overflow: 'hidden' }}>
+                              <div style={{ width: `${top5[0].count > 0 ? (p.count / top5[0].count) * 100 : 0}%`, height: '100%', background: i === 0 ? '#d4a853' : '#0891b2', borderRadius: 20 }} />
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: i === 0 ? '#d4a853' : '#0891b2' }}>{p.count}×</p>
+                            <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>{formatF(p.ca)}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
+              </div>
+            )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                  <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
-                    <h2 style={{ fontSize: '13px', color: '#888', margin: '0 0 16px', textTransform: 'uppercase' }}>CA par activité</h2>
-                    {[
-                      { label: 'Importation', value: stats.caImporte, color: '#1D9E75' },
-                      { label: 'CK Design local', value: stats.caCkDesign, color: '#7F77DD' },
-                    ].map((a, i) => {
-                      const total = (stats.caImporte || 0) + (stats.caCkDesign || 0)
-                      const pct = total > 0 ? Math.round((a.value / total) * 100) : 0
-                      return (
-                        <div key={i} style={{ marginBottom: '16px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                            <span style={{ fontSize: '13px' }}>{a.label}</span>
-                            <span style={{ fontSize: '13px', fontWeight: '600', color: a.color }}>{a.value?.toLocaleString('fr-FR')} F</span>
-                          </div>
-                          <div style={{ background: '#1a1a1a', borderRadius: '4px', height: '8px' }}>
-                            <div style={{ background: a.color, height: '100%', borderRadius: '4px', width: pct + '%' }} />
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#555', marginTop: '3px' }}>{pct}% du CA</div>
-                        </div>
-                      )
-                    })}
+            {/* ✅ ONGLET STOCK */}
+            {onglet === 'stock' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div style={{ background: '#f0fdf4', borderRadius: 14, padding: '22px', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', marginBottom: 8, fontWeight: 600 }}>💎 Valeur totale du stock</div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: '#1D9E75' }}>{formatF(valeurStock)}</div>
+                    <div style={{ fontSize: 12, color: '#aaa', marginTop: 4 }}>Basé sur le prix d'achat</div>
                   </div>
+                  <div style={{ background: articlesCritiques.length > 0 ? '#fff5f5' : '#f0fdf4', borderRadius: 14, padding: '22px', border: `1px solid ${articlesCritiques.length > 0 ? '#fecaca' : '#bbf7d0'}` }}>
+                    <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', marginBottom: 8, fontWeight: 600 }}>⚠️ Articles critiques (≤3 pcs)</div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: articlesCritiques.length > 0 ? '#E24B4A' : '#1D9E75' }}>{articlesCritiques.length}</div>
+                    <div style={{ fontSize: 12, color: '#aaa', marginTop: 4 }}>
+                      {articlesCritiques.length > 0 ? 'Réapprovisionnement urgent' : 'Stock OK'}
+                    </div>
+                  </div>
+                </div>
 
-                  <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
-                    <h2 style={{ fontSize: '13px', color: '#888', margin: '0 0 16px', textTransform: 'uppercase' }}>CA par source</h2>
+                {articlesCritiques.length > 0 && (
+                  <div style={{ background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                    <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#E24B4A' }}>⚠️ Articles à réapprovisionner</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {articlesCritiques.slice(0, 10).map((item, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff5f5', borderRadius: 9, padding: '10px 14px', border: '1px solid #fecaca' }}>
+                          <div>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{(item.produits as any)?.nom || 'Produit'}</span>
+                            <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>— Taille {item.taille} · {item.couleur}</span>
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: '#E24B4A', background: '#fff0f0', padding: '3px 10px', borderRadius: 20 }}>
+                            {item.quantite} pcs
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ✅ ONGLET CLIENTS */}
+            {onglet === 'clients' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Abidjan vs Expédition */}
+                <div style={{ background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>📍 Abidjan vs Expédition</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
                     {[
-                      { label: 'Vente directe', value: stats.caDirect, color: '#1D9E75' },
-                      { label: 'WhatsApp', value: stats.caWhatsapp, color: '#25D366' },
-                      { label: 'B2B', value: stats.caB2b, color: '#EF9F27' },
-                    ].map((s, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #1a1a1a' }}>
-                        <span style={{ fontSize: '13px', color: '#888' }}>{s.label}</span>
-                        <span style={{ fontSize: '13px', fontWeight: '600', color: s.color }}>{(s.value || 0).toLocaleString('fr-FR')} F</span>
+                      { label: '🏙️ Abidjan', count: nbAbidjan, color: '#0891b2', bg: '#e0f7fa' },
+                      { label: '📦 Expédition', count: nbExpedition, color: '#7c3aed', bg: '#f5f3ff' },
+                    ].map((g, i) => (
+                      <div key={i} style={{ background: g.bg, borderRadius: 12, padding: '18px 20px', border: `1px solid ${g.color}22` }}>
+                        <div style={{ fontSize: 12, color: '#888', marginBottom: 8, fontWeight: 600 }}>{g.label}</div>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: g.color }}>{g.count}</div>
+                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+                          {cmdsFiltrees.length > 0 ? Math.round((g.count / cmdsFiltrees.length) * 100) : 0}% des commandes
+                        </div>
+                        <div style={{ height: 6, borderRadius: 20, background: 'rgba(0,0,0,0.06)', marginTop: 10, overflow: 'hidden' }}>
+                          <div style={{ width: `${cmdsFiltrees.length > 0 ? (g.count / cmdsFiltrees.length) * 100 : 0}%`, height: '100%', background: g.color, borderRadius: 20 }} />
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
-              </>
-            )}
 
-            {/* ONGLET NON LIVRÉES */}
-            {onglet === 'nonlivrees' && (
-              <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
-                <h2 style={{ fontSize: '13px', color: '#888', margin: '0 0 16px', textTransform: 'uppercase' }}>
-                  Commandes non livrées — {nonLivrees.length} au total
-                </h2>
-                {nonLivrees.length === 0 ? (
-                  <div style={{ textAlign: 'center', color: '#1D9E75', padding: '40px', fontSize: '14px' }}>
-                    🎉 Toutes les commandes ont été livrées !
+                {/* Source commandes */}
+                <div style={{ background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>📱 Source des commandes</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    {[
+                      { label: '💬 WhatsApp', count: nbWhatsapp, color: '#25D366', bg: 'rgba(37,211,102,0.08)' },
+                      { label: '📝 Formulaire', count: nbFormulaire, color: '#0891b2', bg: 'rgba(8,145,178,0.08)' },
+                    ].map((s, i) => (
+                      <div key={i} style={{ background: s.bg, borderRadius: 12, padding: '18px 20px', border: `1px solid ${s.color}22` }}>
+                        <div style={{ fontSize: 12, color: '#888', marginBottom: 8, fontWeight: 600 }}>{s.label}</div>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.count}</div>
+                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+                          {cmdsFiltrees.length > 0 ? Math.round((s.count / cmdsFiltrees.length) * 100) : 0}% des commandes
+                        </div>
+                        <div style={{ height: 6, borderRadius: 20, background: 'rgba(0,0,0,0.06)', marginTop: 10, overflow: 'hidden' }}>
+                          <div style={{ width: `${cmdsFiltrees.length > 0 ? (s.count / cmdsFiltrees.length) * 100 : 0}%`, height: '100%', background: s.color, borderRadius: 20 }} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid #222' }}>
-                        {['#', 'Client', 'Téléphone', 'Adresse', 'Montant', 'Statut', 'Motif échec', 'Date'].map(h => (
-                          <th key={h} style={{ textAlign: 'left', padding: '8px', color: '#555', fontWeight: '500' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {nonLivrees.map((c, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                          <td style={{ padding: '10px 8px', color: '#555' }}>#{c.numero}</td>
-                          <td style={{ padding: '10px 8px', fontWeight: '500' }}>{(c.clients as any)?.nom || '—'}</td>
-                          <td style={{ padding: '10px 8px', color: '#666' }}>{(c.clients as any)?.telephone || '—'}</td>
-                          <td style={{ padding: '10px 8px', color: '#666' }}>{c.adresse_livraison || '—'}</td>
-                          <td style={{ padding: '10px 8px', color: '#1D9E75', fontWeight: '600' }}>{(c.montant_total || 0).toLocaleString('fr-FR')} F</td>
-                          <td style={{ padding: '10px 8px' }}>
-                            <span style={{ background: (statutColor[c.statut] || '#555') + '22', color: statutColor[c.statut] || '#555', padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: '600' }}>
-                              {statutLabel[c.statut] || c.statut}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 8px', color: c.motif_echec ? '#E24B4A' : '#555' }}>
-                            {c.motif_echec || '—'}
-                          </td>
-                          <td style={{ padding: '10px 8px', color: '#555', fontSize: '11px' }}>
-                            {new Date(c.created_at).toLocaleDateString('fr-FR')}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
+                </div>
 
-            {/* ONGLET TOP PRODUITS */}
-            {onglet === 'produits' && (
-              <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
-                <h2 style={{ fontSize: '13px', color: '#888', margin: '0 0 16px', textTransform: 'uppercase' }}>Top produits vendus</h2>
-                {topProduits.length === 0 ? (
-                  <div style={{ color: '#555', textAlign: 'center', padding: '40px' }}>Pas encore de ventes enregistrées</div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid #222' }}>
-                        {['Rang', 'Produit', 'Quantité vendue', 'CA généré'].map(h => (
-                          <th key={h} style={{ textAlign: 'left', padding: '10px 8px', color: '#555', fontWeight: '500' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topProduits.map((p: any, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                          <td style={{ padding: '12px 8px' }}>
-                            <div style={{ width: '24px', height: '24px', background: i === 0 ? '#EF9F2722' : '#1a1a1a', color: i === 0 ? '#EF9F27' : '#555', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700' }}>
-                              {i + 1}
-                            </div>
-                          </td>
-                          <td style={{ padding: '12px 8px', fontWeight: '500' }}>{p.nom}</td>
-                          <td style={{ padding: '12px 8px', color: '#888' }}>{p.quantite} pièces</td>
-                          <td style={{ padding: '12px 8px', color: '#1D9E75', fontWeight: '600' }}>{p.ca?.toLocaleString('fr-FR')} F</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
-
-            {/* ONGLET TOP CLIENTS */}
-            {onglet === 'clients' && (
-              <div style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '20px' }}>
-                <h2 style={{ fontSize: '13px', color: '#888', margin: '0 0 16px', textTransform: 'uppercase' }}>Top clients</h2>
-                {topClients.length === 0 ? (
-                  <div style={{ color: '#555', textAlign: 'center', padding: '40px' }}>Pas encore de clients</div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid #222' }}>
-                        {['Rang', 'Client', 'Nb commandes', 'CA total'].map(h => (
-                          <th key={h} style={{ textAlign: 'left', padding: '10px 8px', color: '#555', fontWeight: '500' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topClients.map((c: any, i) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                          <td style={{ padding: '12px 8px' }}>
-                            <div style={{ width: '24px', height: '24px', background: i === 0 ? '#EF9F2722' : '#1a1a1a', color: i === 0 ? '#EF9F27' : '#555', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700' }}>
-                              {i + 1}
-                            </div>
-                          </td>
-                          <td style={{ padding: '12px 8px', fontWeight: '500' }}>{c.nom}</td>
-                          <td style={{ padding: '12px 8px', color: '#888' }}>{c.nb} commandes</td>
-                          <td style={{ padding: '12px 8px', color: '#1D9E75', fontWeight: '600' }}>{c.ca?.toLocaleString('fr-FR')} F</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+                {/* Délai moyen */}
+                <div style={{ background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>⏱️ Délai moyen de livraison</h3>
+                    <p style={{ margin: 0, fontSize: 12, color: '#aaa' }}>Estimation basée sur notre engagement</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 32, fontWeight: 800, color: '#1D9E75' }}>{delaiMoyen}</div>
+                    <div style={{ fontSize: 11, color: '#aaa' }}>À Abidjan</div>
+                  </div>
+                </div>
               </div>
             )}
           </>
