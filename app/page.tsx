@@ -11,34 +11,28 @@ const supabase = createClient(
 const WHATSAPP = '2250555303010'
 const MSG = encodeURIComponent('Bonjour CK Dress 👋 Je souhaite passer une commande.')
 
-const TEXTES_DEFILANTS = [
-  '🎉 Jusqu\'au 31 Mai — Achetez 2 Polos et bénéficiez de la livraison GRATUITE partout à Abidjan !',
-  '✨ Nouvelle collection CK Design disponible — Polos, Chemises, Jupes et Robes',
-  '🚚 Livraison en 24h à Abidjan — Expédition dans toute la Côte d\'Ivoire en 48h',
-  '💬 Commandez facilement via WhatsApp au +225 05 55 30 30 10',
-]
-
-const PROMOS = [
-  { nom: 'Polo Classic', description: 'Achetez 2, livraison gratuite', prix_original: 6000, prix_promo: 6000, badge: '🎁 Livraison offerte', emoji: '👕', lien: '/catalogue' },
-  { nom: 'Tee-shirt Premium', description: 'Offre limitée jusqu\'au 31 mai', prix_original: 3500, prix_promo: 3000, badge: '🔥 -14%', emoji: '👕', lien: '/succes-design/catalogue' },
-  { nom: 'Chemise Lin', description: 'Collection printemps 2026', prix_original: 10000, prix_promo: 8500, badge: '⭐ -15%', emoji: '👔', lien: '/catalogue' },
-  { nom: 'Polo Importé SD', description: 'Qualité premium importée', prix_original: 7000, prix_promo: 5500, badge: '🌟 -21%', emoji: '👕', lien: '/succes-design/catalogue' },
-]
-
 export default function LandingPage() {
   const [produits, setProduits] = useState<any[]>([])
   const [scrolled, setScrolled] = useState(false)
+  const [textes, setTextes] = useState<string[]>(['🎉 Bienvenue sur CK Dress — Mode & Élégance à Abidjan !'])
+  const [promos, setPromos] = useState<any[]>([])
 
   useEffect(() => {
-    fetchProduits()
+    fetchData()
     const handleScroll = () => setScrolled(window.scrollY > 50)
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const fetchProduits = async () => {
-    const { data } = await supabase.from('produits').select('*').eq('disponible', true).limit(6)
-    setProduits(data || [])
+  const fetchData = async () => {
+    const [{ data: produitsData }, { data: textesData }, { data: promosData }] = await Promise.all([
+      supabase.from('produits').select('*').eq('disponible', true).limit(6),
+      supabase.from('landing_textes').select('texte').eq('actif', true).order('ordre'),
+      supabase.from('landing_promos').select('*').eq('actif', true).order('ordre'),
+    ])
+    if (produitsData) setProduits(produitsData)
+    if (textesData && textesData.length > 0) setTextes(textesData.map(t => t.texte))
+    if (promosData) setPromos(promosData)
   }
 
   return (
@@ -57,7 +51,7 @@ export default function LandingPage() {
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 80, background: 'linear-gradient(90deg, #1a1a1a, transparent)', zIndex: 1 }} />
         <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, background: 'linear-gradient(270deg, #1a1a1a, transparent)', zIndex: 1 }} />
         <div style={{ display: 'flex', animation: 'marquee 40s linear infinite', whiteSpace: 'nowrap', width: 'max-content' }}>
-          {[...TEXTES_DEFILANTS, ...TEXTES_DEFILANTS].map((t, i) => (
+          {[...textes, ...textes].map((t, i) => (
             <span key={i} style={{ fontSize: 13, fontWeight: 600, color: '#d4a853', letterSpacing: 0.5, marginRight: 80 }}>
               {t}
             </span>
@@ -198,68 +192,87 @@ export default function LandingPage() {
                 Promotions <span style={{ color: '#d4a853', fontStyle: 'italic' }}>du Moment</span>
               </h2>
             </div>
-            <div style={{ background: 'rgba(226,75,74,0.1)', border: '1px solid rgba(226,75,74,0.3)', borderRadius: 12, padding: '12px 20px', textAlign: 'center' }}>
-              <p style={{ margin: 0, fontSize: 11, color: '#E24B4A', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>Expire le</p>
-              <p style={{ margin: '4px 0 0', fontSize: 18, fontWeight: 800, color: '#E24B4A' }}>31 Mai 2026</p>
-            </div>
-          </div>
-
-          {/* Message promo principal */}
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(212,168,83,0.12), rgba(212,168,83,0.06))',
-            borderRadius: 16, padding: '24px 32px', marginBottom: 28,
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            border: '1px solid rgba(212,168,83,0.3)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-              <div style={{ fontSize: 40 }}>🎁</div>
-              <div>
-                <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#fff', fontFamily: "'Playfair Display', serif" }}>
-                  Achetez 2 Polos → Livraison GRATUITE
-                </p>
-                <p style={{ margin: '6px 0 0', fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
-                  Partout à Abidjan — Offre valable jusqu'au 31 Mai 2026
-                </p>
-              </div>
-            </div>
-            <a href="/catalogue"
-              style={{ background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '12px 28px', borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: 700, flexShrink: 0, boxShadow: '0 4px 16px rgba(212,168,83,0.3)' }}>
-              En profiter →
+            <a href="/admin/configuration" target="_blank"
+              style={{ background: 'rgba(212,168,83,0.1)', border: '1px solid rgba(212,168,83,0.3)', color: '#d4a853', padding: '8px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 12, fontWeight: 600 }}>
+              ⚙️ Gérer les promos
             </a>
           </div>
 
-          {/* Cartes promos */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-            {PROMOS.map((promo, i) => (
-              <div key={i} style={{ background: '#111', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.3s', boxShadow: '0 2px 12px rgba(0,0,0,0.2)' }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.border = '1px solid rgba(212,168,83,0.3)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.border = '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ height: 160, background: 'linear-gradient(135deg, #1a1a1a, #222)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                  <span style={{ fontSize: 52, opacity: 0.2 }}>{promo.emoji}</span>
-                  <span style={{ position: 'absolute', top: 12, left: 12, background: '#E24B4A', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100 }}>
-                    {promo.badge}
-                  </span>
-                </div>
-                <div style={{ padding: '16px 20px 20px' }}>
-                  <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#fff' }}>{promo.nom}</h3>
-                  <p style={{ margin: '0 0 14px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{promo.description}</p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {promos.length === 0 ? (
+            /* Aucune promo active */
+            <div style={{ background: 'rgba(212,168,83,0.05)', border: '1px solid rgba(212,168,83,0.15)', borderRadius: 16, padding: '60px', textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🎁</div>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16, margin: '0 0 8px' }}>Aucune promotion active pour le moment</p>
+              <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13, margin: 0 }}>Ajoutez des promotions depuis la configuration</p>
+            </div>
+          ) : (
+            <>
+              {/* Message promo principal — premier promo */}
+              {promos[0] && (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(212,168,83,0.12), rgba(212,168,83,0.06))',
+                  borderRadius: 16, padding: '24px 32px', marginBottom: 28,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  border: '1px solid rgba(212,168,83,0.3)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                    <div style={{ fontSize: 40 }}>🎁</div>
                     <div>
-                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginRight: 6 }}>
-                        {promo.prix_original.toLocaleString('fr-FR')} F
-                      </span>
-                      <span style={{ fontSize: 20, fontWeight: 800, color: '#d4a853', fontFamily: "'Playfair Display', serif" }}>
-                        {promo.prix_promo.toLocaleString('fr-FR')} F
-                      </span>
+                      <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#fff', fontFamily: "'Playfair Display', serif" }}>
+                        {promos[0].nom}
+                      </p>
+                      <p style={{ margin: '6px 0 0', fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
+                        {promos[0].description}
+                        {promos[0].date_expiration && ` — jusqu'au ${new Date(promos[0].date_expiration).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}`}
+                      </p>
                     </div>
-                    <a href={promo.lien} style={{ background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '8px 16px', borderRadius: 6, textDecoration: 'none', fontSize: 12, fontWeight: 700 }}>
-                      Commander
-                    </a>
                   </div>
+                  <a href={promos[0].lien || '/catalogue'}
+                    style={{ background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '12px 28px', borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: 700, flexShrink: 0, boxShadow: '0 4px 16px rgba(212,168,83,0.3)' }}>
+                    En profiter →
+                  </a>
                 </div>
+              )}
+
+              {/* Cartes promos */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+                {promos.map((promo, i) => (
+                  <div key={promo.id} style={{ background: '#111', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.3s', boxShadow: '0 2px 12px rgba(0,0,0,0.2)' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.border = '1px solid rgba(212,168,83,0.3)' }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.border = '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ height: 160, background: 'linear-gradient(135deg, #1a1a1a, #222)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                      <span style={{ fontSize: 52, opacity: 0.2 }}>👗</span>
+                      {promo.badge && (
+                        <span style={{ position: 'absolute', top: 12, left: 12, background: '#E24B4A', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100 }}>
+                          {promo.badge}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ padding: '16px 20px 20px' }}>
+                      <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#fff' }}>{promo.nom}</h3>
+                      <p style={{ margin: '0 0 14px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{promo.description}</p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          {promo.prix_original > 0 && promo.prix_original !== promo.prix_promo && (
+                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginRight: 6 }}>
+                              {promo.prix_original.toLocaleString('fr-FR')} F
+                            </span>
+                          )}
+                          <span style={{ fontSize: 20, fontWeight: 800, color: '#d4a853', fontFamily: "'Playfair Display', serif" }}>
+                            {promo.prix_promo.toLocaleString('fr-FR')} F
+                          </span>
+                        </div>
+                        <a href={promo.lien || '/catalogue'}
+                          style={{ background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '8px 16px', borderRadius: 6, textDecoration: 'none', fontSize: 12, fontWeight: 700 }}>
+                          Commander
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </section>
 
