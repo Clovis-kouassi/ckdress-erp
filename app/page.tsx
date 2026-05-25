@@ -17,7 +17,7 @@ export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false)
   const [textes, setTextes] = useState<string[]>(['🎉 Bienvenue sur CK Dress — Mode & Élégance à Abidjan !'])
   const [promos, setPromos] = useState<any[]>([])
-  const [nbClients, setNbClients] = useState(0)
+  const [nbClients, setNbClients] = useState(500)
 
   useEffect(() => {
     fetchData()
@@ -38,7 +38,8 @@ export default function LandingPage() {
     if (sdData) setSdProduits(sdData)
     if (textesData && textesData.length > 0) setTextes(textesData.map(t => t.texte))
     if (promosData) setPromos(promosData)
-    setNbClients(count || 0)
+    // ✅ 500 de base + commandes livrées automatiquement
+    setNbClients(500 + (count || 0))
   }
 
   const ckPlaceholders = [
@@ -190,7 +191,7 @@ export default function LandingPage() {
             </a>
           </div>
 
-          {/* ✅ STATS HERO avec nbClients dynamique */}
+          {/* ✅ STATS : 500 + commandes livrées */}
           <div style={{ display: 'flex', gap: 48, justifyContent: 'center', marginTop: 72, paddingTop: 48, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             {[
               { value: `${nbClients}+`, label: 'Clients satisfaits' },
@@ -213,7 +214,7 @@ export default function LandingPage() {
             { icon: '🚚', title: 'Livraison 24h', desc: 'Livraison rapide à Abidjan sous 24 heures' },
             { icon: '✨', title: 'Qualité Premium', desc: 'Matières soigneusement sélectionnées' },
             { icon: '💬', title: 'Commande WhatsApp', desc: 'Commandez en quelques secondes' },
-            { icon: '🔄', title: 'Échange Garanti', desc: 'Échange possible sous 24 heures' }, // ✅ corrigé
+            { icon: '🔄', title: 'Échange Garanti', desc: 'Échange possible sous 24 heures' },
           ].map((f, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
               <div style={{ width: 44, height: 44, borderRadius: 8, background: 'rgba(212,168,83,0.1)', border: '1px solid rgba(212,168,83,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{f.icon}</div>
@@ -237,7 +238,6 @@ export default function LandingPage() {
               Promotions <span style={{ color: '#d4a853', fontStyle: 'italic' }}>du Moment</span>
             </h2>
           </div>
-
           {promos.length === 0 ? (
             <div style={{ background: 'rgba(212,168,83,0.05)', border: '1px solid rgba(212,168,83,0.15)', borderRadius: 16, padding: '60px', textAlign: 'center' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🎁</div>
@@ -271,9 +271,7 @@ export default function LandingPage() {
                     onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.border = '1px solid rgba(255,255,255,0.06)' }}>
                     <div style={{ height: 160, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                       <span style={{ fontSize: 52, opacity: 0.2 }}>👗</span>
-                      {promo.badge && (
-                        <span style={{ position: 'absolute', top: 12, left: 12, background: '#E24B4A', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100 }}>{promo.badge}</span>
-                      )}
+                      {promo.badge && <span style={{ position: 'absolute', top: 12, left: 12, background: '#E24B4A', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100 }}>{promo.badge}</span>}
                     </div>
                     <div style={{ padding: '16px 20px 20px' }}>
                       <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#fff' }}>{promo.nom}</h3>
@@ -446,7 +444,7 @@ export default function LandingPage() {
             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.9, margin: '0 0 20px' }}>CK Dress est une marque de mode basée à Abidjan, Côte d'Ivoire. Nous proposons des vêtements élégants et de qualité pour hommes et femmes.</p>
             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.9, margin: '0 0 40px' }}>À travers nos deux marques — <strong style={{ color: '#d4a853' }}>CK Design</strong> pour la mode locale et <strong style={{ color: '#fff' }}>Succès Design</strong> pour les tenues importées.</p>
 
-            {/* ✅ STATS À PROPOS avec 2019 et nbClients dynamique */}
+            {/* ✅ 2019 + clients dynamiques */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 40 }}>
               {[
                 { value: '2019', label: 'Année de création' },
@@ -460,7 +458,6 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-
             <a href={`https://wa.me/${WHATSAPP}?text=${MSG}`} target="_blank"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '14px 32px', borderRadius: 4, textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
               💬 Nous contacter
