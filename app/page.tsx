@@ -17,6 +17,7 @@ export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false)
   const [textes, setTextes] = useState<string[]>(['🎉 Bienvenue sur CK Dress — Mode & Élégance à Abidjan !'])
   const [promos, setPromos] = useState<any[]>([])
+  const [nbClients, setNbClients] = useState(0)
 
   useEffect(() => {
     fetchData()
@@ -26,16 +27,18 @@ export default function LandingPage() {
   }, [])
 
   const fetchData = async () => {
-    const [{ data: ckData }, { data: sdData }, { data: textesData }, { data: promosData }] = await Promise.all([
+    const [{ data: ckData }, { data: sdData }, { data: textesData }, { data: promosData }, { count }] = await Promise.all([
       supabase.from('produits').select('*').eq('disponible', true).eq('activite', 'ck_design').order('created_at', { ascending: false }).limit(6),
       supabase.from('produits').select('*').eq('disponible', true).eq('activite', 'succes_design').order('created_at', { ascending: false }).limit(6),
       supabase.from('landing_textes').select('texte').eq('actif', true).order('ordre'),
       supabase.from('landing_promos').select('*').eq('actif', true).order('ordre'),
+      supabase.from('commandes_catalogue').select('*', { count: 'exact', head: true }).eq('statut', 'livre'),
     ])
     if (ckData) setCkProduits(ckData)
     if (sdData) setSdProduits(sdData)
     if (textesData && textesData.length > 0) setTextes(textesData.map(t => t.texte))
     if (promosData) setPromos(promosData)
+    setNbClients(count || 0)
   }
 
   const ckPlaceholders = [
@@ -59,7 +62,6 @@ export default function LandingPage() {
   const ckFinal = ckProduits.length > 0 ? ckProduits : ckPlaceholders
   const sdFinal = sdProduits.length > 0 ? sdProduits : sdPlaceholders
 
-  // ✅ Carte produit avec image complète
   const CarteProduit = ({ produit, lien }: { produit: any, lien: string }) => (
     <div
       style={{ background: '#111', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.3s', cursor: 'pointer' }}
@@ -166,6 +168,7 @@ export default function LandingPage() {
         <div style={{ position: 'absolute', bottom: '15%', left: '5%', width: 200, height: 200, borderRadius: '50%', border: '1px solid rgba(212,168,83,0.1)' }} />
         <div style={{ position: 'absolute', left: 0, top: '50%', width: '30%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(212,168,83,0.3))' }} />
         <div style={{ position: 'absolute', right: 0, top: '50%', width: '30%', height: 1, background: 'linear-gradient(270deg, transparent, rgba(212,168,83,0.3))' }} />
+
         <div style={{ textAlign: 'center', maxWidth: 800, padding: '0 24px', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, background: 'rgba(212,168,83,0.1)', border: '1px solid rgba(212,168,83,0.3)', borderRadius: 100, padding: '8px 20px', marginBottom: 32 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#d4a853' }} />
@@ -186,8 +189,14 @@ export default function LandingPage() {
               🔥 Voir les Promos
             </a>
           </div>
+
+          {/* ✅ STATS HERO avec nbClients dynamique */}
           <div style={{ display: 'flex', gap: 48, justifyContent: 'center', marginTop: 72, paddingTop: 48, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            {[{ value: '500+', label: 'Clients satisfaits' }, { value: '24h', label: 'Livraison Abidjan' }, { value: '2', label: 'Marques exclusives' }].map((s, i) => (
+            {[
+              { value: `${nbClients}+`, label: 'Clients satisfaits' },
+              { value: '24h', label: 'Livraison Abidjan' },
+              { value: '2', label: 'Marques exclusives' },
+            ].map((s, i) => (
               <div key={i} style={{ textAlign: 'center' }}>
                 <p style={{ margin: 0, fontSize: 32, fontWeight: 800, color: '#d4a853', fontFamily: "'Playfair Display', serif" }}>{s.value}</p>
                 <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, textTransform: 'uppercase' }}>{s.label}</p>
@@ -204,7 +213,7 @@ export default function LandingPage() {
             { icon: '🚚', title: 'Livraison 24h', desc: 'Livraison rapide à Abidjan sous 24 heures' },
             { icon: '✨', title: 'Qualité Premium', desc: 'Matières soigneusement sélectionnées' },
             { icon: '💬', title: 'Commande WhatsApp', desc: 'Commandez en quelques secondes' },
-            { icon: '🔄', title: 'Échange Garanti', desc: 'Échange possible sous 7 jours' },
+            { icon: '🔄', title: 'Échange Garanti', desc: 'Échange possible sous 24 heures' }, // ✅ corrigé
           ].map((f, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
               <div style={{ width: 44, height: 44, borderRadius: 8, background: 'rgba(212,168,83,0.1)', border: '1px solid rgba(212,168,83,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{f.icon}</div>
@@ -335,7 +344,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CK DESIGN — 6 produits */}
+      {/* CK DESIGN */}
       <section id="ck-design" style={{ padding: '100px 40px', background: '#050505' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56 }}>
@@ -364,7 +373,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SUCCÈS DESIGN — 6 produits */}
+      {/* SUCCÈS DESIGN */}
       <section id="succes-design" style={{ padding: '100px 40px', background: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56 }}>
@@ -436,14 +445,22 @@ export default function LandingPage() {
             </h2>
             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.9, margin: '0 0 20px' }}>CK Dress est une marque de mode basée à Abidjan, Côte d'Ivoire. Nous proposons des vêtements élégants et de qualité pour hommes et femmes.</p>
             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.9, margin: '0 0 40px' }}>À travers nos deux marques — <strong style={{ color: '#d4a853' }}>CK Design</strong> pour la mode locale et <strong style={{ color: '#fff' }}>Succès Design</strong> pour les tenues importées.</p>
+
+            {/* ✅ STATS À PROPOS avec 2019 et nbClients dynamique */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 40 }}>
-              {[{ value: '2024', label: 'Année de création' }, { value: '500+', label: 'Clients satisfaits' }, { value: '2', label: 'Marques exclusives' }, { value: '48h', label: 'Délai expédition CI' }].map((s, i) => (
+              {[
+                { value: '2019', label: 'Année de création' },
+                { value: `${nbClients}+`, label: 'Clients satisfaits' },
+                { value: '2', label: 'Marques exclusives' },
+                { value: '48h', label: 'Délai expédition CI' },
+              ].map((s, i) => (
                 <div key={i} style={{ background: 'rgba(212,168,83,0.05)', border: '1px solid rgba(212,168,83,0.15)', borderRadius: 12, padding: '20px 24px' }}>
                   <p style={{ margin: 0, fontSize: 28, fontWeight: 800, color: '#d4a853', fontFamily: "'Playfair Display', serif" }}>{s.value}</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{s.label}</p>
                 </div>
               ))}
             </div>
+
             <a href={`https://wa.me/${WHATSAPP}?text=${MSG}`} target="_blank"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '14px 32px', borderRadius: 4, textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
               💬 Nous contacter
