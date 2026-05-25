@@ -59,16 +59,17 @@ export default function LandingPage() {
   const ckFinal = ckProduits.length > 0 ? ckProduits : ckPlaceholders
   const sdFinal = sdProduits.length > 0 ? sdProduits : sdPlaceholders
 
+  // ✅ Carte produit avec image complète
   const CarteProduit = ({ produit, lien }: { produit: any, lien: string }) => (
     <div
       style={{ background: '#111', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.3s', cursor: 'pointer' }}
       onMouseEnter={e => { e.currentTarget.style.border = '1px solid rgba(212,168,83,0.3)'; e.currentTarget.style.transform = 'translateY(-6px)' }}
       onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)' }}>
-      <div style={{ height: 260, background: 'linear-gradient(135deg, #1a1a1a, #222)', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ height: 320, background: '#fff', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {produit.image_url
-          ? <img src={produit.image_url} alt={produit.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img src={produit.image_url} alt={produit.nom} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '8px' }} />
           : (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)' }}>
+            <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)' }}>
               <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(212,168,83,0.1)', border: '1px solid rgba(212,168,83,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                 <span style={{ fontSize: 36, opacity: 0.4 }}>👗</span>
               </div>
@@ -102,14 +103,9 @@ export default function LandingPage() {
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: '#0a0a0a', color: '#fff', minHeight: '100vh', overflowX: 'hidden' }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;700;800&display=swap" rel="stylesheet" />
-      <style>{`
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-      `}</style>
+      <style>{`@keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
 
-      {/* BANDEAU TEXTE DÉFILANT */}
+      {/* BANDEAU */}
       <div style={{ background: 'linear-gradient(90deg, #1a1a1a, #2a2a2a)', borderBottom: '1px solid rgba(212,168,83,0.3)', padding: '10px 0', overflow: 'hidden', position: 'relative', zIndex: 999 }}>
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 80, background: 'linear-gradient(90deg, #1a1a1a, transparent)', zIndex: 1 }} />
         <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, background: 'linear-gradient(270deg, #1a1a1a, transparent)', zIndex: 1 }} />
@@ -170,7 +166,6 @@ export default function LandingPage() {
         <div style={{ position: 'absolute', bottom: '15%', left: '5%', width: 200, height: 200, borderRadius: '50%', border: '1px solid rgba(212,168,83,0.1)' }} />
         <div style={{ position: 'absolute', left: 0, top: '50%', width: '30%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(212,168,83,0.3))' }} />
         <div style={{ position: 'absolute', right: 0, top: '50%', width: '30%', height: 1, background: 'linear-gradient(270deg, transparent, rgba(212,168,83,0.3))' }} />
-
         <div style={{ textAlign: 'center', maxWidth: 800, padding: '0 24px', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, background: 'rgba(212,168,83,0.1)', border: '1px solid rgba(212,168,83,0.3)', borderRadius: 100, padding: '8px 20px', marginBottom: 32 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#d4a853' }} />
@@ -192,11 +187,7 @@ export default function LandingPage() {
             </a>
           </div>
           <div style={{ display: 'flex', gap: 48, justifyContent: 'center', marginTop: 72, paddingTop: 48, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            {[
-              { value: '500+', label: 'Clients satisfaits' },
-              { value: '24h', label: 'Livraison Abidjan' },
-              { value: '2', label: 'Marques exclusives' },
-            ].map((s, i) => (
+            {[{ value: '500+', label: 'Clients satisfaits' }, { value: '24h', label: 'Livraison Abidjan' }, { value: '2', label: 'Marques exclusives' }].map((s, i) => (
               <div key={i} style={{ textAlign: 'center' }}>
                 <p style={{ margin: 0, fontSize: 32, fontWeight: 800, color: '#d4a853', fontFamily: "'Playfair Display', serif" }}>{s.value}</p>
                 <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, textTransform: 'uppercase' }}>{s.label}</p>
@@ -226,7 +217,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 🔥 PROMOS */}
+      {/* PROMOS */}
       <section id="promos" style={{ padding: '80px 40px', background: '#0d0d0d' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ marginBottom: 32 }}>
@@ -269,12 +260,10 @@ export default function LandingPage() {
                   <div key={promo.id} style={{ background: '#111', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.3s' }}
                     onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.border = '1px solid rgba(212,168,83,0.3)' }}
                     onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.border = '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ height: 160, background: 'linear-gradient(135deg, #1a1a1a, #222)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    <div style={{ height: 160, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                       <span style={{ fontSize: 52, opacity: 0.2 }}>👗</span>
                       {promo.badge && (
-                        <span style={{ position: 'absolute', top: 12, left: 12, background: '#E24B4A', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100 }}>
-                          {promo.badge}
-                        </span>
+                        <span style={{ position: 'absolute', top: 12, left: 12, background: '#E24B4A', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100 }}>{promo.badge}</span>
                       )}
                     </div>
                     <div style={{ padding: '16px 20px 20px' }}>
@@ -283,18 +272,11 @@ export default function LandingPage() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           {promo.prix_original > 0 && promo.prix_original !== promo.prix_promo && (
-                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginRight: 6 }}>
-                              {promo.prix_original.toLocaleString('fr-FR')} F
-                            </span>
+                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through', marginRight: 6 }}>{promo.prix_original.toLocaleString('fr-FR')} F</span>
                           )}
-                          <span style={{ fontSize: 20, fontWeight: 800, color: '#d4a853', fontFamily: "'Playfair Display', serif" }}>
-                            {promo.prix_promo.toLocaleString('fr-FR')} F
-                          </span>
+                          <span style={{ fontSize: 20, fontWeight: 800, color: '#d4a853', fontFamily: "'Playfair Display', serif" }}>{promo.prix_promo.toLocaleString('fr-FR')} F</span>
                         </div>
-                        <a href={promo.lien || '/catalogue'}
-                          style={{ background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '8px 16px', borderRadius: 6, textDecoration: 'none', fontSize: 12, fontWeight: 700 }}>
-                          Commander
-                        </a>
+                        <a href={promo.lien || '/catalogue'} style={{ background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '8px 16px', borderRadius: 6, textDecoration: 'none', fontSize: 12, fontWeight: 700 }}>Commander</a>
                       </div>
                     </div>
                   </div>
@@ -321,17 +303,13 @@ export default function LandingPage() {
                 <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #d4a853, #f0c970)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#0a0a0a', marginBottom: 24 }}>CK</div>
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 700, margin: '0 0 8px' }}>CK Design</h3>
                 <p style={{ color: '#d4a853', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', margin: '0 0 20px', fontWeight: 600 }}>Mode Locale · Abidjan</p>
-                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, lineHeight: 1.8, margin: '0 0 32px' }}>
-                  Tenues élégantes et modernes conçues localement. Polos, chemises, jupes et robes à des prix accessibles.
-                </p>
+                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, lineHeight: 1.8, margin: '0 0 32px' }}>Tenues élégantes et modernes conçues localement. Polos, chemises, jupes et robes à des prix accessibles.</p>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 32 }}>
                   {['Polo', 'Chemise', 'Jupe', 'Robe', 'Tee-shirt'].map(tag => (
                     <span key={tag} style={{ background: 'rgba(212,168,83,0.1)', border: '1px solid rgba(212,168,83,0.2)', color: '#d4a853', fontSize: 11, padding: '4px 12px', borderRadius: 100, fontWeight: 600 }}>{tag}</span>
                   ))}
                 </div>
-                <a href="/catalogue" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '12px 28px', borderRadius: 4, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
-                  Voir le catalogue →
-                </a>
+                <a href="/catalogue" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #d4a853, #f0c970)', color: '#0a0a0a', padding: '12px 28px', borderRadius: 4, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>Voir le catalogue →</a>
               </div>
             </div>
             <div style={{ position: 'relative', background: 'linear-gradient(135deg, #0d0d0d 0%, #161616 100%)', borderRadius: 16, padding: 48, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
@@ -340,9 +318,7 @@ export default function LandingPage() {
                 <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #fff, #e0e0e0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: '#0a0a0a', marginBottom: 24 }}>SD</div>
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 700, margin: '0 0 8px' }}>Succès Design</h3>
                 <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', margin: '0 0 20px', fontWeight: 600 }}>Tenues Importées · Premium</p>
-                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, lineHeight: 1.8, margin: '0 0 32px' }}>
-                  Collection exclusive de tenues importées. Polos et Tee-shirts premium de qualité internationale.
-                </p>
+                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, lineHeight: 1.8, margin: '0 0 32px' }}>Collection exclusive de tenues importées. Polos et Tee-shirts premium de qualité internationale.</p>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 32 }}>
                   {['Polo', 'Tee-shirt', 'Importé', 'Premium'].map(tag => (
                     <span key={tag} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', fontSize: 11, padding: '4px 12px', borderRadius: 100, fontWeight: 600 }}>{tag}</span>
@@ -359,7 +335,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ✅ CK DESIGN — 6 produits */}
+      {/* CK DESIGN — 6 produits */}
       <section id="ck-design" style={{ padding: '100px 40px', background: '#050505' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56 }}>
@@ -372,14 +348,10 @@ export default function LandingPage() {
                 CK Design — <span style={{ color: '#d4a853', fontStyle: 'italic' }}>Nouveautés</span>
               </h2>
             </div>
-            <a href="/catalogue" style={{ color: '#d4a853', textDecoration: 'none', fontSize: 13, fontWeight: 600, letterSpacing: 1, borderBottom: '1px solid #d4a853', paddingBottom: 4 }}>
-              Voir tout le catalogue →
-            </a>
+            <a href="/catalogue" style={{ color: '#d4a853', textDecoration: 'none', fontSize: 13, fontWeight: 600, letterSpacing: 1, borderBottom: '1px solid #d4a853', paddingBottom: 4 }}>Voir tout le catalogue →</a>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
-            {ckFinal.map((produit: any) => (
-              <CarteProduit key={produit.id} produit={produit} lien="/catalogue" />
-            ))}
+            {ckFinal.map((produit: any) => <CarteProduit key={produit.id} produit={produit} lien="/catalogue" />)}
           </div>
           <div style={{ textAlign: 'center', marginTop: 48 }}>
             <a href="/catalogue"
@@ -392,7 +364,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ✅ SUCCÈS DESIGN — 6 produits */}
+      {/* SUCCÈS DESIGN — 6 produits */}
       <section id="succes-design" style={{ padding: '100px 40px', background: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 56 }}>
@@ -405,14 +377,10 @@ export default function LandingPage() {
                 Succès Design — <span style={{ color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>Nouveautés</span>
               </h2>
             </div>
-            <a href="/succes-design/catalogue" style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontSize: 13, fontWeight: 600, letterSpacing: 1, borderBottom: '1px solid rgba(255,255,255,0.3)', paddingBottom: 4 }}>
-              Voir tout le catalogue →
-            </a>
+            <a href="/succes-design/catalogue" style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontSize: 13, fontWeight: 600, letterSpacing: 1, borderBottom: '1px solid rgba(255,255,255,0.3)', paddingBottom: 4 }}>Voir tout le catalogue →</a>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
-            {sdFinal.map((produit: any) => (
-              <CarteProduit key={produit.id} produit={produit} lien="/succes-design/catalogue" />
-            ))}
+            {sdFinal.map((produit: any) => <CarteProduit key={produit.id} produit={produit} lien="/succes-design/catalogue" />)}
           </div>
           <div style={{ textAlign: 'center', marginTop: 48 }}>
             <a href="/succes-design/catalogue"
@@ -466,19 +434,10 @@ export default function LandingPage() {
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 700, margin: '0 0 24px', lineHeight: 1.2 }}>
               À Propos de <span style={{ color: '#d4a853', fontStyle: 'italic' }}>CK Dress</span>
             </h2>
-            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.9, margin: '0 0 20px' }}>
-              CK Dress est une marque de mode basée à Abidjan, Côte d'Ivoire. Nous proposons des vêtements élégants et de qualité pour hommes et femmes.
-            </p>
-            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.9, margin: '0 0 40px' }}>
-              À travers nos deux marques — <strong style={{ color: '#d4a853' }}>CK Design</strong> pour la mode locale et <strong style={{ color: '#fff' }}>Succès Design</strong> pour les tenues importées.
-            </p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.9, margin: '0 0 20px' }}>CK Dress est une marque de mode basée à Abidjan, Côte d'Ivoire. Nous proposons des vêtements élégants et de qualité pour hommes et femmes.</p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 1.9, margin: '0 0 40px' }}>À travers nos deux marques — <strong style={{ color: '#d4a853' }}>CK Design</strong> pour la mode locale et <strong style={{ color: '#fff' }}>Succès Design</strong> pour les tenues importées.</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 40 }}>
-              {[
-                { value: '2024', label: 'Année de création' },
-                { value: '500+', label: 'Clients satisfaits' },
-                { value: '2', label: 'Marques exclusives' },
-                { value: '48h', label: 'Délai expédition CI' },
-              ].map((s, i) => (
+              {[{ value: '2024', label: 'Année de création' }, { value: '500+', label: 'Clients satisfaits' }, { value: '2', label: 'Marques exclusives' }, { value: '48h', label: 'Délai expédition CI' }].map((s, i) => (
                 <div key={i} style={{ background: 'rgba(212,168,83,0.05)', border: '1px solid rgba(212,168,83,0.15)', borderRadius: 12, padding: '20px 24px' }}>
                   <p style={{ margin: 0, fontSize: 28, fontWeight: 800, color: '#d4a853', fontFamily: "'Playfair Display', serif" }}>{s.value}</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{s.label}</p>
@@ -512,9 +471,7 @@ export default function LandingPage() {
           <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 700, margin: '0 0 20px' }}>
             Parlons-nous <span style={{ color: '#d4a853', fontStyle: 'italic' }}>Ensemble</span>
           </h2>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 17, lineHeight: 1.8, marginBottom: 56 }}>
-            Une question ? Une commande spéciale ? Nous sommes disponibles du lundi au samedi de 8h à 20h.
-          </p>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 17, lineHeight: 1.8, marginBottom: 56 }}>Une question ? Une commande spéciale ? Nous sommes disponibles du lundi au samedi de 8h à 20h.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 56 }}>
             {[
               { icon: '📍', title: 'Localisation', value: 'Abidjan, Côte d\'Ivoire' },

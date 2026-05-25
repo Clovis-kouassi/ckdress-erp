@@ -61,7 +61,7 @@ export default function GestionnaireStockPage() {
   const [boutiques, setBoutiques] = useState<any[]>([])
   const [mouvements, setMouvements] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
-  const [tailles, setTailles] = useState<string[]>([]) // ✅ Tailles depuis Supabase
+  const [tailles, setTailles] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [onglet, setOnglet] = useState<'produits' | 'nouveau_produit' | 'approvisionner' | 'historique'>('produits')
   const [user, setUser] = useState<any>(null)
@@ -85,7 +85,6 @@ export default function GestionnaireStockPage() {
   const [showReductionIndiv, setShowReductionIndiv] = useState(false)
   const [reductionIndiv, setReductionIndiv] = useState({ type: 'pourcentage', valeur: 0, quantite_min: 1 })
 
-  // ✅ Créer une nouvelle couleur avec les tailles dynamiques
   const nouvelleCouleur = (taillesActives: string[]): CouleurVariante => ({
     couleur: '',
     tailles: taillesActives.map(t => ({ taille: t, quantite: 5, active: false }))
@@ -122,13 +121,12 @@ export default function GestionnaireStockPage() {
       supabase.from('boutiques').select('*').eq('actif', true),
       supabase.from('ventes_boutique').select('*').order('created_at', { ascending: false }).limit(30),
       supabase.from('categories').select('*').order('activite').order('ordre'),
-      supabase.from('tailles').select('nom').eq('actif', true).order('ordre'), // ✅ Charger tailles
+      supabase.from('tailles').select('nom').eq('actif', true).order('ordre'),
     ])
 
     const taillesActives = (taillesData || []).map((t: any) => t.nom)
     setTailles(taillesActives)
 
-    // Initialiser couleurs avec tailles dynamiques
     if (taillesActives.length > 0 && couleurs.length === 0) {
       setCouleurs([nouvelleCouleur(taillesActives)])
     }
@@ -288,7 +286,6 @@ export default function GestionnaireStockPage() {
   const totalArticles = stock.reduce((s, i) => s + i.quantite, 0)
   const prixReduitDetail = produitDetail ? calculerPrixReduit(produitDetail) : null
 
-  // Grouper tailles pour affichage
   const taillesEnfant = tailles.filter(t => t.includes('mois') || t.includes('an') || t.includes('ans'))
   const taillesAdulte = tailles.filter(t => !t.includes('mois') && !t.includes('an') && !t.includes('ans'))
 
@@ -352,10 +349,15 @@ export default function GestionnaireStockPage() {
               <button onClick={() => { setProduitDetail(null); setShowReductionIndiv(false) }}
                 style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 14 }}>✕</button>
             </div>
+
+            {/* ✅ IMAGE COMPLÈTE DANS LE MODAL */}
             {produitDetail.image_url && (
-              <img src={produitDetail.image_url} alt={produitDetail.nom}
-                style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 12, marginBottom: 14 }} />
+              <div style={{ width: '100%', height: 220, background: '#f8f9fa', borderRadius: 12, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <img src={produitDetail.image_url} alt={produitDetail.nom}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8 }} />
+              </div>
             )}
+
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
               <span style={{ background: '#f0f9ff', color: '#0891b2', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>Réf: {produitDetail.reference}</span>
               {produitDetail.categorie && <span style={{ background: '#f0fdf4', color: '#1D9E75', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>🏷️ {produitDetail.categorie}</span>}
@@ -537,8 +539,13 @@ export default function GestionnaireStockPage() {
                 return (
                   <div key={prod.id} style={{ background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: hasCritique ? '1.5px solid #E24B4A66' : '1.5px solid transparent', cursor: 'pointer' }}
                     onClick={() => { setProduitDetail(prod); setShowReductionIndiv(false); setReductionIndiv({ type: prod.reduction_type || 'pourcentage', valeur: prod.reduction_valeur || 0, quantite_min: prod.reduction_quantite_min || 1 }) }}>
-                    <div style={{ height: '170px', background: '#f5f5f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                      {prod.image_url ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>}
+
+                    {/* ✅ IMAGE COMPLÈTE DANS LES CARTES */}
+                    <div style={{ height: '210px', background: '#f8f9fa', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                      {prod.image_url
+                        ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }} />
+                        : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>
+                      }
                       {prod.reduction_type && (
                         <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
                           {prod.reduction_type === 'pourcentage' ? `-${prod.reduction_valeur}%` : `-${prod.reduction_valeur?.toLocaleString('fr-FR')} F`}
@@ -553,6 +560,7 @@ export default function GestionnaireStockPage() {
                         {stockTotal} pcs
                       </div>
                     </div>
+
                     <div style={{ padding: '14px' }}>
                       <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
                       <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
@@ -584,7 +592,6 @@ export default function GestionnaireStockPage() {
             <div style={{ background: '#fff', borderRadius: '14px', padding: '22px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: '#0891b2', fontWeight: 700 }}>➕ Publier un nouveau produit</h3>
               <p style={{ margin: '0 0 20px', fontSize: '12px', color: '#aaa' }}>Ce produit sera visible dans le catalogue client.</p>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Nom *</label>
@@ -644,7 +651,11 @@ export default function GestionnaireStockPage() {
                     style={{ padding: '10px 16px', borderRadius: '9px', border: '1.5px dashed #0891b2', background: '#f0f9ff', color: '#0891b2', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                     📷 Choisir une photo
                   </button>
-                  {prodForm.preview && <img src={prodForm.preview} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '9px' }} />}
+                  {prodForm.preview && (
+                    <div style={{ width: 80, height: 80, background: '#f8f9fa', borderRadius: 9, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img src={prodForm.preview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -658,10 +669,8 @@ export default function GestionnaireStockPage() {
                   </button>
                 </div>
 
-                {/* Info tailles disponibles */}
                 {tailles.length > 0 && (
                   <div style={{ marginBottom: 12 }}>
-                    {/* Tailles adultes */}
                     {taillesAdulte.length > 0 && (
                       <div style={{ marginBottom: 6 }}>
                         <span style={{ fontSize: 11, color: '#888', fontWeight: 600, marginRight: 8 }}>👕 Adulte :</span>
@@ -670,7 +679,6 @@ export default function GestionnaireStockPage() {
                         ))}
                       </div>
                     )}
-                    {/* Tailles enfants */}
                     {taillesEnfant.length > 0 && (
                       <div>
                         <span style={{ fontSize: 11, color: '#888', fontWeight: 600, marginRight: 8 }}>👶 Enfant :</span>
@@ -697,19 +705,22 @@ export default function GestionnaireStockPage() {
                         }
                         input.click()
                       }} style={{ padding: '8px 12px', borderRadius: '8px', border: '1.5px dashed #0891b2', background: '#f0f9ff', color: '#0891b2', fontSize: '12px', cursor: 'pointer' }}>📷</button>
-                      {c.preview && <img src={c.preview} style={{ width: '38px', height: '38px', objectFit: 'cover', borderRadius: '8px' }} />}
+                      {c.preview && (
+                        <div style={{ width: 38, height: 38, background: '#f8f9fa', borderRadius: 8, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <img src={c.preview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        </div>
+                      )}
                       {couleurs.length > 1 && (
                         <button onClick={() => setCouleurs(prev => prev.filter((_, i) => i !== ci))}
                           style={{ background: '#fff5f5', color: '#E24B4A', border: 'none', borderRadius: '8px', padding: '7px 11px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}>✕</button>
                       )}
                     </div>
 
-                    {/* ✅ Tailles dynamiques groupées */}
                     {taillesAdulte.length > 0 && (
                       <div style={{ marginBottom: 8 }}>
                         <p style={{ margin: '0 0 6px', fontSize: 11, color: '#888', fontWeight: 600 }}>👕 Adulte</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                          {c.tailles.filter(t => !t.taille.includes('mois') && !t.taille.includes('an') && !t.taille.includes('ans')).map((t, ti) => {
+                          {c.tailles.filter(t => !t.taille.includes('mois') && !t.taille.includes('an') && !t.taille.includes('ans')).map((t) => {
                             const realTi = c.tailles.findIndex(x => x.taille === t.taille)
                             return (
                               <div key={t.taille} onClick={() => updateTailleCouleur(ci, realTi, 'active', !t.active)}
