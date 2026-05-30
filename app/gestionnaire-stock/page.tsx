@@ -10,7 +10,6 @@ const supabase = createClient(
 
 // ✅ COMPRESSION RAPIDE
 async function compressImage(file: File): Promise<File> {
-  // Si image déjà petite (<800KB) on ne compresse pas du tout
   if (file.size < 800 * 1024) return file
   return new Promise(resolve => {
     const canvas = document.createElement('canvas')
@@ -32,11 +31,9 @@ async function compressImage(file: File): Promise<File> {
   })
 }
 
-// ✅ UPLOAD PARALLÈLE (plus rapide)
 async function uploadImage(file: File, path: string): Promise<string | null> {
-  const compressed = await compressImage(file)
   const cleanPath = path.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9\-_.\/]/g, '').toLowerCase()
-  const { error } = await supabase.storage.from('Produits').upload(cleanPath, compressed, { upsert: true })
+  const { error } = await supabase.storage.from('Produits').upload(cleanPath, file, { upsert: true })
   if (error) { console.error(error); return null }
   const { data } = supabase.storage.from('Produits').getPublicUrl(cleanPath)
   return data.publicUrl
@@ -269,7 +266,7 @@ export default function GestionnaireStockPage() {
 
     setSavingProgress('⏳ Enregistrement des variantes...')
 
-    // Insérer toutes les variantes EN PARALLÈLE
+    // ✅ Insérer toutes les variantes EN PARALLÈLE
     const insertions: Promise<any>[] = []
     for (const { couleur, imageUrl: couleurImageUrl } of uploads) {
       for (const t of couleur.tailles.filter(t => t.active)) {
@@ -676,11 +673,18 @@ export default function GestionnaireStockPage() {
                   rows={2} style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', resize: 'vertical', outline: 'none' }} />
               </div>
 
+              {/* ✅ PHOTO PRINCIPALE — compression à la sélection */}
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px' }}>📷 Photo principale</label>
-                <input type="file" accept="image/*" ref={fileRef} onChange={e => {
+                <input type="file" accept="image/*" ref={fileRef} onChange={async e => {
                   const file = e.target.files?.[0]
-                  if (file) setProdForm(p => ({ ...p, image_file: file, preview: URL.createObjectURL(file) }))
+                  if (file) {
+                    const preview = URL.createObjectURL(file)
+                    setProdForm(p => ({ ...p, preview }))
+                    // ✅ Compression immédiate dès la sélection
+                    const compressed = await compressImage(file)
+                    setProdForm(p => ({ ...p, image_file: compressed }))
+                  }
                 }} style={{ display: 'none' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <button onClick={() => fileRef.current?.click()}
@@ -732,15 +736,23 @@ export default function GestionnaireStockPage() {
                       <input value={c.couleur} onChange={e => updateCouleur(ci, 'couleur', e.target.value)}
                         placeholder="Nom couleur"
                         style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', background: '#fff', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
+
+                      {/* ✅ PHOTO COULEUR — compression à la sélection */}
                       <button onClick={() => {
                         const input = document.createElement('input')
                         input.type = 'file'; input.accept = 'image/*'
-                        input.onchange = (e: any) => {
+                        input.onchange = async (e: any) => {
                           const file = e.target.files?.[0]
-                          if (file) { updateCouleur(ci, 'image_file', file); updateCouleur(ci, 'preview', URL.createObjectURL(file)) }
+                          if (file) {
+                            updateCouleur(ci, 'preview', URL.createObjectURL(file))
+                            // ✅ Compression immédiate dès la sélection
+                            const compressed = await compressImage(file)
+                            updateCouleur(ci, 'image_file', compressed)
+                          }
                         }
                         input.click()
                       }} style={{ padding: '8px 12px', borderRadius: '8px', border: '1.5px dashed #0891b2', background: '#f0f9ff', color: '#0891b2', fontSize: '12px', cursor: 'pointer' }}>📷</button>
+
                       {c.preview && (
                         <div style={{ width: 38, height: 38, background: '#f8f9fa', borderRadius: 8, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <img src={c.preview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -830,7 +842,7 @@ export default function GestionnaireStockPage() {
 
               {/* ✅ BOUTON AVEC PROGRESSION */}
               <button onClick={publierProduit} disabled={saving}
-                style={{ width: '100%', padding: '14px', borderRadius: '10px', background: saving ? '#0891b2' : '#0891b2', border: 'none', color: 'white', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '15px', opacity: saving ? 0.8 : 1 }}>
+                style={{ width: '100%', padding: '14px', borderRadius: '10px', background: '#0891b2', border: 'none', color: 'white', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '15px', opacity: saving ? 0.85 : 1 }}>
                 {saving ? (savingProgress || '⏳ Publication...') : '🚀 Publier le produit'}
               </button>
             </div>
