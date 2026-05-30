@@ -8,13 +8,16 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+// ✅ COMPRESSION RAPIDE
 async function compressImage(file: File): Promise<File> {
+  // Si image déjà petite (<800KB) on ne compresse pas du tout
+  if (file.size < 800 * 1024) return file
   return new Promise(resolve => {
     const canvas = document.createElement('canvas')
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
-      const MAX = 800
+      const MAX = 1200
       let w = img.width, h = img.height
       if (w > MAX) { h = (h * MAX) / w; w = MAX }
       if (h > MAX) { w = (w * MAX) / h; h = MAX }
@@ -23,12 +26,13 @@ async function compressImage(file: File): Promise<File> {
       canvas.toBlob(blob => {
         URL.revokeObjectURL(url)
         resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file)
-      }, 'image/jpeg', 0.75)
+      }, 'image/jpeg', 0.85)
     }
     img.src = url
   })
 }
 
+// ✅ UPLOAD PARALLÈLE (plus rapide)
 async function uploadImage(file: File, path: string): Promise<string | null> {
   const compressed = await compressImage(file)
   const cleanPath = path.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9\-_.\/]/g, '').toLowerCase()
@@ -67,6 +71,7 @@ export default function GestionnaireStockPage() {
   const [user, setUser] = useState<any>(null)
   const [success, setSuccess] = useState('')
   const [saving, setSaving] = useState(false)
+  const [savingProgress, setSavingProgress] = useState('')
   const [produitDetail, setProduitDetail] = useState<any>(null)
   const [ajustements, setAjustements] = useState<Record<string, number>>({})
   const [approForm, setApproForm] = useState({ boutique_id: '', nom_produit: '', taille: '', couleur: '', quantite: 1, prix_vente: 0 })
@@ -227,11 +232,16 @@ export default function GestionnaireStockPage() {
       ...c, tailles: c.tailles.map((t, j) => j === ti ? { ...t, [field]: value } : t)
     } : c))
 
+  // ✅ PUBLICATION RAPIDE avec upload parallèle
   const publierProduit = async () => {
     if (!prodForm.nom || !prodForm.reference || !prodForm.prix_vente) { alert('Remplissez le nom, la référence et le prix.'); return }
     setSaving(true)
+    setSavingProgress('⏳ Upload image principale...')
+
     let imageUrl = ''
     if (prodForm.image_file) imageUrl = await uploadImage(prodForm.image_file, `produits/${Date.now()}-${prodForm.image_file.name}`) || ''
+
+    setSavingProgress('⏳ Création du produit...')
     const { data: prodData, error } = await supabase.from('produits').insert({
       reference: prodForm.reference, nom: prodForm.nom, categorie: prodForm.categorie,
       activite: prodForm.activite, prix_vente: prodForm.prix_vente, prix_achat: prodForm.prix_achat,
@@ -240,17 +250,46 @@ export default function GestionnaireStockPage() {
       reduction_valeur: prodForm.reduction_valeur || 0,
       reduction_quantite_min: prodForm.reduction_quantite_min || 0,
     }).select().single()
-    if (error || !prodData) { alert('Erreur: ' + error?.message); setSaving(false); return }
-    for (const couleur of couleurs) {
-      if (!couleur.couleur) continue
-      let couleurImageUrl = ''
-      if (couleur.image_file) couleurImageUrl = await uploadImage(couleur.image_file, `stock/${Date.now()}-${couleur.image_file.name}`) || ''
+
+    if (error || !prodData) { alert('Erreur: ' + error?.message); setSaving(false); setSavingProgress(''); return }
+
+    setSavingProgress('⏳ Upload images couleurs...')
+
+    // ✅ Upload toutes les images couleurs EN PARALLÈLE
+    const couleursValides = couleurs.filter(c => c.couleur)
+    const uploads = await Promise.all(
+      couleursValides.map(async couleur => {
+        let couleurImageUrl = ''
+        if (couleur.image_file) {
+          couleurImageUrl = await uploadImage(couleur.image_file, `stock/${Date.now()}-${Math.random().toString(36).slice(2)}-${couleur.image_file.name}`) || ''
+        }
+        return { couleur, imageUrl: couleurImageUrl }
+      })
+    )
+
+    setSavingProgress('⏳ Enregistrement des variantes...')
+
+    // Insérer toutes les variantes EN PARALLÈLE
+    const insertions: Promise<any>[] = []
+    for (const { couleur, imageUrl: couleurImageUrl } of uploads) {
       for (const t of couleur.tailles.filter(t => t.active)) {
-        await supabase.from('stock').insert({ produit_id: prodData.id, taille: t.taille, couleur: couleur.couleur, quantite: t.quantite, image_url: couleurImageUrl || null })
+        insertions.push(
+          supabase.from('stock').insert({
+            produit_id: prodData.id,
+            taille: t.taille,
+            couleur: couleur.couleur,
+            quantite: t.quantite,
+            image_url: couleurImageUrl || null
+          })
+        )
       }
     }
-    setSuccess('✅ Produit publié !')
+    await Promise.all(insertions)
+
+    setSavingProgress('')
+    setSuccess('✅ Produit publié avec succès !')
     setTimeout(() => setSuccess(''), 3000)
+
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
     setProdForm({ reference: '', nom: '', categorie: '', activite: u?.activite || 'ck_design', prix_vente: 0, prix_achat: 0, description: '', image_file: null, preview: '', disponible: true, reduction_type: null, reduction_valeur: 0, reduction_quantite_min: 1 })
     setCouleurs([nouvelleCouleur(tailles)])
@@ -350,7 +389,6 @@ export default function GestionnaireStockPage() {
                 style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 14 }}>✕</button>
             </div>
 
-            {/* ✅ IMAGE COMPLÈTE DANS LE MODAL */}
             {produitDetail.image_url && (
               <div style={{ width: '100%', height: 220, background: '#f8f9fa', borderRadius: 12, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 <img src={produitDetail.image_url} alt={produitDetail.nom}
@@ -539,8 +577,6 @@ export default function GestionnaireStockPage() {
                 return (
                   <div key={prod.id} style={{ background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: hasCritique ? '1.5px solid #E24B4A66' : '1.5px solid transparent', cursor: 'pointer' }}
                     onClick={() => { setProduitDetail(prod); setShowReductionIndiv(false); setReductionIndiv({ type: prod.reduction_type || 'pourcentage', valeur: prod.reduction_valeur || 0, quantite_min: prod.reduction_quantite_min || 1 }) }}>
-
-                    {/* ✅ IMAGE COMPLÈTE DANS LES CARTES */}
                     <div style={{ height: '210px', background: '#f8f9fa', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                       {prod.image_url
                         ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }} />
@@ -560,7 +596,6 @@ export default function GestionnaireStockPage() {
                         {stockTotal} pcs
                       </div>
                     </div>
-
                     <div style={{ padding: '14px' }}>
                       <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
                       <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
@@ -592,6 +627,7 @@ export default function GestionnaireStockPage() {
             <div style={{ background: '#fff', borderRadius: '14px', padding: '22px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
               <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: '#0891b2', fontWeight: 700 }}>➕ Publier un nouveau produit</h3>
               <p style={{ margin: '0 0 20px', fontSize: '12px', color: '#aaa' }}>Ce produit sera visible dans le catalogue client.</p>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <div>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Nom *</label>
@@ -659,7 +695,7 @@ export default function GestionnaireStockPage() {
                 </div>
               </div>
 
-              {/* COULEURS & TAILLES DYNAMIQUES */}
+              {/* COULEURS & TAILLES */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={{ color: '#555', fontSize: '12px', fontWeight: 600 }}>COULEURS & TAILLES</label>
@@ -792,9 +828,10 @@ export default function GestionnaireStockPage() {
                 )}
               </div>
 
+              {/* ✅ BOUTON AVEC PROGRESSION */}
               <button onClick={publierProduit} disabled={saving}
-                style={{ width: '100%', padding: '14px', borderRadius: '10px', background: saving ? '#aaa' : '#0891b2', border: 'none', color: 'white', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '15px' }}>
-                {saving ? '⏳ Publication...' : '🚀 Publier le produit'}
+                style={{ width: '100%', padding: '14px', borderRadius: '10px', background: saving ? '#0891b2' : '#0891b2', border: 'none', color: 'white', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '15px', opacity: saving ? 0.8 : 1 }}>
+                {saving ? (savingProgress || '⏳ Publication...') : '🚀 Publier le produit'}
               </button>
             </div>
           </div>
