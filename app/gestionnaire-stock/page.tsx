@@ -8,7 +8,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// ✅ COMPRESSION RAPIDE
 async function compressImage(file: File): Promise<File> {
   if (file.size < 800 * 1024) return file
   return new Promise(resolve => {
@@ -52,7 +51,6 @@ function calculerPrixReduit(produit: any, quantite: number = 1): number | null {
   if (produit.reduction_type === 'quantite' && quantite < (produit.reduction_quantite_min || 1)) return null
   if (produit.reduction_type === 'fixe') return Math.max(0, prix - (produit.reduction_valeur || 0))
   if (produit.reduction_type === 'pourcentage') return Math.round(prix * (1 - (produit.reduction_valeur || 0) / 100))
-  if (produit.reduction_type === 'quantite') return Math.max(0, prix - (produit.reduction_valeur || 0))
   return null
 }
 
@@ -81,6 +79,15 @@ export default function GestionnaireStockPage() {
   const [couleurs, setCouleurs] = useState<CouleurVariante[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // ✅ MODAL MODIFICATION
+  const [produitModif, setProduitModif] = useState<any>(null)
+  const [modifForm, setModifForm] = useState<any>({})
+  const [modifImageFile, setModifImageFile] = useState<File | null>(null)
+  const [modifPreview, setModifPreview] = useState('')
+  const [modifCouleurs, setModifCouleurs] = useState<CouleurVariante[]>([])
+  const [savingModif, setSavingModif] = useState(false)
+  const modifFileRef = useRef<HTMLInputElement>(null)
+
   const [showReductionGlobale, setShowReductionGlobale] = useState(false)
   const [reductionGlobale, setReductionGlobale] = useState({ type: 'pourcentage', valeur: 0, quantite_min: 1 })
   const [savingReduction, setSavingReduction] = useState(false)
@@ -89,7 +96,7 @@ export default function GestionnaireStockPage() {
 
   const nouvelleCouleur = (taillesActives: string[]): CouleurVariante => ({
     couleur: '',
-    tailles: taillesActives.map(t => ({ taille: t, quantite: 5, active: false }))
+    tailles: taillesActives.map(t => ({ taille: t, quantite: 0, active: false }))
   })
 
   useEffect(() => {
@@ -149,6 +156,95 @@ export default function GestionnaireStockPage() {
     setLoading(false)
   }
 
+  // ✅ OUVRIR MODAL MODIFICATION
+  const ouvrirModification = (prod: any) => {
+    setProduitModif(prod)
+    setModifForm({
+      nom: prod.nom,
+      categorie: prod.categorie || '',
+      activite: prod.activite,
+      prix_vente: prod.prix_vente,
+      prix_achat: prod.prix_achat || 0,
+      description: prod.description || '',
+      disponible: prod.disponible,
+      reduction_type: prod.reduction_type || null,
+      reduction_valeur: prod.reduction_valeur || 0,
+      reduction_quantite_min: prod.reduction_quantite_min || 1,
+    })
+    setModifPreview(prod.image_url || '')
+    setModifImageFile(null)
+    setModifCouleurs([nouvelleCouleur(tailles)])
+  }
+
+  // ✅ SAUVEGARDER MODIFICATIONS
+  const sauvegarderModification = async () => {
+    if (!produitModif) return
+    setSavingModif(true)
+
+    let imageUrl = produitModif.image_url
+    if (modifImageFile) {
+      imageUrl = await uploadImage(modifImageFile, `produits/${Date.now()}-${modifImageFile.name}`) || imageUrl
+    }
+
+    await supabase.from('produits').update({
+      nom: modifForm.nom,
+      categorie: modifForm.categorie,
+      activite: modifForm.activite,
+      prix_vente: modifForm.prix_vente,
+      prix_achat: modifForm.prix_achat,
+      description: modifForm.description,
+      disponible: modifForm.disponible,
+      image_url: imageUrl,
+      reduction_type: modifForm.reduction_type || null,
+      reduction_valeur: modifForm.reduction_valeur || 0,
+      reduction_quantite_min: modifForm.reduction_quantite_min || 0,
+    }).eq('id', produitModif.id)
+
+    // Ajouter nouvelles variantes
+    const couleursValides = modifCouleurs.filter(c => c.couleur)
+    if (couleursValides.length > 0) {
+      const uploads = await Promise.all(
+        couleursValides.map(async couleur => {
+          let couleurImageUrl = ''
+          if (couleur.image_file) {
+            couleurImageUrl = await uploadImage(couleur.image_file, `stock/${Date.now()}-${Math.random().toString(36).slice(2)}-${couleur.image_file.name}`) || ''
+          }
+          return { couleur, imageUrl: couleurImageUrl }
+        })
+      )
+      const insertions: Promise<any>[] = []
+      for (const { couleur, imageUrl: couleurImageUrl } of uploads) {
+        for (const t of couleur.tailles.filter(t => t.active)) {
+          insertions.push(
+            supabase.from('stock').insert({
+              produit_id: produitModif.id,
+              taille: t.taille,
+              couleur: couleur.couleur,
+              quantite: t.quantite,
+              image_url: couleurImageUrl || null
+            })
+          )
+        }
+      }
+      await Promise.all(insertions)
+    }
+
+    await fetchData()
+    setSavingModif(false)
+    setProduitModif(null)
+    setSuccess('✅ Produit modifié avec succès !')
+    setTimeout(() => setSuccess(''), 3000)
+  }
+
+  // ✅ SUPPRIMER VARIANTE
+  const supprimerVariante = async (stockId: string) => {
+    if (!confirm('Supprimer cette variante ?')) return
+    await supabase.from('stock').delete().eq('id', stockId)
+    await fetchData()
+    setSuccess('✅ Variante supprimée !')
+    setTimeout(() => setSuccess(''), 2000)
+  }
+
   async function appliquerReductionGlobale() {
     if (!reductionGlobale.valeur) return
     setSavingReduction(true)
@@ -202,6 +298,7 @@ export default function GestionnaireStockPage() {
   }
 
   const categoriesFiltrees = categories.filter(c => c.activite === prodForm.activite)
+  const categoriesModifFiltrees = categories.filter(c => c.activite === modifForm.activite)
   const getStockProduit = (produitId: string) => stock.filter(s => s.produit_id === produitId).reduce((sum, s) => sum + s.quantite, 0)
   const getVariantesProduit = (produitId: string) => stock.filter(s => s.produit_id === produitId)
 
@@ -229,7 +326,14 @@ export default function GestionnaireStockPage() {
       ...c, tailles: c.tailles.map((t, j) => j === ti ? { ...t, [field]: value } : t)
     } : c))
 
-  // ✅ PUBLICATION RAPIDE avec upload parallèle
+  const updateModifCouleur = (index: number, field: string, value: any) =>
+    setModifCouleurs(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
+
+  const updateModifTailleCouleur = (ci: number, ti: number, field: string, value: any) =>
+    setModifCouleurs(prev => prev.map((c, i) => i === ci ? {
+      ...c, tailles: c.tailles.map((t, j) => j === ti ? { ...t, [field]: value } : t)
+    } : c))
+
   const publierProduit = async () => {
     if (!prodForm.nom || !prodForm.reference || !prodForm.prix_vente) { alert('Remplissez le nom, la référence et le prix.'); return }
     setSaving(true)
@@ -251,8 +355,6 @@ export default function GestionnaireStockPage() {
     if (error || !prodData) { alert('Erreur: ' + error?.message); setSaving(false); setSavingProgress(''); return }
 
     setSavingProgress('⏳ Upload images couleurs...')
-
-    // ✅ Upload toutes les images couleurs EN PARALLÈLE
     const couleursValides = couleurs.filter(c => c.couleur)
     const uploads = await Promise.all(
       couleursValides.map(async couleur => {
@@ -265,8 +367,6 @@ export default function GestionnaireStockPage() {
     )
 
     setSavingProgress('⏳ Enregistrement des variantes...')
-
-    // ✅ Insérer toutes les variantes EN PARALLÈLE
     const insertions: Promise<any>[] = []
     for (const { couleur, imageUrl: couleurImageUrl } of uploads) {
       for (const t of couleur.tailles.filter(t => t.active)) {
@@ -325,8 +425,244 @@ export default function GestionnaireStockPage() {
   const taillesEnfant = tailles.filter(t => t.includes('mois') || t.includes('an') || t.includes('ans'))
   const taillesAdulte = tailles.filter(t => !t.includes('mois') && !t.includes('an') && !t.includes('ans'))
 
+  const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' as const, outline: 'none' }
+  const labelStyle = { color: '#555', fontSize: '12px', fontWeight: 600 as const, display: 'block' as const, marginBottom: '6px' }
+
   return (
     <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
+
+      {/* ✅ MODAL MODIFICATION PRODUIT */}
+      {produitModif && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setProduitModif(null)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 600, width: '100%', maxHeight: '92vh', overflowY: 'auto' }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a1a1a' }}>✏️ Modifier le produit</h3>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>{produitModif.reference}</p>
+              </div>
+              <button onClick={() => setProduitModif(null)}
+                style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 14 }}>✕</button>
+            </div>
+
+            {/* Infos de base */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div>
+                <label style={labelStyle}>Nom *</label>
+                <input value={modifForm.nom || ''} onChange={e => setModifForm((p: any) => ({ ...p, nom: e.target.value }))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Prix de vente (F) *</label>
+                <input type="number" value={modifForm.prix_vente || 0} onChange={e => setModifForm((p: any) => ({ ...p, prix_vente: Number(e.target.value) }))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Prix d'achat (F)</label>
+                <input type="number" value={modifForm.prix_achat || 0} onChange={e => setModifForm((p: any) => ({ ...p, prix_achat: Number(e.target.value) }))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Catégorie</label>
+                <select value={modifForm.categorie || ''} onChange={e => setModifForm((p: any) => ({ ...p, categorie: e.target.value }))} style={inputStyle}>
+                  <option value="">Choisir...</option>
+                  {categoriesModifFiltrees.map((c: any) => <option key={c.id} value={c.nom}>{c.nom}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Description</label>
+              <textarea value={modifForm.description || ''} onChange={e => setModifForm((p: any) => ({ ...p, description: e.target.value }))}
+                rows={2} style={{ ...inputStyle, resize: 'vertical' as const }} />
+            </div>
+
+            {/* Photo principale */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>📷 Photo principale</label>
+              <input type="file" accept="image/*" ref={modifFileRef} onChange={async e => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  setModifPreview(URL.createObjectURL(file))
+                  const compressed = await compressImage(file)
+                  setModifImageFile(compressed)
+                }
+              }} style={{ display: 'none' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button onClick={() => modifFileRef.current?.click()}
+                  style={{ padding: '9px 16px', borderRadius: 9, border: '1.5px dashed #0891b2', background: '#f0f9ff', color: '#0891b2', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  📷 Changer la photo
+                </button>
+                {modifPreview && (
+                  <div style={{ width: 70, height: 70, background: '#f8f9fa', borderRadius: 9, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={modifPreview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Réduction */}
+            <div style={{ marginBottom: 16, background: '#fffbf0', borderRadius: 12, padding: 14, border: '1px solid #fde68a' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: modifForm.reduction_type ? 12 : 0 }}>
+                <label style={{ color: '#92400e', fontSize: 13, fontWeight: 700 }}>🏷️ Réduction</label>
+                <button onClick={() => setModifForm((p: any) => ({ ...p, reduction_type: p.reduction_type ? null : 'pourcentage', reduction_valeur: 0 }))}
+                  style={{ fontSize: 12, padding: '4px 12px', borderRadius: 20, border: 'none', background: modifForm.reduction_type ? '#fee2e2' : '#f0fdf4', color: modifForm.reduction_type ? '#991b1b' : '#1D9E75', cursor: 'pointer', fontWeight: 600 }}>
+                  {modifForm.reduction_type ? '✕ Supprimer' : '+ Ajouter'}
+                </button>
+              </div>
+              {modifForm.reduction_type && (
+                <>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                    {[{ id: 'pourcentage', label: '📊 %' }, { id: 'fixe', label: '💰 Fixe' }, { id: 'quantite', label: '📦 Qté' }].map(t => (
+                      <button key={t.id} onClick={() => setModifForm((p: any) => ({ ...p, reduction_type: t.id }))}
+                        style={{ flex: 1, padding: '8px', borderRadius: 8, border: `2px solid ${modifForm.reduction_type === t.id ? '#f59e0b' : '#e5e7eb'}`, background: modifForm.reduction_type === t.id ? '#fff' : '#f8f9fa', color: modifForm.reduction_type === t.id ? '#92400e' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <input type="number" value={modifForm.reduction_valeur || 0}
+                    onChange={e => setModifForm((p: any) => ({ ...p, reduction_valeur: Number(e.target.value) }))}
+                    placeholder="Valeur" style={{ ...inputStyle, marginBottom: 0 }} />
+                </>
+              )}
+            </div>
+
+            {/* Disponibilité */}
+            <div style={{ marginBottom: 16 }}>
+              <button onClick={() => setModifForm((p: any) => ({ ...p, disponible: !p.disponible }))}
+                style={{ width: '100%', padding: '10px', borderRadius: 10, cursor: 'pointer', border: 'none', fontWeight: 600, fontSize: 13, background: modifForm.disponible ? '#f0fdf4' : '#fff5f5', color: modifForm.disponible ? '#1D9E75' : '#E24B4A' }}>
+                {modifForm.disponible ? '✅ Visible dans catalogue' : '❌ Masqué du catalogue'}
+              </button>
+            </div>
+
+            {/* Variantes existantes */}
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>📦 Variantes existantes</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {getVariantesProduit(produitModif.id).map((v: any) => (
+                  <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: v.quantite <= 3 ? '#fff5f5' : '#f8f9fa', borderRadius: 10, padding: '10px 14px', border: v.quantite <= 3 ? '1px solid #fecaca' : '1px solid #e5e7eb' }}>
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>Taille {v.taille}</span>
+                      <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>— {v.couleur}</span>
+                      {v.quantite <= 3 && <span style={{ fontSize: 11, color: '#E24B4A', marginLeft: 6, fontWeight: 600 }}>⚠️ Critique</span>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button onClick={() => ajusterQuantite(v.id, -1)}
+                        style={{ width: 28, height: 28, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#E24B4A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <input type="number"
+                        value={ajustements[v.id] !== undefined ? ajustements[v.id] : v.quantite}
+                        onChange={e => setAjustements(prev => ({ ...prev, [v.id]: Number(e.target.value) }))}
+                        onBlur={() => sauvegarderAjustement(v.id)}
+                        min={0}
+                        style={{ width: 52, padding: '4px 6px', borderRadius: 8, textAlign: 'center', border: '1.5px solid #0891b2', fontSize: 14, fontWeight: 700, color: v.quantite <= 3 ? '#E24B4A' : '#1D9E75', outline: 'none', background: '#fff' }} />
+                      <button onClick={() => ajusterQuantite(v.id, 1)}
+                        style={{ width: 28, height: 28, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: '#1D9E75', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      <button onClick={() => supprimerVariante(v.id)}
+                        style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: '#fff0f0', cursor: 'pointer', fontSize: 14, color: '#E24B4A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🗑️</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Ajouter nouvelles couleurs/tailles */}
+            <div style={{ marginBottom: 16, background: '#f0f9ff', borderRadius: 12, padding: 14, border: '1px solid #bae6fd' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0891b2' }}>➕ Ajouter nouvelles variantes</h4>
+                <button onClick={() => setModifCouleurs(prev => [...prev, nouvelleCouleur(tailles)])}
+                  style={{ background: '#0891b2', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  + Couleur
+                </button>
+              </div>
+              {modifCouleurs.map((c, ci) => (
+                <div key={ci} style={{ background: '#fff', borderRadius: 10, padding: 12, marginBottom: 8, border: '1px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                    <input value={c.couleur} onChange={e => updateModifCouleur(ci, 'couleur', e.target.value)}
+                      placeholder="Nom couleur (ex: Bleu)"
+                      style={{ flex: 1, padding: '8px 12px', borderRadius: 8, background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: 13, outline: 'none' }} />
+                    <button onClick={() => {
+                      const input = document.createElement('input')
+                      input.type = 'file'; input.accept = 'image/*'
+                      input.onchange = async (e: any) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          updateModifCouleur(ci, 'preview', URL.createObjectURL(file))
+                          const compressed = await compressImage(file)
+                          updateModifCouleur(ci, 'image_file', compressed)
+                        }
+                      }
+                      input.click()
+                    }} style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px dashed #0891b2', background: '#f0f9ff', color: '#0891b2', fontSize: 12, cursor: 'pointer' }}>📷</button>
+                    {c.preview && <img src={c.preview} style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6 }} />}
+                    {modifCouleurs.length > 1 && (
+                      <button onClick={() => setModifCouleurs(prev => prev.filter((_, i) => i !== ci))}
+                        style={{ background: '#fff5f5', color: '#E24B4A', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>✕</button>
+                    )}
+                  </div>
+                  {/* Tailles adultes */}
+                  {taillesAdulte.length > 0 && (
+                    <div style={{ marginBottom: 6 }}>
+                      <p style={{ margin: '0 0 5px', fontSize: 11, color: '#888', fontWeight: 600 }}>👕 Adulte</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        {c.tailles.filter(t => !t.taille.includes('mois') && !t.taille.includes('an') && !t.taille.includes('ans')).map(t => {
+                          const realTi = c.tailles.findIndex(x => x.taille === t.taille)
+                          return (
+                            <div key={t.taille} onClick={() => updateModifTailleCouleur(ci, realTi, 'active', !t.active)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer', background: t.active ? '#0891b2' : '#fff', border: `1.5px solid ${t.active ? '#0891b2' : '#e5e5e5'}`, borderRadius: 8, padding: '4px 8px' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: t.active ? 'white' : '#888' }}>{t.taille}</span>
+                              {t.active && (
+                                <input type="number" value={t.quantite} min={0}
+                                  onClick={e => e.stopPropagation()}
+                                  onChange={e => updateModifTailleCouleur(ci, realTi, 'quantite', Number(e.target.value))}
+                                  style={{ width: 38, padding: '1px 3px', borderRadius: 4, border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: 'white', fontSize: 11, textAlign: 'center', outline: 'none' }} />
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {/* Tailles enfants */}
+                  {taillesEnfant.length > 0 && (
+                    <div>
+                      <p style={{ margin: '0 0 5px', fontSize: 11, color: '#888', fontWeight: 600 }}>👶 Enfant</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        {c.tailles.filter(t => t.taille.includes('mois') || t.taille.includes('an') || t.taille.includes('ans')).map(t => {
+                          const realTi = c.tailles.findIndex(x => x.taille === t.taille)
+                          return (
+                            <div key={t.taille} onClick={() => updateModifTailleCouleur(ci, realTi, 'active', !t.active)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer', background: t.active ? '#1D9E75' : '#fff', border: `1.5px solid ${t.active ? '#1D9E75' : '#e5e5e5'}`, borderRadius: 8, padding: '4px 8px' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: t.active ? 'white' : '#888' }}>{t.taille}</span>
+                              {t.active && (
+                                <input type="number" value={t.quantite} min={0}
+                                  onClick={e => e.stopPropagation()}
+                                  onChange={e => updateModifTailleCouleur(ci, realTi, 'quantite', Number(e.target.value))}
+                                  style={{ width: 38, padding: '1px 3px', borderRadius: 4, border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: 'white', fontSize: 11, textAlign: 'center', outline: 'none' }} />
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Boutons actions */}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setProduitModif(null)}
+                style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: 'transparent', color: '#888', cursor: 'pointer', fontWeight: 600 }}>
+                Annuler
+              </button>
+              <button onClick={sauvegarderModification} disabled={savingModif}
+                style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', background: savingModif ? '#aaa' : '#0891b2', color: '#fff', cursor: savingModif ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14 }}>
+                {savingModif ? '⏳ Sauvegarde...' : '✅ Sauvegarder les modifications'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL RÉDUCTION GLOBALE */}
       {showReductionGlobale && (
@@ -387,9 +723,8 @@ export default function GestionnaireStockPage() {
             </div>
 
             {produitDetail.image_url && (
-              <div style={{ width: '100%', height: 220, background: '#f8f9fa', borderRadius: 12, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                <img src={produitDetail.image_url} alt={produitDetail.nom}
-                  style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8 }} />
+              <div style={{ width: '100%', height: 200, background: '#f8f9fa', borderRadius: 12, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <img src={produitDetail.image_url} alt={produitDetail.nom} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8 }} />
               </div>
             )}
 
@@ -572,44 +907,51 @@ export default function GestionnaireStockPage() {
                 const hasCritique = variantes.some((v: any) => v.quantite <= 3)
                 const prixReduit = calculerPrixReduit(prod)
                 return (
-                  <div key={prod.id} style={{ background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: hasCritique ? '1.5px solid #E24B4A66' : '1.5px solid transparent', cursor: 'pointer' }}
-                    onClick={() => { setProduitDetail(prod); setShowReductionIndiv(false); setReductionIndiv({ type: prod.reduction_type || 'pourcentage', valeur: prod.reduction_valeur || 0, quantite_min: prod.reduction_quantite_min || 1 }) }}>
-                    <div style={{ height: '210px', background: '#f8f9fa', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                      {prod.image_url
-                        ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }} />
-                        : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>
-                      }
-                      {prod.reduction_type && (
-                        <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
-                          {prod.reduction_type === 'pourcentage' ? `-${prod.reduction_valeur}%` : `-${prod.reduction_valeur?.toLocaleString('fr-FR')} F`}
+                  <div key={prod.id} style={{ background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', border: hasCritique ? '1.5px solid #E24B4A66' : '1.5px solid transparent' }}>
+                    <div onClick={() => { setProduitDetail(prod); setShowReductionIndiv(false); setReductionIndiv({ type: prod.reduction_type || 'pourcentage', valeur: prod.reduction_valeur || 0, quantite_min: prod.reduction_quantite_min || 1 }) }}
+                      style={{ cursor: 'pointer' }}>
+                      <div style={{ height: '210px', background: '#f8f9fa', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                        {prod.image_url
+                          ? <img src={prod.image_url} alt={prod.nom} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }} />
+                          : <div style={{ fontSize: '40px', opacity: 0.2 }}>👗</div>
+                        }
+                        {prod.reduction_type && (
+                          <div style={{ position: 'absolute', top: 8, left: 8, background: '#E24B4A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>
+                            {prod.reduction_type === 'pourcentage' ? `-${prod.reduction_valeur}%` : `-${prod.reduction_valeur?.toLocaleString('fr-FR')} F`}
+                          </div>
+                        )}
+                        {isSuperAdmin && (
+                          <div style={{ position: 'absolute', top: 8, right: 8, background: prod.activite === 'ck_design' ? '#0891b2' : '#d4a853', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 20 }}>
+                            {prod.activite === 'ck_design' ? 'CK' : 'SD'}
+                          </div>
+                        )}
+                        <div style={{ position: 'absolute', bottom: 8, right: 8, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stockTotal === 0 ? '#E24B4A' : hasCritique ? '#EF9F27' : '#1D9E75', color: '#fff' }}>
+                          {stockTotal} pcs
                         </div>
-                      )}
-                      {isSuperAdmin && (
-                        <div style={{ position: 'absolute', top: 8, right: 8, background: prod.activite === 'ck_design' ? '#0891b2' : '#d4a853', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 20 }}>
-                          {prod.activite === 'ck_design' ? 'CK' : 'SD'}
-                        </div>
-                      )}
-                      <div style={{ position: 'absolute', bottom: 8, right: 8, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stockTotal === 0 ? '#E24B4A' : hasCritique ? '#EF9F27' : '#1D9E75', color: '#fff' }}>
-                        {stockTotal} pcs
+                      </div>
+                      <div style={{ padding: '12px 14px 8px' }}>
+                        <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
+                        <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
+                        {prixReduit ? (
+                          <div style={{ marginTop: 4 }}>
+                            <span style={{ fontSize: 12, color: '#aaa', textDecoration: 'line-through', marginRight: 6 }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: '#E24B4A' }}>{prixReduit.toLocaleString('fr-FR')} F</span>
+                          </div>
+                        ) : (
+                          <p style={{ margin: '0', color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</p>
+                        )}
                       </div>
                     </div>
-                    <div style={{ padding: '14px' }}>
-                      <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#1a1a1a' }}>{prod.nom}</p>
-                      <p style={{ margin: '0 0 4px', color: '#aaa', fontSize: '11px' }}>Réf: {prod.reference}</p>
-                      {prixReduit ? (
-                        <div style={{ marginTop: 4, marginBottom: 10 }}>
-                          <span style={{ fontSize: 12, color: '#aaa', textDecoration: 'line-through', marginRight: 6 }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</span>
-                          <span style={{ fontSize: 15, fontWeight: 700, color: '#E24B4A' }}>{prixReduit.toLocaleString('fr-FR')} F</span>
-                        </div>
-                      ) : (
-                        <p style={{ margin: '0 0 10px', color: '#0891b2', fontWeight: 700, fontSize: '15px' }}>{prod.prix_vente?.toLocaleString('fr-FR')} F</p>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <button onClick={e => { e.stopPropagation(); toggleDisponible(prod.id, prod.disponible) }}
-                          style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer', border: 'none', background: prod.disponible ? '#f0fdf4' : '#fff5f5', color: prod.disponible ? '#1D9E75' : '#E24B4A' }}>
-                          {prod.disponible ? '✅ Publié' : '❌ Masqué'}
-                        </button>
-                      </div>
+                    {/* ✅ BOUTONS ACTIONS */}
+                    <div style={{ padding: '8px 14px 12px', display: 'flex', gap: 6 }}>
+                      <button onClick={e => { e.stopPropagation(); ouvrirModification(prod) }}
+                        style={{ flex: 1, fontSize: '11px', fontWeight: 600, padding: '6px 8px', borderRadius: '8px', cursor: 'pointer', border: '1.5px solid #0891b2', background: '#f0f9ff', color: '#0891b2' }}>
+                        ✏️ Modifier
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); toggleDisponible(prod.id, prod.disponible) }}
+                        style={{ flex: 1, fontSize: '11px', fontWeight: 600, padding: '6px 8px', borderRadius: '8px', cursor: 'pointer', border: 'none', background: prod.disponible ? '#f0fdf4' : '#fff5f5', color: prod.disponible ? '#1D9E75' : '#E24B4A' }}>
+                        {prod.disponible ? '✅ Publié' : '❌ Masqué'}
+                      </button>
                     </div>
                   </div>
                 )
@@ -627,40 +969,35 @@ export default function GestionnaireStockPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <div>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Nom *</label>
+                  <label style={labelStyle}>Nom *</label>
                   <input value={prodForm.nom} onChange={e => setProdForm(p => ({ ...p, nom: e.target.value }))}
-                    placeholder="Ex: Robe Wax"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
+                    placeholder="Ex: Robe Wax" style={inputStyle} />
                 </div>
                 <div>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Référence <span style={{ color: '#0891b2', fontWeight: 400 }}>(auto)</span></label>
+                  <label style={labelStyle}>Référence <span style={{ color: '#0891b2', fontWeight: 400 }}>(auto)</span></label>
                   <input value={prodForm.reference} readOnly
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#e8f4fd', border: '1.5px solid #bae6fd', color: '#0891b2', fontSize: '13px', boxSizing: 'border-box', outline: 'none', fontWeight: 600 }} />
+                    style={{ ...inputStyle, background: '#e8f4fd', border: '1.5px solid #bae6fd', color: '#0891b2', fontWeight: 600 }} />
                 </div>
                 <div>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Prix de vente (F) *</label>
-                  <input type="number" value={prodForm.prix_vente} onChange={e => setProdForm(p => ({ ...p, prix_vente: Number(e.target.value) }))}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
+                  <label style={labelStyle}>Prix de vente (F) *</label>
+                  <input type="number" value={prodForm.prix_vente} onChange={e => setProdForm(p => ({ ...p, prix_vente: Number(e.target.value) }))} style={inputStyle} />
                 </div>
                 <div>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Prix d'achat (F)</label>
-                  <input type="number" value={prodForm.prix_achat} onChange={e => setProdForm(p => ({ ...p, prix_achat: Number(e.target.value) }))}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
+                  <label style={labelStyle}>Prix d'achat (F)</label>
+                  <input type="number" value={prodForm.prix_achat} onChange={e => setProdForm(p => ({ ...p, prix_achat: Number(e.target.value) }))} style={inputStyle} />
                 </div>
                 {isSuperAdmin && (
                   <div>
-                    <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Activité</label>
-                    <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value, categorie: '', reference: '' }))}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                    <label style={labelStyle}>Activité</label>
+                    <select value={prodForm.activite} onChange={e => setProdForm(p => ({ ...p, activite: e.target.value, categorie: '', reference: '' }))} style={inputStyle}>
                       <option value="ck_design">🎨 CK Design</option>
                       <option value="succes_design">✨ Succès Design</option>
                     </select>
                   </div>
                 )}
                 <div>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Catégorie *</label>
-                  <select value={prodForm.categorie} onChange={e => setProdForm(p => ({ ...p, categorie: e.target.value }))}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                  <label style={labelStyle}>Catégorie *</label>
+                  <select value={prodForm.categorie} onChange={e => setProdForm(p => ({ ...p, categorie: e.target.value }))} style={inputStyle}>
                     <option value="">Choisir une catégorie...</option>
                     {categoriesFiltrees.map((c: any) => <option key={c.id} value={c.nom}>{c.nom}</option>)}
                   </select>
@@ -668,20 +1005,18 @@ export default function GestionnaireStockPage() {
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Description</label>
+                <label style={labelStyle}>Description</label>
                 <textarea value={prodForm.description} onChange={e => setProdForm(p => ({ ...p, description: e.target.value }))}
-                  rows={2} style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', resize: 'vertical', outline: 'none' }} />
+                  rows={2} style={{ ...inputStyle, resize: 'vertical' as const }} />
               </div>
 
-              {/* ✅ PHOTO PRINCIPALE — compression à la sélection */}
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px' }}>📷 Photo principale</label>
+                <label style={labelStyle}>📷 Photo principale</label>
                 <input type="file" accept="image/*" ref={fileRef} onChange={async e => {
                   const file = e.target.files?.[0]
                   if (file) {
                     const preview = URL.createObjectURL(file)
                     setProdForm(p => ({ ...p, preview }))
-                    // ✅ Compression immédiate dès la sélection
                     const compressed = await compressImage(file)
                     setProdForm(p => ({ ...p, image_file: compressed }))
                   }
@@ -702,7 +1037,7 @@ export default function GestionnaireStockPage() {
               {/* COULEURS & TAILLES */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600 }}>COULEURS & TAILLES</label>
+                  <label style={labelStyle}>COULEURS & TAILLES</label>
                   <button onClick={() => setCouleurs(prev => [...prev, nouvelleCouleur(tailles)])}
                     style={{ background: '#f0f9ff', color: '#0891b2', border: '1px solid #0891b244', borderRadius: '8px', padding: '5px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                     + Couleur
@@ -714,17 +1049,13 @@ export default function GestionnaireStockPage() {
                     {taillesAdulte.length > 0 && (
                       <div style={{ marginBottom: 6 }}>
                         <span style={{ fontSize: 11, color: '#888', fontWeight: 600, marginRight: 8 }}>👕 Adulte :</span>
-                        {taillesAdulte.map(t => (
-                          <span key={t} style={{ fontSize: 11, background: '#e0f7fa', color: '#0891b2', padding: '2px 8px', borderRadius: 20, marginRight: 4, fontWeight: 600 }}>{t}</span>
-                        ))}
+                        {taillesAdulte.map(t => <span key={t} style={{ fontSize: 11, background: '#e0f7fa', color: '#0891b2', padding: '2px 8px', borderRadius: 20, marginRight: 4, fontWeight: 600 }}>{t}</span>)}
                       </div>
                     )}
                     {taillesEnfant.length > 0 && (
                       <div>
                         <span style={{ fontSize: 11, color: '#888', fontWeight: 600, marginRight: 8 }}>👶 Enfant :</span>
-                        {taillesEnfant.map(t => (
-                          <span key={t} style={{ fontSize: 11, background: '#f0fdf4', color: '#1D9E75', padding: '2px 8px', borderRadius: 20, marginRight: 4, fontWeight: 600 }}>{t}</span>
-                        ))}
+                        {taillesEnfant.map(t => <span key={t} style={{ fontSize: 11, background: '#f0fdf4', color: '#1D9E75', padding: '2px 8px', borderRadius: 20, marginRight: 4, fontWeight: 600 }}>{t}</span>)}
                       </div>
                     )}
                   </div>
@@ -736,8 +1067,6 @@ export default function GestionnaireStockPage() {
                       <input value={c.couleur} onChange={e => updateCouleur(ci, 'couleur', e.target.value)}
                         placeholder="Nom couleur"
                         style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', background: '#fff', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }} />
-
-                      {/* ✅ PHOTO COULEUR — compression à la sélection */}
                       <button onClick={() => {
                         const input = document.createElement('input')
                         input.type = 'file'; input.accept = 'image/*'
@@ -745,14 +1074,12 @@ export default function GestionnaireStockPage() {
                           const file = e.target.files?.[0]
                           if (file) {
                             updateCouleur(ci, 'preview', URL.createObjectURL(file))
-                            // ✅ Compression immédiate dès la sélection
                             const compressed = await compressImage(file)
                             updateCouleur(ci, 'image_file', compressed)
                           }
                         }
                         input.click()
                       }} style={{ padding: '8px 12px', borderRadius: '8px', border: '1.5px dashed #0891b2', background: '#f0f9ff', color: '#0891b2', fontSize: '12px', cursor: 'pointer' }}>📷</button>
-
                       {c.preview && (
                         <div style={{ width: 38, height: 38, background: '#f8f9fa', borderRadius: 8, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <img src={c.preview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -775,9 +1102,9 @@ export default function GestionnaireStockPage() {
                                 style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: t.active ? '#0891b2' : '#fff', border: `1.5px solid ${t.active ? '#0891b2' : '#e5e5e5'}`, borderRadius: '8px', padding: '5px 9px' }}>
                                 <span style={{ fontSize: '12px', fontWeight: 700, color: t.active ? 'white' : '#888' }}>{t.taille}</span>
                                 {t.active && (
-                                  <input type="number" value={t.quantite} min={1}
+                                  <input type="number" value={t.quantite} min={0}
                                     onClick={e => e.stopPropagation()}
-                                    onChange={e => updateTailleCouleur(ci, realTi, 'quantite', Number(e.target.value) || 1)}
+                                    onChange={e => updateTailleCouleur(ci, realTi, 'quantite', Number(e.target.value))}
                                     style={{ width: '40px', padding: '1px 4px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: 'white', fontSize: '11px', textAlign: 'center', outline: 'none' }} />
                                 )}
                               </div>
@@ -798,9 +1125,9 @@ export default function GestionnaireStockPage() {
                                 style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', background: t.active ? '#1D9E75' : '#fff', border: `1.5px solid ${t.active ? '#1D9E75' : '#e5e5e5'}`, borderRadius: '8px', padding: '5px 9px' }}>
                                 <span style={{ fontSize: '12px', fontWeight: 700, color: t.active ? 'white' : '#888' }}>{t.taille}</span>
                                 {t.active && (
-                                  <input type="number" value={t.quantite} min={1}
+                                  <input type="number" value={t.quantite} min={0}
                                     onClick={e => e.stopPropagation()}
-                                    onChange={e => updateTailleCouleur(ci, realTi, 'quantite', Number(e.target.value) || 1)}
+                                    onChange={e => updateTailleCouleur(ci, realTi, 'quantite', Number(e.target.value))}
                                     style={{ width: '40px', padding: '1px 4px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: 'white', fontSize: '11px', textAlign: 'center', outline: 'none' }} />
                                 )}
                               </div>
@@ -840,7 +1167,6 @@ export default function GestionnaireStockPage() {
                 )}
               </div>
 
-              {/* ✅ BOUTON AVEC PROGRESSION */}
               <button onClick={publierProduit} disabled={saving}
                 style={{ width: '100%', padding: '14px', borderRadius: '10px', background: '#0891b2', border: 'none', color: 'white', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '15px', opacity: saving ? 0.85 : 1 }}>
                 {saving ? (savingProgress || '⏳ Publication...') : '🚀 Publier le produit'}
@@ -855,49 +1181,44 @@ export default function GestionnaireStockPage() {
             <h3 style={{ margin: '0 0 18px', fontSize: '16px', color: '#0891b2', fontWeight: 700 }}>🏪 Approvisionner une boutique</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Boutique *</label>
-                <select value={approForm.boutique_id} onChange={e => setApproForm(p => ({ ...p, boutique_id: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                <label style={labelStyle}>Boutique *</label>
+                <select value={approForm.boutique_id} onChange={e => setApproForm(p => ({ ...p, boutique_id: e.target.value }))} style={inputStyle}>
                   <option value="">Choisir une boutique...</option>
                   {boutiques.map((b: any) => <option key={b.id} value={b.id}>{b.nom} — {b.lieu}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Produit *</label>
+                <label style={labelStyle}>Produit *</label>
                 <select value={approForm.nom_produit} onChange={e => {
                   const prod = produits.find((p: any) => p.nom === e.target.value)
                   setApproForm(p => ({ ...p, nom_produit: e.target.value, prix_vente: prod?.prix_vente || 0 }))
-                }} style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                }} style={inputStyle}>
                   <option value="">Choisir un produit...</option>
                   {produits.map((p: any) => <option key={p.id} value={p.nom}>{p.nom}</option>)}
                 </select>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Taille</label>
-                  <select value={approForm.taille} onChange={e => setApproForm(p => ({ ...p, taille: e.target.value }))}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', outline: 'none' }}>
+                  <label style={labelStyle}>Taille</label>
+                  <select value={approForm.taille} onChange={e => setApproForm(p => ({ ...p, taille: e.target.value }))} style={inputStyle}>
                     <option value="">Choisir...</option>
                     {tailles.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Couleur</label>
+                  <label style={labelStyle}>Couleur</label>
                   <input value={approForm.couleur} onChange={e => setApproForm(p => ({ ...p, couleur: e.target.value }))}
-                    placeholder="Ex: Noir"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
+                    placeholder="Ex: Noir" style={inputStyle} />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Quantité</label>
-                  <input type="number" min={1} value={approForm.quantite} onChange={e => setApproForm(p => ({ ...p, quantite: Number(e.target.value) }))}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
+                  <label style={labelStyle}>Quantité</label>
+                  <input type="number" min={1} value={approForm.quantite} onChange={e => setApproForm(p => ({ ...p, quantite: Number(e.target.value) }))} style={inputStyle} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ color: '#555', fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Prix vente boutique</label>
-                  <input type="number" value={approForm.prix_vente} onChange={e => setApproForm(p => ({ ...p, prix_vente: Number(e.target.value) }))}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }} />
+                  <label style={labelStyle}>Prix vente boutique</label>
+                  <input type="number" value={approForm.prix_vente} onChange={e => setApproForm(p => ({ ...p, prix_vente: Number(e.target.value) }))} style={inputStyle} />
                 </div>
               </div>
               <button onClick={approvisionnerBoutique} disabled={saving}
