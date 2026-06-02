@@ -88,14 +88,12 @@ export default function GestionnaireStockPage() {
   const [couleurs, setCouleurs] = useState<CouleurVariante[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // COMMANDES
   const [commandes, setCommandes] = useState<any[]>([])
   const [historique, setHistorique] = useState<any[]>([])
   const [commandeDetail, setCommandeDetail] = useState<any>(null)
   const [savingCommande, setSavingCommande] = useState(false)
-  const [filtreHistorique, setFiltreHistorique] = useState<'tous' | 'livre' | 'annule' | 'retour'>('tous')
+  const [filtreHistorique, setFiltreHistorique] = useState<'tous' | 'livre' | 'en_livraison' | 'annule' | 'retour'>('tous')
 
-  // MODIFICATION
   const [produitModif, setProduitModif] = useState<any>(null)
   const [modifForm, setModifForm] = useState<any>({})
   const [modifImageFile, setModifImageFile] = useState<File | null>(null)
@@ -118,9 +116,7 @@ export default function GestionnaireStockPage() {
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('ck_user') || '{}')
     setUser(u)
-    if (u?.activite && u.activite !== 'ck_dress') {
-      setProdForm(p => ({ ...p, activite: u.activite }))
-    }
+    if (u?.activite && u.activite !== 'ck_dress') setProdForm(p => ({ ...p, activite: u.activite }))
     fetchData(u)
   }, [])
 
@@ -141,13 +137,11 @@ export default function GestionnaireStockPage() {
       ? supabase.from('produits').select('*').order('nom')
       : supabase.from('produits').select('*').eq('activite', activite || 'ck_design').order('nom')
 
-    // Commandes actives (nouveau + en_preparation)
     let cmdsQuery = supabase.from('commandes_catalogue').select('*')
       .in('statut', ['nouveau', 'en_preparation'])
       .order('created_at', { ascending: false })
     if (!isSuperAdminOrGlobal) cmdsQuery = cmdsQuery.eq('activite', activite || 'ck_design')
 
-    // Historique complet (tout sauf nouveau et en_preparation)
     let histQuery = supabase.from('commandes_catalogue').select('*')
       .in('statut', ['en_livraison', 'livre', 'annule', 'retour'])
       .order('created_at', { ascending: false })
@@ -186,7 +180,6 @@ export default function GestionnaireStockPage() {
     setLoading(false)
   }
 
-  // ✅ CHANGER STATUT COMMANDE
   const changerStatutCommande = async (id: string, statut: string) => {
     setSavingCommande(true)
     await supabase.from('commandes_catalogue').update({ statut }).eq('id', id)
@@ -201,47 +194,23 @@ export default function GestionnaireStockPage() {
     setSavingCommande(false)
   }
 
-  // ✅ TRAITER RETOUR — remet les modèles en stock automatiquement
   const traiterRetour = async (cmd: any) => {
     if (!confirm(`Confirmer le retour de la commande #${cmd.id.slice(0, 6).toUpperCase()} ?\nLes modèles seront automatiquement remis en stock.`)) return
     setSavingCommande(true)
-
-    // Passer la commande en statut "retour"
     await supabase.from('commandes_catalogue').update({ statut: 'retour' }).eq('id', cmd.id)
-
-    // Retrouver le produit par référence
-    const { data: prodData } = await supabase.from('produits')
-      .select('id').eq('reference', cmd.produit_ref).single()
-
+    const { data: prodData } = await supabase.from('produits').select('id').eq('reference', cmd.produit_ref).single()
     if (prodData) {
-      // Retrouver les variantes par taille + couleur pour remettre en stock
       const tailleCmde = cmd.taille
       const variantes = (cmd.variantes || '').split(',').map((v: string) => v.trim()).filter(Boolean)
-
       for (const couleur of variantes) {
-        // Chercher la variante en stock
-        const { data: stockItem } = await supabase.from('stock')
-          .select('*')
-          .eq('produit_id', prodData.id)
-          .eq('taille', tailleCmde)
-          .ilike('couleur', couleur)
-          .single()
-
+        const { data: stockItem } = await supabase.from('stock').select('*').eq('produit_id', prodData.id).eq('taille', tailleCmde).ilike('couleur', couleur).single()
         if (stockItem) {
-          // Remettre +1 en stock
           await supabase.from('stock').update({ quantite: stockItem.quantite + 1 }).eq('id', stockItem.id)
         } else {
-          // Créer la variante si elle n'existe plus
-          await supabase.from('stock').insert({
-            produit_id: prodData.id,
-            taille: tailleCmde,
-            couleur: couleur,
-            quantite: 1,
-          })
+          await supabase.from('stock').insert({ produit_id: prodData.id, taille: tailleCmde, couleur, quantite: 1 })
         }
       }
     }
-
     setSuccess('↩️ Retour traité ! Stock remis à jour automatiquement.')
     setTimeout(() => setSuccess(''), 3000)
     setCommandeDetail(null)
@@ -249,7 +218,6 @@ export default function GestionnaireStockPage() {
     setSavingCommande(false)
   }
 
-  // MODIFICATION PRODUIT
   const ouvrirModification = (prod: any) => {
     setProduitModif(prod)
     setModifForm({
@@ -286,10 +254,13 @@ export default function GestionnaireStockPage() {
         if (couleur.image_file) couleurImageUrl = await uploadImage(couleur.image_file, `stock/${Date.now()}-${Math.random().toString(36).slice(2)}-${couleur.image_file.name}`) || ''
         return { couleur, imageUrl: couleurImageUrl }
       }))
-      const insertions: Promise<any>[] = []
+      // ✅ CORRECTION: .then() pour convertir en Promise
+      const insertions: PromiseLike<any>[] = []
       for (const { couleur, imageUrl: couleurImageUrl } of uploads) {
         for (const t of couleur.tailles.filter(t => t.active)) {
-          insertions.push(supabase.from('stock').insert({ produit_id: produitModif.id, taille: t.taille, couleur: couleur.couleur, quantite: t.quantite, image_url: couleurImageUrl || null }))
+          insertions.push(
+            supabase.from('stock').insert({ produit_id: produitModif.id, taille: t.taille, couleur: couleur.couleur, quantite: t.quantite, image_url: couleurImageUrl || null }).then()
+          )
         }
       }
       await Promise.all(insertions)
@@ -399,10 +370,13 @@ export default function GestionnaireStockPage() {
       return { couleur, imageUrl: couleurImageUrl }
     }))
     setSavingProgress('⏳ Enregistrement des variantes...')
-    const insertions: Promise<any>[] = []
+    // ✅ CORRECTION: .then() pour convertir en Promise
+    const insertions: PromiseLike<any>[] = []
     for (const { couleur, imageUrl: couleurImageUrl } of uploads) {
       for (const t of couleur.tailles.filter(t => t.active)) {
-        insertions.push(supabase.from('stock').insert({ produit_id: prodData.id, taille: t.taille, couleur: couleur.couleur, quantite: t.quantite, image_url: couleurImageUrl || null }))
+        insertions.push(
+          supabase.from('stock').insert({ produit_id: prodData.id, taille: t.taille, couleur: couleur.couleur, quantite: t.quantite, image_url: couleurImageUrl || null }).then()
+        )
       }
     }
     await Promise.all(insertions)
@@ -447,7 +421,6 @@ export default function GestionnaireStockPage() {
   const taillesAdulte = tailles.filter(t => !t.includes('mois') && !t.includes('an') && !t.includes('ans'))
   const commandesNouvelles = commandes.filter(c => c.statut === 'nouveau')
   const commandesEnPrep = commandes.filter(c => c.statut === 'en_preparation')
-
   const historiqueFiltree = filtreHistorique === 'tous' ? historique : historique.filter(c => c.statut === filtreHistorique)
 
   const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' as const, outline: 'none' }
@@ -471,8 +444,6 @@ export default function GestionnaireStockPage() {
               </div>
               <button onClick={() => setCommandeDetail(null)} style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 14 }}>✕</button>
             </div>
-
-            {/* Statut badge */}
             {(() => {
               const s = STATUT_CONFIG[commandeDetail.statut]
               return s ? (
@@ -481,16 +452,12 @@ export default function GestionnaireStockPage() {
                 </div>
               ) : null
             })()}
-
-            {/* Client */}
             <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 14, marginBottom: 12 }}>
               <h4 style={{ margin: '0 0 8px', fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 600 }}>Client</h4>
               <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>{commandeDetail.nom_client || '—'}</p>
               <p style={{ margin: '0 0 3px', fontSize: 13, color: '#555' }}>📱 {commandeDetail.telephone}</p>
               <p style={{ margin: 0, fontSize: 13, color: '#555' }}>📍 {commandeDetail.adresse}</p>
             </div>
-
-            {/* Produit */}
             <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 14, marginBottom: 12 }}>
               <h4 style={{ margin: '0 0 8px', fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 600 }}>Produit</h4>
               <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#0891b2' }}>Réf: {commandeDetail.produit_ref}</p>
@@ -502,14 +469,10 @@ export default function GestionnaireStockPage() {
                 </div>
               )}
             </div>
-
-            {/* Montant */}
             <div style={{ background: '#f0fdf4', borderRadius: 12, padding: 14, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 14, fontWeight: 600 }}>Total</span>
               <span style={{ fontSize: 18, fontWeight: 800, color: '#1D9E75' }}>{commandeDetail.montant_total?.toLocaleString('fr-FR')} F</span>
             </div>
-
-            {/* Actions selon statut */}
             {commandeDetail.statut === 'nouveau' && (
               <button onClick={() => changerStatutCommande(commandeDetail.id, 'en_preparation')} disabled={savingCommande}
                 style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: savingCommande ? '#aaa' : '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 10 }}>
@@ -522,24 +485,18 @@ export default function GestionnaireStockPage() {
                 {savingCommande ? '⏳...' : '🚚 Commande prête — En livraison'}
               </button>
             )}
-
-            {/* ✅ BOUTON RETOUR sur commandes livrées ou en livraison */}
             {(commandeDetail.statut === 'livre' || commandeDetail.statut === 'en_livraison') && commandeDetail.statut !== 'retour' && (
               <button onClick={() => traiterRetour(commandeDetail)} disabled={savingCommande}
                 style={{ width: '100%', padding: '12px', borderRadius: 10, border: '1.5px solid #bae6fd', background: '#e0f7fa', color: '#0891b2', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 10 }}>
                 {savingCommande ? '⏳...' : '↩️ Traiter un retour — Remettre en stock'}
               </button>
             )}
-
             {commandeDetail.statut === 'retour' && (
               <div style={{ background: '#e0f7fa', borderRadius: 10, padding: '12px 14px', marginBottom: 10, border: '1px solid #bae6fd', textAlign: 'center' }}>
                 <p style={{ margin: 0, fontSize: 13, color: '#0891b2', fontWeight: 700 }}>↩️ Retour traité — Stock remis à jour</p>
               </div>
             )}
-
-            <button onClick={() => setCommandeDetail(null)} style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', color: '#888', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-              Fermer
-            </button>
+            <button onClick={() => setCommandeDetail(null)} style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', color: '#888', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Fermer</button>
           </div>
         </div>
       )}
@@ -799,7 +756,6 @@ export default function GestionnaireStockPage() {
                 </div>
               )}
             </div>
-
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#7c3aed' }}>📦 En préparation</span>
@@ -828,7 +784,7 @@ export default function GestionnaireStockPage() {
           </div>
         )}
 
-        {/* ✅ ONGLET HISTORIQUE COMPLET */}
+        {/* ONGLET HISTORIQUE */}
         {onglet === 'historique' && (
           <div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -845,7 +801,6 @@ export default function GestionnaireStockPage() {
                 </button>
               ))}
             </div>
-
             {historiqueFiltree.length === 0 ? (
               <div style={{ background: '#fff', borderRadius: 12, padding: '40px', textAlign: 'center', color: '#ccc', fontSize: 13, border: '1px solid #e5e7eb' }}>Aucune commande dans cet historique</div>
             ) : (
@@ -853,9 +808,7 @@ export default function GestionnaireStockPage() {
                 {historiqueFiltree.map(cmd => {
                   const sc = STATUT_CONFIG[cmd.statut] || STATUT_CONFIG['annule']
                   return (
-                    <div key={cmd.id}
-                      style={{ background: '#fff', borderRadius: 14, padding: 16, border: `1.5px solid ${sc.border}`, cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
-                      onClick={() => setCommandeDetail(cmd)}>
+                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: `1.5px solid ${sc.border}`, cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }} onClick={() => setCommandeDetail(cmd)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: sc.color, background: sc.bg, padding: '3px 10px', borderRadius: 20 }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
@@ -875,8 +828,6 @@ export default function GestionnaireStockPage() {
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: '#aaa' }}>{new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                       </div>
-
-                      {/* ✅ Bouton retour directement dans l'historique */}
                       {(cmd.statut === 'livre' || cmd.statut === 'en_livraison') && (
                         <button onClick={e => { e.stopPropagation(); traiterRetour(cmd) }}
                           style={{ width: '100%', padding: '9px', borderRadius: 9, border: '1.5px solid #bae6fd', background: '#e0f7fa', color: '#0891b2', fontWeight: 700, fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
@@ -1014,3 +965,5 @@ export default function GestionnaireStockPage() {
     </div>
   )
 }
+
+
