@@ -9,22 +9,22 @@ const supabase = createClient(
 
 const STATUTS: Record<string, { label: string; color: string }> = {
   nouveau: { label: 'Nouveau', color: '#E24B4A' },
-  en_preparation: { label: 'En prÃ©paration', color: '#378ADD' },
+  en_preparation: { label: 'En préparation', color: '#378ADD' },
   en_livraison: { label: 'En livraison', color: '#EF9F27' },
-  livre: { label: 'LivrÃ©', color: '#1D9E75' },
-  annule: { label: 'AnnulÃ©', color: '#999' },
+  livre: { label: 'Livré', color: '#1D9E75' },
+  annule: { label: 'Annulé', color: '#999' },
 }
 
 const ALL_MENU_LINKS = [
-  { label: 'ðŸ“¦ Commandes', href: '/commandes', activites: ['ck_dress', 'ck_design', 'succes_design'] },
-  { label: 'ðŸšš Livraisons', href: '/livraisons', activites: ['ck_dress', 'ck_design', 'succes_design'] },
-  { label: 'âš™ï¸ Production', href: '/production', activites: ['ck_dress', 'ck_design', 'succes_design'] },
-  { label: 'ðŸª Boutiques', href: '/admin/boutiques', activites: ['ck_dress', 'ck_design', 'succes_design'] },
-  { label: 'ðŸŽ¨ Catalogue CK Design', href: '/catalogue', activites: ['ck_dress', 'ck_design'] },
-  { label: 'âœ¨ Catalogue SuccÃ¨s Design', href: '/succes-design/catalogue', activites: ['ck_dress', 'succes_design'] },
-  { label: 'ðŸ‘¤ Utilisateurs', href: '/admin/utilisateurs', activites: ['ck_dress'] },
-  { label: 'âš™ï¸ Configuration', href: '/admin/configuration', activites: ['ck_dress'] },
-  { label: 'ðŸ“Š Reporting', href: '/reporting', activites: ['ck_dress'] },
+  { label: '📦 Commandes', href: '/commandes', activites: ['ck_dress', 'ck_design', 'succes_design'] },
+  { label: '🚚 Livraisons', href: '/livraisons', activites: ['ck_dress', 'ck_design', 'succes_design'] },
+  { label: '⚙️ Production', href: '/production', activites: ['ck_dress', 'ck_design', 'succes_design'] },
+  { label: '🏪 Boutiques', href: '/admin/boutiques', activites: ['ck_dress', 'ck_design', 'succes_design'] },
+  { label: '🎨 Catalogue CK Design', href: '/catalogue', activites: ['ck_dress', 'ck_design'] },
+  { label: '✨ Catalogue Succès Design', href: '/succes-design/catalogue', activites: ['ck_dress', 'succes_design'] },
+  { label: '👤 Utilisateurs', href: '/admin/utilisateurs', activites: ['ck_dress'] },
+  { label: '⚙️ Configuration', href: '/admin/configuration', activites: ['ck_dress'] },
+  { label: '📊 Reporting', href: '/reporting', activites: ['ck_dress'] },
   { label: 'Gestionnaire Stock', href: '/gestionnaire-stock', activites: ['ck_dress', 'ck_design', 'succes_design'] },
 ]
 
@@ -33,7 +33,7 @@ const PERIODES = [
   { key: 'jour', label: "Aujourd'hui" },
   { key: 'semaine', label: 'Cette semaine' },
   { key: 'mois', label: 'Ce mois' },
-  { key: 'annee', label: 'Cette annÃ©e' },
+  { key: 'annee', label: 'Cette année' },
 ]
 
 export default function Dashboard() {
@@ -111,7 +111,7 @@ export default function Dashboard() {
         const ancien = payload.old as any
         if (u.activite !== 'ck_dress' && cmd.activite && cmd.activite !== u.activite) return
         if (cmd.statut !== ancien.statut) {
-          setNotifications(prev => [{ id: Date.now(), message: `Commande #${cmd.id.slice(0, 6).toUpperCase()} â†’ ${STATUTS[cmd.statut]?.label}`, statut: cmd.statut, time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 20))
+          setNotifications(prev => [{ id: Date.now(), message: `Commande #${cmd.id.slice(0, 6).toUpperCase()} → ${STATUTS[cmd.statut]?.label}`, statut: cmd.statut, time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 20))
           setBadge(prev => prev + 1)
           playSound()
           fetchData(u)
@@ -120,7 +120,7 @@ export default function Dashboard() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'commandes_catalogue' }, (payload) => {
         const cmd = payload.new as any
         if (u.activite !== 'ck_dress' && cmd.activite && cmd.activite !== u.activite) return
-        setNotifications(prev => [{ id: Date.now(), message: `Nouvelle commande #${cmd.id.slice(0, 6).toUpperCase()} â€” ${cmd.telephone}`, statut: 'nouveau', time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 20))
+        setNotifications(prev => [{ id: Date.now(), message: `Nouvelle commande #${cmd.id.slice(0, 6).toUpperCase()} — ${cmd.telephone}`, statut: 'nouveau', time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 20))
         setBadge(prev => prev + 1)
         playSound()
         fetchData(u)
@@ -158,7 +158,7 @@ export default function Dashboard() {
           <span style={{ color: '#999', fontSize: '12px' }}>{user?.nom || 'Super Admin'}</span>
           {user?.activite && user.activite !== 'ck_dress' && (
             <span style={{ background: '#f0fdf4', color: '#1D9E75', fontSize: '11px', padding: '2px 10px', borderRadius: '20px', fontWeight: 600 }}>
-              {user.activite === 'ck_design' ? 'ðŸŽ¨ CK Design' : 'âœ¨ SuccÃ¨s Design'}
+              {user.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
             </span>
           )}
         </div>
@@ -167,7 +167,7 @@ export default function Dashboard() {
           {user?.role === 'super_admin' && (
             <a href="/admin/configuration"
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', border: 'none', borderRadius: '8px', color: '#38bdf8', textDecoration: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-              âš™ï¸ Configuration
+              ⚙️ Configuration
             </a>
           )}
 
@@ -175,7 +175,7 @@ export default function Dashboard() {
           {user?.role === 'super_admin' && (
             <a href="/reporting"
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: 'none', borderRadius: '8px', color: '#fff', textDecoration: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-              ðŸ“Š Reporting
+              📊 Reporting
             </a>
           )}
 
@@ -202,7 +202,7 @@ export default function Dashboard() {
                 <div style={{ padding: '8px' }}>
                   <button onClick={() => { localStorage.removeItem('ck_user'); window.location.href = '/login' }}
                     style={{ width: '100%', padding: '10px', background: '#fff5f5', border: 'none', borderRadius: '8px', color: '#E24B4A', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
-                    ðŸšª DÃ©connexion
+                    🚪 Déconnexion
                   </button>
                 </div>
               </div>
@@ -212,7 +212,7 @@ export default function Dashboard() {
           <div style={{ position: 'relative' }}>
             <button onClick={() => { setShowNotifs(!showNotifs); setBadge(0) }}
               style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: '8px', color: badge > 0 ? '#1D9E75' : '#888', padding: '6px 12px', cursor: 'pointer', fontSize: '16px', position: 'relative' }}>
-              ðŸ””
+              🔔
               {badge > 0 && (
                 <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#E24B4A', color: 'white', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {badge > 9 ? '9+' : badge}
@@ -229,7 +229,7 @@ export default function Dashboard() {
                   <div style={{ padding: '24px', textAlign: 'center', color: '#aaa', fontSize: '13px' }}>Aucune notification</div>
                 ) : notifications.map(n => (
                   <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid #f5f5f5', display: 'flex', gap: '10px' }}>
-                    <span>{n.statut === 'nouveau' ? 'ðŸ†•' : n.statut === 'en_livraison' ? 'ðŸšš' : 'âœ…'}</span>
+                    <span>{n.statut === 'nouveau' ? '🆕' : n.statut === 'en_livraison' ? '🚚' : '✅'}</span>
                     <div>
                       <p style={{ margin: 0, fontSize: '13px', color: '#1a1a1a' }}>{n.message}</p>
                       <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#aaa' }}>{n.time}</p>
@@ -247,7 +247,7 @@ export default function Dashboard() {
           <div style={{ textAlign: 'center', color: '#aaa', padding: '60px' }}>Chargement...</div>
         ) : (
           <>
-            {/* FILTRE PÃ‰RIODE */}
+            {/* FILTRE PÉRIODE */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
               {PERIODES.map(p => (
                 <button key={p.key} onClick={() => setFiltrePeriode(p.key as any)}
@@ -261,10 +261,10 @@ export default function Dashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '20px' }}>
               {[
                 { label: 'CA Total', value: statsFiltres.total.toLocaleString('fr-FR') + ' F', color: '#1D9E75', sub: 'Toutes commandes' },
-                { label: 'Commandes', value: statsFiltres.count.toString(), color: '#1a1a1a', sub: 'Total enregistrÃ©es' },
-                { label: 'Nouvelles', value: statsFiltres.nouvelles.toString(), color: statsFiltres.nouvelles > 0 ? '#E24B4A' : '#aaa', sub: 'Ã€ traiter' },
+                { label: 'Commandes', value: statsFiltres.count.toString(), color: '#1a1a1a', sub: 'Total enregistrées' },
+                { label: 'Nouvelles', value: statsFiltres.nouvelles.toString(), color: statsFiltres.nouvelles > 0 ? '#E24B4A' : '#aaa', sub: 'À traiter' },
                 { label: 'En livraison', value: statsFiltres.enLivraison.toString(), color: '#EF9F27', sub: 'En cours' },
-                { label: 'Vos Gains (30%)', value: gains.toLocaleString('fr-FR') + ' F', color: '#d4a853', sub: 'Sur commandes livrÃ©es' },
+                { label: 'Vos Gains (30%)', value: gains.toLocaleString('fr-FR') + ' F', color: '#d4a853', sub: 'Sur commandes livrées' },
               ].map((kpi, i) => (
                 <div key={i} style={{ background: i === 4 ? 'linear-gradient(135deg, rgba(212,168,83,0.1), rgba(212,168,83,0.05))' : '#fff', border: i === 4 ? '1px solid rgba(212,168,83,0.3)' : '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                   <div style={{ fontSize: '11px', color: '#aaa', textTransform: 'uppercase', marginBottom: '8px' }}>{kpi.label}</div>
@@ -278,13 +278,13 @@ export default function Dashboard() {
             {user?.role === 'super_admin' && (
               <a href="/reporting" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)', borderRadius: 12, padding: '16px 20px', marginBottom: 20, textDecoration: 'none', border: '1px solid rgba(124,58,237,0.3)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: 24 }}>ðŸ“Š</span>
+                  <span style={{ fontSize: 24 }}>📊</span>
                   <div>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#fff' }}>Voir le Reporting complet</p>
-                    <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>15 KPIs Â· Analyses Â· Gains Â· Stock Â· Clients</p>
+                    <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>15 KPIs · Analyses · Gains · Stock · Clients</p>
                   </div>
                 </div>
-                <span style={{ color: '#a78bfa', fontSize: 20 }}>â†’</span>
+                <span style={{ color: '#a78bfa', fontSize: 20 }}>→</span>
               </a>
             )}
 
@@ -299,14 +299,14 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* DERNIÃˆRES COMMANDES */}
+            {/* DERNIÈRES COMMANDES */}
             <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h2 style={{ fontSize: '14px', color: '#aaa', margin: 0, textTransform: 'uppercase' }}>DerniÃ¨res commandes</h2>
-                <a href="/commandes" style={{ background: '#1D9E75', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', textDecoration: 'none', fontWeight: '600' }}>Voir tout â†’</a>
+                <h2 style={{ fontSize: '14px', color: '#aaa', margin: 0, textTransform: 'uppercase' }}>Dernières commandes</h2>
+                <a href="/commandes" style={{ background: '#1D9E75', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', textDecoration: 'none', fontWeight: '600' }}>Voir tout →</a>
               </div>
               {commandes.filter(c => filtrerParPeriode(c.created_at)).length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#aaa', padding: '40px' }}>Aucune commande sur cette pÃ©riode</div>
+                <div style={{ textAlign: 'center', color: '#aaa', padding: '40px' }}>Aucune commande sur cette période</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {commandes.filter(c => filtrerParPeriode(c.created_at)).map((cmd, i) => (
@@ -319,11 +319,11 @@ export default function Dashboard() {
                           </span>
                           {user?.activite === 'ck_dress' && cmd.activite && (
                             <span style={{ fontSize: '11px', background: '#f0f0f0', color: '#888', padding: '2px 8px', borderRadius: '10px' }}>
-                              {cmd.activite === 'ck_design' ? 'ðŸŽ¨ CK Design' : 'âœ¨ SuccÃ¨s Design'}
+                              {cmd.activite === 'ck_design' ? '🎨 CK Design' : '✨ Succès Design'}
                             </span>
                           )}
                         </div>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>ðŸ“ž {cmd.telephone} Â· ðŸ“ {cmd.adresse}</p>
+                        <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>📞 {cmd.telephone} · 📍 {cmd.adresse}</p>
                         <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#aaa' }}>
                           {new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
