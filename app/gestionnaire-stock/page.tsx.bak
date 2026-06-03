@@ -1,4 +1,4 @@
-ï»¿'use client'
+'use client'
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -407,8 +407,8 @@ export default function GestionnaireStockPage() {
     setSaving(false)
   }
 
-  const supprimerProduit = async (id: string) => { if (!confirm('Supprimer ce produit ?')) return; await supabase.from('stock').delete().eq('produit_id', id); await supabase.from('produits').delete().eq('id', id); setSuccess('Produit supprime !'); setTimeout(() => setSuccess(''), 2000); fetchData() }; const toggleDisponible = async (id: string, disponible: boolean) => {
-  const supprimerProduit = async (id: string) => { if (!confirm('Supprimer ce produit dï¿½finitivement ? Cette action est irrï¿½versible.')) return; await supabase.from('stock').delete().eq('produit_id', id); await supabase.from('produits').delete().eq('id', id); setSuccess('? Produit supprimï¿½ !'); setTimeout(() => setSuccess(''), 2000); fetchData() };
+  const toggleDisponible = async (id: string, disponible: boolean) => {
+  const supprimerProduit = async (id: string) => { if (!confirm('Supprimer ce produit définitivement ? Cette action est irréversible.')) return; await supabase.from('stock').delete().eq('produit_id', id); await supabase.from('produits').delete().eq('id', id); setSuccess('? Produit supprimé !'); setTimeout(() => setSuccess(''), 2000); fetchData() };
     await supabase.from('produits').update({ disponible: !disponible }).eq('id', id)
     if (produitDetail?.id === id) setProduitDetail((p: any) => ({ ...p, disponible: !disponible }))
     fetchData()

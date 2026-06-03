@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -24,7 +24,7 @@ function CommandeContent() {
   const searchParams = useSearchParams()
   const produitRef = searchParams.get('produit') || ''
   const taille = searchParams.get('taille') || ''
-  const variantesIds = (searchParams.get('variantes') || '').split(',').filter(Boolean)
+  const variantesRaw = (searchParams.get('variantes') || '').split(',').filter(Boolean); const variantesIds = variantesRaw.map(v => v.split(':')[0])
 
   const [produit, setProduit] = useState<Produit | null>(null)
   const [variantes, setVariantes] = useState<StockItem[]>([])
@@ -50,7 +50,7 @@ function CommandeContent() {
     fetchData()
   }, [])
 
-  const sousTotal = produit ? produit.prix_vente * variantes.length : 0
+  const quantiteParVariante = Object.fromEntries(variantesRaw.map(v => { const [id, qte] = v.split(':'); return [id, Number(qte) || 1] })); const sousTotal = produit ? variantes.reduce((sum, v) => sum + produit.prix_vente * (quantiteParVariante[v.id] || 1), 0) : 0
   const total = sousTotal + fraisLivraison
 
   async function enregistrerCommande(via: 'whatsapp' | 'formulaire') {
@@ -60,7 +60,7 @@ function CommandeContent() {
       adresse: typeCommande === 'expedition' ? `Ville: ${ville}` : adresse,
       produit_ref: produitRef,
       taille,
-      variantes: variantes.map(v => v.couleur).join(', '),
+      variantes: variantes.map(v => v.id).join(','),
       montant_total: total,
       frais_livraison: fraisLivraison,
       statut: 'nouveau',
