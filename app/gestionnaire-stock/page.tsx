@@ -462,7 +462,7 @@ export default function GestionnaireStockPage() {
               <h4 style={{ margin: '0 0 8px', fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 600 }}>Produit</h4>
               <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#0891b2' }}>Réf: {commandeDetail.produit_ref}</p>
               <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>📐 Taille : <strong>{commandeDetail.taille}</strong></p>
-              <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>🎨 Variantes : <strong>{commandeDetail.variantes}</strong></p>
+              <div style={{ marginBottom: 8 }}><p style={{ margin: '0 0 8px', fontSize: 13, color: '#555', fontWeight: 600 }}>Images variantes :</p><div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{commandeVariantesImages.length > 0 ? commandeVariantesImages.map((v: any) => (<div key={v.id} style={{ textAlign: 'center' }}>{v.image_url ? <img src={v.image_url} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, border: '2px solid #e5e7eb' }} /> : <div style={{ width: 80, height: 80, borderRadius: 10, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>??</div>}<p style={{ margin: '4px 0 0', fontSize: 11, color: '#555', fontWeight: 600 }}>{v.couleur}</p></div>)) : <p style={{ fontSize: 12, color: '#aaa' }}>{commandeDetail.variantes || 'Aucune variante'}</p>}</div></div>
               {commandeDetail.note && (
                 <div style={{ marginTop: 8, background: '#fff8e6', borderRadius: 8, padding: '8px 10px', border: '1px solid #fde68a' }}>
                   <p style={{ margin: 0, fontSize: 12, color: '#92400e' }}>📝 {commandeDetail.note}</p>
@@ -965,6 +965,7 @@ export default function GestionnaireStockPage() {
     </div>
   )
 }
+
 
 
 
