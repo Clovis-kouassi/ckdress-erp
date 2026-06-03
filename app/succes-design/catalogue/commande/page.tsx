@@ -61,12 +61,12 @@ function CommandeContent() {
       adresse: typeCommande === 'expedition' ? `Ville: ${ville}` : adresse,
       produit_ref: produitRef,
       taille,
-      variantes: variantes.map(v => v.couleur).join(', '),
+      variantes: variantes.map(v => v.id).join(','),
       montant_total: total,
       frais_livraison: fraisLivraison,
       statut: 'nouveau',
       source: via,
-      note: `REF: ${ref} | SUCCES DESIGN | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
+      note: `REF: ${ref} | SUCCES DESIGN | Couleurs: ${variantes.map(v => v.couleur).join(', ')} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
     }).select().single()
 
     // ✅ Déduire le stock via RPC sécurisé
@@ -254,4 +254,6 @@ export default function SuccesCommandePage() {
     </Suspense>
   )
 }
+
+
 
