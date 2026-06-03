@@ -72,6 +72,7 @@ export default function GestionnaireStockPage() {
   const [tailles, setTailles] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [onglet, setOnglet] = useState<'commandes' | 'historique' | 'produits' | 'nouveau_produit' | 'approvisionner' | 'depenses'>('commandes')
+  const [menuOpen, setMenuOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [success, setSuccess] = useState('')
   const [saving, setSaving] = useState(false)
@@ -424,7 +425,7 @@ export default function GestionnaireStockPage() {
   const historiqueFiltree = filtreHistorique === 'tous' ? historique : historique.filter(c => c.statut === filtreHistorique)
 
   const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' as const, outline: 'none' }
-  const labelStyle = { color: '#555', fontSize: '12px', fontWeight: 600 as const, display: 'block' as const, marginBottom: '6px' }
+  const MENU_ITEMS = [{ key: 'commandes', label: 'Commandes' }, { key: 'historique', label: 'Historique' }, { key: 'produits', label: 'Produits' }, { key: 'nouveau_produit', label: 'Publier un produit' }, { key: 'approvisionner', label: 'Approvisionner' }, { key: 'depenses', label: 'Depenses' }]; const labelStyle = { color: '#555', fontSize: '12px', fontWeight: 600 as const, display: 'block' as const, marginBottom: '6px' }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: "'Inter', sans-serif", color: '#1a1a1a' }}>
@@ -690,7 +691,7 @@ export default function GestionnaireStockPage() {
             {isSuperAdmin && <span style={{ marginLeft: 6, background: '#d4a853', color: '#1a1a1a', fontSize: 10, padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>ADMIN</span>}
           </p>
         </div>
-        <button onClick={() => { localStorage.removeItem('ck_user'); window.location.href = '/login' }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', padding: '6px 12px', fontSize: '11px', cursor: 'pointer' }}>Déconnexion</button>
+        <div style={{ position: 'relative' }}><button onClick={() => setMenuOpen(!menuOpen)} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#fff', padding: '8px 14px', fontSize: '18px', cursor: 'pointer', marginRight: 8 }}>☰</button>{menuOpen && (<div style={{ position: 'absolute', top: '110%', right: 0, background: '#fff', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', padding: 8, zIndex: 500, minWidth: 220 }}>{MENU_ITEMS.map(o => (<button key={o.key} onClick={() => { setOnglet(o.key as any); setMenuOpen(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, background: onglet === o.key ? '#f0f9ff' : 'transparent', color: onglet === o.key ? '#0891b2' : '#333', marginBottom: 2 }}>{o.label}</button>))}<button onClick={() => { setShowReductionGlobale(true); setMenuOpen(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, background: '#fffbeb', color: '#92400e', marginTop: 4 }}>Reduction globale</button></div>)}</div><button onClick={() => { localStorage.removeItem('ck_user'); window.location.href = '/login' }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#94a3b8', padding: '6px 12px', fontSize: '11px', cursor: 'pointer' }}>Déconnexion</button>
       </div>
 
       {/* KPI */}
