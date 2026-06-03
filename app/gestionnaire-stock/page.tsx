@@ -391,7 +391,7 @@ export default function GestionnaireStockPage() {
     setSaving(false)
   }
 
-  const approvisionnerBoutique = async () => {
+  const [depenses2, setDepenses2] = useState<any[]>([]); const [depForm, setDepForm] = useState({ type: 'depense_generale', categorie: '', libelle: '', montant: 0, fournisseur: '', produit: '', quantite: 1, prix_unitaire: 0, date_depense: new Date().toISOString().split('T')[0] }); const [sousOngletDep, setSousOngletDep] = useState<'achat' | 'generale'>('generale'); const fetchDepenses = async () => { const { data } = await supabase.from('depenses').select('*').eq('activite', user?.activite || 'ck_design').order('date_depense', { ascending: false }); setDepenses2(data || []) }; const ajouterDepense = async () => { if (!depForm.libelle || !depForm.montant) return; setSaving(true); const montantFinal = sousOngletDep === 'achat' ? depForm.quantite * depForm.prix_unitaire : depForm.montant; await supabase.from('depenses').insert({ libelle: depForm.libelle, montant: montantFinal, categorie: sousOngletDep === 'achat' ? 'Achat fournisseur' : depForm.categorie, activite: user?.activite === 'ck_dress' ? 'ck_design' : user?.activite || 'ck_design', date_depense: depForm.date_depense, type: sousOngletDep === 'achat' ? 'achat_fournisseur' : 'depense_generale', fournisseur: depForm.fournisseur, produit: depForm.produit, quantite: depForm.quantite, prix_unitaire: depForm.prix_unitaire, created_by: user?.nom }); setDepForm({ type: 'depense_generale', categorie: '', libelle: '', montant: 0, fournisseur: '', produit: '', quantite: 1, prix_unitaire: 0, date_depense: new Date().toISOString().split('T')[0] }); await fetchDepenses(); setSaving(false); setSuccess('Depense enregistree !'); setTimeout(() => setSuccess(''), 2000) }; const approvisionnerBoutique = async () => {
     if (!approForm.boutique_id || !approForm.nom_produit) return
     setSaving(true)
     const exist = (await supabase.from('stock_boutique').select('*').eq('boutique_id', approForm.boutique_id).eq('nom_produit', approForm.nom_produit).eq('taille', approForm.taille).eq('couleur', approForm.couleur).single()).data
@@ -716,6 +716,7 @@ export default function GestionnaireStockPage() {
           { key: 'produits', label: '🏷️ Produits' },
           { key: 'nouveau_produit', label: '➕ Publier' },
           { key: 'approvisionner', label: '🏪 Appro.' },
+          { key: 'depenses', label: 'Depenses' },
         ].map(o => (
           <button key={o.key} onClick={() => setOnglet(o.key as any)}
             style={{ flexShrink: 0, padding: '9px 14px', borderRadius: '9px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: onglet === o.key ? (o.key === 'commandes' ? '#E24B4A' : '#0891b2') : 'transparent', color: onglet === o.key ? '#fff' : '#888' }}>
