@@ -180,7 +180,7 @@ export default function GestionnaireStockPage() {
     setLoading(false)
   }
 
-  const ouvrirCommande = async (cmd: any) => { setCommandeDetail(cmd); const ids = (cmd.variantes || '').split(',').map((v: string) => v.trim()).filter(Boolean); if (ids.length > 0) { const { data: stockItems } = await supabase.from('stock').select('*').in('id', ids); const { data: prodData } = await supabase.from('produits').select('id,image_url').eq('reference', cmd.produit_ref).single(); const itemsAvecImage = (stockItems || []).map((s: any) => ({ ...s, image_url: s.image_url || prodData?.image_url || null })); setCommandeVariantesImages(itemsAvecImage) } else { setCommandeVariantesImages([]) } }; const changerStatutCommande = async (id: string, statut: string) => {
+  const ouvrirCommande = async (cmd: any) => { setCommandeDetail(cmd); const ids = (cmd.variantes || '').split(',').map((v: string) => v.trim()).filter(Boolean); if (ids.length > 0) { const { data } = await supabase.from('stock').select('*').in('id', ids); setCommandeVariantesImages(data || []) } else { setCommandeVariantesImages([]) } }; const changerStatutCommande = async (id: string, statut: string) => {
     setSavingCommande(true)
     await supabase.from('commandes_catalogue').update({ statut }).eq('id', id)
     const msgs: Record<string, string> = {
@@ -408,7 +408,6 @@ export default function GestionnaireStockPage() {
   }
 
   const supprimerProduit = async (id: string) => { if (!confirm('Supprimer ce produit ?')) return; await supabase.from('stock').delete().eq('produit_id', id); await supabase.from('produits').delete().eq('id', id); setSuccess('Produit supprime !'); setTimeout(() => setSuccess(''), 2000); fetchData() }; const toggleDisponible = async (id: string, disponible: boolean) => {
-  const supprimerProduit = async (id: string) => { if (!confirm('Supprimer ce produit d�finitivement ? Cette action est irr�versible.')) return; await supabase.from('stock').delete().eq('produit_id', id); await supabase.from('produits').delete().eq('id', id); setSuccess('? Produit supprim� !'); setTimeout(() => setSuccess(''), 2000); fetchData() };
     await supabase.from('produits').update({ disponible: !disponible }).eq('id', id)
     if (produitDetail?.id === id) setProduitDetail((p: any) => ({ ...p, disponible: !disponible }))
     fetchData()
@@ -875,8 +874,7 @@ export default function GestionnaireStockPage() {
                     </div>
                     <div style={{ padding: '6px 14px 12px', display: 'flex', gap: 6 }}>
                       <button onClick={() => ouvrirModification(prod)} style={{ flex: 1, fontSize: '11px', fontWeight: 600, padding: '6px 8px', borderRadius: '8px', cursor: 'pointer', border: '1.5px solid #0891b2', background: '#f0f9ff', color: '#0891b2' }}>✏️ Modifier</button>
-                      <button onClick={() => supprimerProduit(prod.id)} style={{ flex: 1, fontSize: '11px', fontWeight: 600, padding: '6px 8px', borderRadius: '8px', cursor: 'pointer', border: 'none', background: '#fff0f0', color: '#E24B4A' }}>??? Supprimer</button>
-                      <button onClick={() => toggleDisponible(prod.id, prod.disponible)} style={{ flex: 1, fontSize: '11px', fontWeight: 600, padding: '6px 8px', borderRadius: '8px', cursor: 'pointer', border: 'none', background: prod.disponible ? '#f0fdf4' : '#fff5f5', color: prod.disponible ? '#1D9E75' : '#E24B4A' }}>{prod.disponible ? '✅ Publié' : '❌ Masqué'}</button>
+                      <button onClick={() => toggleDisponible(prod.id, prod.disponible)} style={{ flex: 1, fontSize: '11px', fontWeight: 600, padding: '6px 8px', borderRadius: '8px', cursor: 'pointer', border: 'none', background: prod.disponible ? '#f0fdf4' : '#fff5f5', color: prod.disponible ? '#1D9E75' : '#E24B4A' }}>{prod.disponible ? '✅ Publié' : '❌ Masqué'}</button><button onClick={() => supprimerProduit(prod.id)} style={{ flex: 1, fontSize: '11px', fontWeight: 600, padding: '6px 8px', borderRadius: '8px', cursor: 'pointer', border: 'none', background: '#fff0f0', color: '#E24B4A' }}>Supprimer</button>
                     </div>
                   </div>
                 )
