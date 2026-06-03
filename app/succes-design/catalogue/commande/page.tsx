@@ -25,7 +25,7 @@ function CommandeContent() {
   const searchParams = useSearchParams()
   const produitRef = searchParams.get('produit') || ''
   const taille = searchParams.get('taille') || ''
-  const variantesIds = (searchParams.get('variantes') || '').split(',').filter(Boolean)
+  const variantesRaw = (searchParams.get('variantes') || '').split(',').filter(Boolean); const variantesIds = variantesRaw.map(v => v.split(':')[0])
 
   const [produit, setProduit] = useState<any>(null)
   const [variantes, setVariantes] = useState<any[]>([])
@@ -51,7 +51,7 @@ function CommandeContent() {
     fetchData()
   }, [])
 
-  const sousTotal = produit ? produit.prix_vente * variantes.length : 0
+  const quantiteParVariante = Object.fromEntries(variantesRaw.map(v => { const [id, qte] = v.split(':'); return [id, Number(qte) || 1] })); const sousTotal = produit ? variantes.reduce((sum, v) => sum + produit.prix_vente * (quantiteParVariante[v.id] || 1), 0) : 0
   const total = sousTotal + fraisLivraison
 
   async function enregistrerCommande(via: 'whatsapp' | 'formulaire') {
@@ -254,3 +254,4 @@ export default function SuccesCommandePage() {
     </Suspense>
   )
 }
+
