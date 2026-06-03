@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -64,7 +64,7 @@ function CommandeContent() {
       variantes: variantes.map(v => v.id).join(','),
       montant_total: total,
       frais_livraison: fraisLivraison,
-      statut: 'nouveau',
+      statut: 'nouveau', activite: 'succes_design',
       source: via,
       note: `REF: ${ref} | SUCCES DESIGN | Couleurs: ${variantes.map(v => v.couleur).join(', ')} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
     }).select().single()

@@ -180,7 +180,7 @@ export default function GestionnaireStockPage() {
     setLoading(false)
   }
 
-  const ouvrirCommande = async (cmd: any) => { setCommandeDetail(cmd); const ids = (cmd.variantes || '').split(',').map((v: string) => v.trim()).filter(Boolean); if (ids.length > 0) { const { data } = await supabase.from('stock').select('*').in('id', ids); setCommandeVariantesImages(data || []) } else { setCommandeVariantesImages([]) } }; const changerStatutCommande = async (id: string, statut: string) => {
+  const ouvrirCommande = async (cmd: any) => { setCommandeDetail(cmd); const ids = (cmd.variantes || '').split(',').map((v: string) => v.trim()).filter(Boolean); if (ids.length > 0) { const { data: stockItems } = await supabase.from('stock').select('*').in('id', ids); const { data: prodData } = await supabase.from('produits').select('id,image_url').eq('reference', cmd.produit_ref).single(); const itemsAvecImage = (stockItems || []).map((s: any) => ({ ...s, image_url: s.image_url || prodData?.image_url || null })); setCommandeVariantesImages(itemsAvecImage) } else { setCommandeVariantesImages([]) } }; const changerStatutCommande = async (id: string, statut: string) => {
     setSavingCommande(true)
     await supabase.from('commandes_catalogue').update({ statut }).eq('id', id)
     const msgs: Record<string, string> = {

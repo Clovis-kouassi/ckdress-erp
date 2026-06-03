@@ -63,7 +63,7 @@ function CommandeContent() {
       variantes: variantes.map(v => v.id).join(','),
       montant_total: total,
       frais_livraison: fraisLivraison,
-      statut: 'nouveau',
+      statut: 'nouveau', activite: 'ck_design',
       source: via,
       note: `REF: ${ref} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
     }).select().single()
