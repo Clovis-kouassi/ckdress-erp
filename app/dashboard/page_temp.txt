@@ -25,7 +25,6 @@ const ALL_MENU_LINKS = [
   { label: '👤 Utilisateurs', href: '/admin/utilisateurs', activites: ['ck_dress'] },
   { label: '⚙️ Configuration', href: '/admin/configuration', activites: ['ck_dress'] },
   { label: '📊 Reporting', href: '/reporting', activites: ['ck_dress'] },
-  { label: 'Gestionnaire Stock', href: '/gestionnaire-stock', activites: ['ck_dress', 'ck_design', 'succes_design'] },
 ]
 
 const PERIODES = [
