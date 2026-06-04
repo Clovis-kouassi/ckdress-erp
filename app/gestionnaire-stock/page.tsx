@@ -743,7 +743,7 @@ export default function GestionnaireStockPage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {commandesNouvelles.map(cmd => (
-                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #fecaca', boxShadow: '0 2px 8px rgba(226,75,74,0.1)', cursor: 'pointer' }} onClick={() => setCommandeDetail(cmd)}>
+                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #fecaca', boxShadow: '0 2px 8px rgba(226,75,74,0.1)', cursor: 'pointer' }} onClick={() => ouvrirCommande(cmd)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                         <div><span style={{ fontSize: 13, fontWeight: 700, color: '#E24B4A', background: '#fff0f0', padding: '3px 10px', borderRadius: 20 }}>#{cmd.id.slice(0, 6).toUpperCase()}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
@@ -768,7 +768,7 @@ export default function GestionnaireStockPage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {commandesEnPrep.map(cmd => (
-                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #ddd6fe', cursor: 'pointer' }} onClick={() => setCommandeDetail(cmd)}>
+                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #ddd6fe', cursor: 'pointer' }} onClick={() => ouvrirCommande(cmd)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                         <div><span style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 20 }}>#{cmd.id.slice(0, 6).toUpperCase()}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
@@ -810,7 +810,7 @@ export default function GestionnaireStockPage() {
                 {historiqueFiltree.map(cmd => {
                   const sc = STATUT_CONFIG[cmd.statut] || STATUT_CONFIG['annule']
                   return (
-                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: `1.5px solid ${sc.border}`, cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }} onClick={() => setCommandeDetail(cmd)}>
+                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: `1.5px solid ${sc.border}`, cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }} onClick={() => ouvrirCommande(cmd)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: sc.color, background: sc.bg, padding: '3px 10px', borderRadius: 20 }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
