@@ -91,7 +91,7 @@ export default function GestionnaireStockPage() {
 
   const [commandes, setCommandes] = useState<any[]>([])
   const [historique, setHistorique] = useState<any[]>([])
-  const [commandeDetail, setCommandeDetail] = useState<any>(null); const [commandeVariantesImages, setCommandeVariantesImages] = useState<any[]>([])
+  const [commandeDetail, setCommandeDetail] = useState<any>(null); const [commandeVariantesImages, setCommandeVariantesImages] = useState<any[]>([]); const [variantesImagesMap, setVariantesImagesMap] = useState<Record<string, any[]>>({})
   const [savingCommande, setSavingCommande] = useState(false)
   const [filtreHistorique, setFiltreHistorique] = useState<'tous' | 'livre' | 'en_livraison' | 'annule' | 'retour'>('tous')
 
@@ -176,7 +176,25 @@ export default function GestionnaireStockPage() {
     setBoutiques(boutsData || [])
     setMouvements(ventesData || [])
     setCategories(catsData || [])
-    setCommandes(cmdsData || [])
+    setCommandes(cmdsData || []); 
+    (async () => {
+      const toutesCommandes = [...(cmdsData || []), ...(histData || [])];
+      const tousIds = new Set<string>();
+      toutesCommandes.forEach((c: any) => (c.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean).forEach((id: string) => tousIds.add(id)));
+      if (tousIds.size > 0) {
+        const { data: allStock } = await supabase.from('stock').select('*').in('id', Array.from(tousIds));
+        const map: Record<string, any[]> = {};
+        toutesCommandes.forEach((c: any) => {
+          const ids = (c.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean);
+          map[c.id] = ids.map((id: string) => {
+            const st = (allStock || []).find((s: any) => s.id === id);
+            const prod = prodsFiltres.find((p: any) => p.reference === c.produit_ref);
+            return st ? { ...st, image_url: st.image_url || prod?.image_url || null } : null;
+          }).filter(Boolean);
+        });
+        setVariantesImagesMap(map);
+      }
+    })()
     setHistorique(histData || [])
     setLoading(false)
   }
@@ -750,7 +768,7 @@ export default function GestionnaireStockPage() {
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
                         <div><p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>{cmd.nom_client || '—'}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>📱 {cmd.telephone}</p></div>
-                        <div><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille} — 🎨 {cmd.variantes}</p></div>
+                        <div><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p><div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div><p style={{ display: 'none' }}></p></div>
                       </div>
                       <button onClick={e => { e.stopPropagation(); changerStatutCommande(cmd.id, 'en_preparation') }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>📦 Prendre en charge</button>
                     </div>
@@ -775,7 +793,7 @@ export default function GestionnaireStockPage() {
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
                         <div><p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>{cmd.nom_client || '—'}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>📱 {cmd.telephone}</p></div>
-                        <div><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille} — 🎨 {cmd.variantes}</p></div>
+                        <div><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p><div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div><p style={{ display: 'none' }}></p></div>
                       </div>
                       <button onClick={e => { e.stopPropagation(); changerStatutCommande(cmd.id, 'en_livraison') }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#BA7517', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>🚚 Prête — Envoyer en livraison</button>
                     </div>
@@ -826,7 +844,7 @@ export default function GestionnaireStockPage() {
                         </div>
                         <div>
                           <p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p>
-                          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille} — 🎨 {cmd.variantes}</p>
+                          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p><div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div><p style={{ display: 'none' }}></p>
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: '#aaa' }}>{new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                       </div>
