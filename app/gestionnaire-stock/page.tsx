@@ -180,12 +180,13 @@ export default function GestionnaireStockPage() {
     (async () => {
       const toutesCommandes = [...(cmdsData || []), ...(histData || [])];
       const tousIds = new Set<string>();
-      toutesCommandes.forEach((c: any) => (c.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean).forEach((id: string) => tousIds.add(id)));
+      const isUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+      toutesCommandes.forEach((c: any) => (c.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean).filter(isUUID).forEach((id: string) => tousIds.add(id)));
       if (tousIds.size > 0) {
         const { data: allStock } = await supabase.from('stock').select('*').in('id', Array.from(tousIds));
         const map: Record<string, any[]> = {};
         toutesCommandes.forEach((c: any) => {
-          const ids = (c.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean);
+          const ids = (c.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean).filter(isUUID);
           map[c.id] = ids.map((id: string) => {
             const st = (allStock || []).find((s: any) => s.id === id);
             const prod = prodsFiltres.find((p: any) => p.reference === c.produit_ref);
@@ -199,7 +200,7 @@ export default function GestionnaireStockPage() {
     setLoading(false)
   }
 
-  const ouvrirCommande = async (cmd: any) => { setCommandeDetail(cmd); setCommandeVariantesImages([]); const ids = (cmd.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean); if (ids.length === 0) return; try { const { data: stockItems } = await supabase.from('stock').select('*').in('id', ids); const prod = produits.find((p: any) => p.reference === cmd.produit_ref); const items = (stockItems || []).map((s: any) => ({ ...s, image_url: s.image_url || prod?.image_url || null })); setCommandeVariantesImages(items) } catch (e) { console.error('Erreur images variantes', e) } }; const changerStatutCommande = async (id: string, statut: string) => {
+  const ouvrirCommande = async (cmd: any) => { setCommandeDetail(cmd); setCommandeVariantesImages([]); const isUUID2 = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s); const ids = (cmd.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean).filter(isUUID2); if (ids.length === 0) return; try { const { data: stockItems } = await supabase.from('stock').select('*').in('id', ids); const prod = produits.find((p: any) => p.reference === cmd.produit_ref); const items = (stockItems || []).map((s: any) => ({ ...s, image_url: s.image_url || prod?.image_url || null })); setCommandeVariantesImages(items) } catch (e) { console.error('Erreur images variantes', e) } }; const changerStatutCommande = async (id: string, statut: string) => {
     setSavingCommande(true)
     await supabase.from('commandes_catalogue').update({ statut }).eq('id', id)
     const msgs: Record<string, string> = {
