@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const WHATSAPP_NUMBER = '2250555303010'
+const WHATSAPP_NUMBER = '2250565145493'
 const FRAIS_LIVRAISON_ABIDJAN = 1500
 const FRAIS_EXPEDITION = 3000
 

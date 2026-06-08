@@ -1,11 +1,11 @@
-﻿'use client'
+'use client'
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/app/lib/supabase'
 import { requestNotificationPermission } from '@/app/lib/firebase'
 
-const WHATSAPP_NUMBER = '2250555303010'
+const WHATSAPP_NUMBER = '2250702261936'
 const FRAIS_LIVRAISON_ABIDJAN = 1500
 const FRAIS_EXPEDITION = 3000
 
