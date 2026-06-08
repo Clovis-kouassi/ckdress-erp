@@ -445,34 +445,41 @@ export default function GestionnaireStockPage() {
 
   const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' as const, outline: 'none' }
   const MENU_ITEMS = [{ key: 'commandes', label: 'Commandes' }, { key: 'historique', label: 'Historique' }, { key: 'produits', label: 'Produits' }, { key: 'nouveau_produit', label: 'Publier un produit' }, { key: 'approvisionner', label: 'Approvisionner' }, { key: 'depenses', label: 'Depenses' }]; const genererPDFCommandes = () => {
-    const recap: Record<string, Record<string, Record<string, number>>> = {};
+    const recap: any = {};
     commandesNouvelles.forEach((cmd: any) => {
       const ref = cmd.produit_ref || 'INCONNU';
+      const prod = produits.find((p: any) => p.reference === ref);
+      const categorie = prod?.categorie || 'Autres';
       const taille = cmd.taille || '-';
       const imgs = variantesImagesMap[cmd.id] || [];
-      const couleurs = imgs.length > 0 ? imgs.map((v: any) => v.couleur) : ['(sans couleur)'];
+      let couleurs: string[] = imgs.length > 0 ? imgs.map((v: any) => v.couleur) : [];
+      if (couleurs.length === 0) {
+        const m = (cmd.note || '').match(/Couleurs:\s*([^|]+)/);
+        if (m) couleurs = m[1].split(',').map((c: string) => c.trim()).filter(Boolean);
+      }
+      if (couleurs.length === 0) couleurs = ['(non precise)'];
       couleurs.forEach((couleur: string) => {
-        if (!recap[ref]) recap[ref] = {};
-        if (!recap[ref][couleur]) recap[ref][couleur] = {};
-        recap[ref][couleur][taille] = (recap[ref][couleur][taille] || 0) + 1;
+        if (!recap[categorie]) recap[categorie] = {};
+        if (!recap[categorie][couleur]) recap[categorie][couleur] = {};
+        recap[categorie][couleur][taille] = (recap[categorie][couleur][taille] || 0) + 1;
       });
     });
     const dateJour = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-    let html = '<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:30px;color:#1a1a1a}h1{font-size:22px;margin:0 0 4px}h2{font-size:13px;color:#888;margin:0 0 24px;font-weight:normal}.modele{margin-bottom:22px;border:1.5px solid #ddd;border-radius:10px;padding:14px;page-break-inside:avoid}.modele h3{margin:0 0 10px;font-size:16px;color:#0891b2;border-bottom:2px solid #0891b2;padding-bottom:6px}.couleur{margin:8px 0}.couleur b{display:inline-block;min-width:130px;font-size:14px}.tailles{display:inline}.t{display:inline-block;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:2px 10px;margin:2px;font-size:13px;font-weight:600}@media print{button{display:none}}</style></head><body>';
+    let html = '<html><head><meta charset="utf-8"><title>Recap commandes</title><style>body{font-family:Arial,sans-serif;padding:30px;color:#1a1a1a}h1{font-size:22px;margin:0 0 4px}.sub{font-size:13px;color:#888;margin:0 0 24px}.cat{margin-bottom:26px;border:2px solid #0891b2;border-radius:12px;padding:16px;page-break-inside:avoid}.cat h2{margin:0 0 14px;font-size:18px;color:#fff;background:#0891b2;padding:8px 14px;border-radius:8px;text-align:center}.couleur{margin:10px 0;display:flex;align-items:center}.couleur b{display:inline-block;min-width:150px;font-size:15px}.t{display:inline-block;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:6px;padding:4px 12px;margin:2px;font-size:14px;font-weight:700}.btns{margin-top:24px;display:flex;gap:12px}.btns button{padding:12px 24px;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}@media print{.btns{display:none}}</style></head><body>';
     html += '<h1>Recapitulatif des commandes a preparer</h1>';
-    html += '<h2>Date: ' + dateJour + ' &bull; ' + commandesNouvelles.length + ' commande(s)</h2>';
-    Object.keys(recap).sort().forEach(ref => {
-      html += '<div class="modele"><h3>' + ref + '</h3>';
-      Object.keys(recap[ref]).sort().forEach(couleur => {
-        html += '<div class="couleur"><b>' + couleur + '</b><span class="tailles">';
-        Object.keys(recap[ref][couleur]).sort().forEach(taille => {
-          html += '<span class="t">' + taille + ' : ' + recap[ref][couleur][taille] + '</span>';
+    html += '<p class="sub">Date: ' + dateJour + ' &bull; ' + commandesNouvelles.length + ' commande(s)</p>';
+    Object.keys(recap).sort().forEach((cat: string) => {
+      html += '<div class="cat"><h2>' + cat + '</h2>';
+      Object.keys(recap[cat]).sort().forEach((couleur: string) => {
+        html += '<div class="couleur"><b>' + couleur + '</b><span>';
+        Object.keys(recap[cat][couleur]).sort().forEach((taille: string) => {
+          html += '<span class="t">' + taille + ' : ' + recap[cat][couleur][taille] + '</span>';
         });
         html += '</span></div>';
       });
       html += '</div>';
     });
-    html += '<button onclick="window.print()" style="margin-top:20px;padding:12px 24px;background:#0891b2;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">Imprimer / Enregistrer en PDF</button>';
+    html += '<div class="btns"><button onclick="window.print()" style="background:#0891b2;color:#fff">Imprimer</button><button onclick="window.print()" style="background:#1D9E75;color:#fff">Telecharger PDF</button></div>';
     html += '</body></html>';
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
