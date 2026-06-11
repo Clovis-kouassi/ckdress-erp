@@ -51,7 +51,7 @@ function CommandeContent() {
     fetchData()
   }, [])
 
-  const quantiteParVariante = Object.fromEntries(variantesRaw.map(v => { const [id, qte] = v.split(':'); return [id, Number(qte) || 1] })); const sousTotal = produit ? variantes.reduce((sum, v) => sum + produit.prix_vente * (quantiteParVariante[v.id] || 1), 0) : 0
+  const quantiteParVariante = Object.fromEntries(variantesRaw.map(v => { const [id, qte] = v.split(':'); return [id, Number(qte) || 1] })); const quantiteTotale = variantes.reduce((sum, v) => sum + (quantiteParVariante[v.id] || 1), 0); const prixUnitaire = produit ? calculerPrixReduit(produit, quantiteTotale) : 0; const sousTotal = produit ? variantes.reduce((sum, v) => sum + prixUnitaire * (quantiteParVariante[v.id] || 1), 0) : 0
   const total = sousTotal + fraisLivraison
 
   async function enregistrerCommande(via: 'whatsapp' | 'formulaire') {
@@ -245,6 +245,18 @@ function CommandeContent() {
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     </div>
   )
+}
+
+function calculerPrixReduit(produit: any, quantiteTotale: number): number {
+  const prix = produit.prix_vente
+  if (!produit.reduction_type) return prix
+  if (produit.reduction_type === 'fixe') return Math.max(0, prix - (produit.reduction_valeur || 0))
+  if (produit.reduction_type === 'pourcentage') return Math.round(prix * (1 - (produit.reduction_valeur || 0) / 100))
+  if (produit.reduction_type === 'quantite') {
+    if (quantiteTotale < (produit.reduction_quantite_min || 1)) return prix
+    return Math.max(0, produit.reduction_valeur || prix)
+  }
+  return prix
 }
 
 export default function SuccesCommandePage() {

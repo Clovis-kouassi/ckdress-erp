@@ -10,7 +10,19 @@ const FRAIS_LIVRAISON_ABIDJAN = 1500
 const FRAIS_EXPEDITION = 3000
 
 type StockItem = { id: string; couleur: string; taille: string; quantite: number }
-type Produit = { id: string; nom: string; prix_vente: number; reference: string }
+type Produit = { id: string; nom: string; prix_vente: number; reference: string; reduction_type?: string | null; reduction_valeur?: number; reduction_quantite_min?: number }
+
+function calculerPrixReduit(produit: any, quantiteTotale: number): number {
+  const prix = produit.prix_vente
+  if (!produit.reduction_type) return prix
+  if (produit.reduction_type === 'fixe') return Math.max(0, prix - (produit.reduction_valeur || 0))
+  if (produit.reduction_type === 'pourcentage') return Math.round(prix * (1 - (produit.reduction_valeur || 0) / 100))
+  if (produit.reduction_type === 'quantite') {
+    if (quantiteTotale < (produit.reduction_quantite_min || 1)) return prix
+    return Math.max(0, produit.reduction_valeur || prix)
+  }
+  return prix
+}
 
 const MOYENS_PAIEMENT = [
   { id: 'wave', label: 'Wave', icon: '🌊', color: '#1BA0E2' },
@@ -50,7 +62,7 @@ function CommandeContent() {
     fetchData()
   }, [])
 
-  const quantiteParVariante = Object.fromEntries(variantesRaw.map(v => { const [id, qte] = v.split(':'); return [id, Number(qte) || 1] })); const sousTotal = produit ? variantes.reduce((sum, v) => sum + produit.prix_vente * (quantiteParVariante[v.id] || 1), 0) : 0
+  const quantiteParVariante = Object.fromEntries(variantesRaw.map(v => { const [id, qte] = v.split(':'); return [id, Number(qte) || 1] })); const quantiteTotale = variantes.reduce((sum, v) => sum + (quantiteParVariante[v.id] || 1), 0); const prixUnitaire = produit ? calculerPrixReduit(produit, quantiteTotale) : 0; const sousTotal = produit ? variantes.reduce((sum, v) => sum + prixUnitaire * (quantiteParVariante[v.id] || 1), 0) : 0
   const total = sousTotal + fraisLivraison
 
   async function enregistrerCommande(via: 'whatsapp' | 'formulaire') {
