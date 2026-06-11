@@ -440,6 +440,31 @@ export default function GestionnaireStockPage() {
   const isSuperAdmin = user?.activite === 'ck_dress' || user?.role === 'super_admin'
   const stockCritique = stock.filter(s => s.quantite <= 3)
   const totalArticles = stock.reduce((s, i) => s + i.quantite, 0)
+  const [caOuvert, setCaOuvert] = useState(false)
+  const [caFiltreMode, setCaFiltreMode] = useState<'tout' | 'jour' | 'periode'>('tout')
+  const [caDateJour, setCaDateJour] = useState('')
+  const [caDateDebut, setCaDateDebut] = useState('')
+  const [caDateFin, setCaDateFin] = useState('')
+  const [caModal, setCaModal] = useState<{ titre: string; commandes: any[] } | null>(null)
+  const toutesCmdCA = [...commandes, ...historique]
+  const filtrerParDate = (liste: any[]) => {
+    if (caFiltreMode === 'tout') return liste
+    if (caFiltreMode === 'jour' && caDateJour) {
+      const d = new Date(caDateJour); const debut = new Date(d.setHours(0,0,0,0)).getTime(); const fin = new Date(d.setHours(23,59,59,999)).getTime()
+      return liste.filter(c => { const t = new Date(c.created_at).getTime(); return t >= debut && t <= fin })
+    }
+    if (caFiltreMode === 'periode' && caDateDebut && caDateFin) {
+      const debut = new Date(caDateDebut); debut.setHours(0,0,0,0); const fin = new Date(caDateFin); fin.setHours(23,59,59,999)
+      return liste.filter(c => { const t = new Date(c.created_at).getTime(); return t >= debut.getTime() && t <= fin.getTime() })
+    }
+    return liste
+  }
+  const cmdFiltrees = filtrerParDate(toutesCmdCA)
+  const cmdLivrees = cmdFiltrees.filter(c => c.statut === 'livre')
+  const cmdRetourAnnule = cmdFiltrees.filter(c => c.statut === 'retour' || c.statut === 'annule')
+  const caTotal = cmdFiltrees.reduce((s, c) => s + (c.montant_total || 0), 0)
+  const caLivrees = cmdLivrees.reduce((s, c) => s + (c.montant_total || 0), 0)
+  const caRetourAnnule = cmdRetourAnnule.reduce((s, c) => s + (c.montant_total || 0), 0)
   const prixReduitDetail = produitDetail ? calculerPrixReduit(produitDetail) : null
   const taillesEnfant = tailles.filter(t => t.includes('mois') || t.includes('an') || t.includes('ans'))
   const taillesAdulte = tailles.filter(t => !t.includes('mois') && !t.includes('an') && !t.includes('ans'))
@@ -771,6 +796,61 @@ export default function GestionnaireStockPage() {
           </div>
         ))}
       </div>
+
+      {/* BANDEAU CA */}
+      <div style={{ margin: '12px 16px 0' }}>
+        <button onClick={() => setCaOuvert(!caOuvert)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderRadius: 12, border: 'none', background: '#1a1a2e', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
+          <span>Chiffre d'affaires & Statistiques</span>
+          <span>{caOuvert ? '▲' : '▼'}</span>
+        </button>
+        {caOuvert && (
+          <div style={{ background: '#fff', borderRadius: 12, padding: 16, marginTop: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+              {[{k:'tout',l:'Tout'},{k:'jour',l:'Un jour'},{k:'periode',l:'Periode'}].map(m => (
+                <button key={m.k} onClick={() => setCaFiltreMode(m.k as any)} style={{ padding: '7px 16px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: caFiltreMode === m.k ? '#0891b2' : '#f0f0f0', color: caFiltreMode === m.k ? '#fff' : '#555' }}>{m.l}</button>
+              ))}
+              {caFiltreMode === 'jour' && <input type="date" value={caDateJour} onChange={e => setCaDateJour(e.target.value)} style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e5e7eb', fontSize: 13 }} />}
+              {caFiltreMode === 'periode' && (<><input type="date" value={caDateDebut} onChange={e => setCaDateDebut(e.target.value)} style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e5e7eb', fontSize: 13 }} /><span style={{ alignSelf: 'center', fontSize: 12, color: '#888' }}>au</span><input type="date" value={caDateFin} onChange={e => setCaDateFin(e.target.value)} style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e5e7eb', fontSize: 13 }} /></>)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+              <div onClick={() => setCaModal({ titre: 'Toutes les commandes', commandes: cmdFiltrees })} style={{ background: '#e0f7fa', borderRadius: 12, padding: 16, cursor: 'pointer', border: '1px solid #0891b222' }}>
+                <div style={{ fontSize: 10, color: '#888', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>CA Total commandes</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#0891b2' }}>{caTotal.toLocaleString('fr-FR')} F</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{cmdFiltrees.length} commande(s)</div>
+              </div>
+              <div onClick={() => setCaModal({ titre: 'Commandes livrees', commandes: cmdLivrees })} style={{ background: '#f0fdf4', borderRadius: 12, padding: 16, cursor: 'pointer', border: '1px solid #1D9E7522' }}>
+                <div style={{ fontSize: 10, color: '#888', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>CA Livrees</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#1D9E75' }}>{caLivrees.toLocaleString('fr-FR')} F</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{cmdLivrees.length} livree(s)</div>
+              </div>
+              <div onClick={() => setCaModal({ titre: 'Retours / Annulees', commandes: cmdRetourAnnule })} style={{ background: '#fff0f0', borderRadius: 12, padding: 16, cursor: 'pointer', border: '1px solid #E24B4A22' }}>
+                <div style={{ fontSize: 10, color: '#888', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>CA Retours / Annulees</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#E24B4A' }}>{caRetourAnnule.toLocaleString('fr-FR')} F</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{cmdRetourAnnule.length} commande(s)</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL DETAIL CA */}
+      {caModal && (
+        <div onClick={() => setCaModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 520, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{caModal.titre} ({caModal.commandes.length})</h3>
+              <button onClick={() => setCaModal(null)} style={{ background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>X</button>
+            </div>
+            <div style={{ marginBottom: 12, background: '#f0fdf4', borderRadius: 10, padding: '10px 14px' }}><p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>Total: {caModal.commandes.reduce((s: number, c: any) => s + (c.montant_total || 0), 0).toLocaleString('fr-FR')} F</p></div>
+            {caModal.commandes.length === 0 ? <p style={{ textAlign: 'center', color: '#aaa', fontSize: 13 }}>Aucune commande</p> : caModal.commandes.map((c: any) => (
+              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <div><p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>#{c.id.slice(0,6).toUpperCase()} - {c.produit_ref}</p><p style={{ margin: 0, fontSize: 11, color: '#888' }}>{new Date(c.created_at).toLocaleDateString('fr-FR')} - {c.statut}</p></div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#1D9E75' }}>{c.montant_total?.toLocaleString('fr-FR')} F</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* TABS */}
       <div style={{ display: 'flex', background: '#fff', margin: '16px 16px 0', borderRadius: '12px', padding: '4px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflowX: 'auto', gap: '2px' }}>
