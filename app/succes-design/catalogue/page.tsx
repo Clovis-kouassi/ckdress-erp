@@ -36,7 +36,7 @@ export default function CatalogueSuccesDesignPage() {
   const [taille, setTaille] = useState('')
   const [categorie, setCategorie] = useState('')
   const [produitsAffiches, setProduitsAffiches] = useState<{produit: Produit, stock: StockItem[]}[]>([])
-  const [selection, setSelection] = useState<{stockId: string, produitId: string, produitRef: string, couleur: string, quantite: number, maxQuantite: number, prixUnitaire: number}[]>([])
+  const [selection, setSelection] = useState<{stockId: string, produitId: string, produitRef: string, couleur: string, quantite: number, maxQuantite: number, prixUnitaire: number, reduction_type?: string | null, reduction_valeur?: number, reduction_quantite_min?: number}[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
