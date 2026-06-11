@@ -160,9 +160,9 @@ function CommandeContent() {
             <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
               <div>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{produit?.nom}</p>
-                <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Taille {v.taille} — {v.couleur}</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Taille {v.taille} — {v.couleur}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>Quantite : {quantiteParVariante[v.id] || 1} x {prixUnitaire.toLocaleString('fr-FR')} F</p>
               </div>
-              <span style={{ fontSize: 14, fontWeight: 600, color: '#d4a853' }}>{produit?.prix_vente?.toLocaleString('fr-FR')} F</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#d4a853' }}>{(prixUnitaire * (quantiteParVariante[v.id] || 1)).toLocaleString('fr-FR')} F</span>
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, paddingBottom: 6 }}>
