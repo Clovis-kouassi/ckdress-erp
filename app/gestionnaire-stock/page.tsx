@@ -218,6 +218,25 @@ export default function GestionnaireStockPage() {
     setSavingCommande(false)
   }
 
+  const annulerCommande = async (cmd: any) => {
+    const motif = prompt(`Annuler la commande #${cmd.id.slice(0, 6).toUpperCase()} ?\nLe stock sera automatiquement reajuste.\n\nMotif de l'annulation :`)
+    if (motif === null) return
+    if (!motif.trim()) { alert('Le motif est obligatoire.'); return }
+    setSavingCommande(true)
+    await supabase.from('commandes_catalogue').update({ statut: 'annule', motif_retour: motif }).eq('id', cmd.id)
+    const isUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+    const ids = (cmd.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean).filter(isUUID)
+    for (const id of ids) {
+      const { data: stockItem } = await supabase.from('stock').select('*').eq('id', id).single()
+      if (stockItem) await supabase.from('stock').update({ quantite: stockItem.quantite + 1 }).eq('id', id)
+    }
+    setSuccess('Commande annulee ! Stock reajuste automatiquement.')
+    setTimeout(() => setSuccess(''), 3000)
+    setCommandeDetail(null)
+    await fetchData()
+    setSavingCommande(false)
+  }
+
   const traiterRetour = async (cmd: any) => {
     if (!confirm(`Confirmer le retour de la commande #${cmd.id.slice(0, 6).toUpperCase()} ?\nLes modèles seront automatiquement remis en stock.`)) return
     setSavingCommande(true)
@@ -584,6 +603,9 @@ export default function GestionnaireStockPage() {
               <div style={{ background: '#e0f7fa', borderRadius: 10, padding: '12px 14px', marginBottom: 10, border: '1px solid #bae6fd', textAlign: 'center' }}>
                 <p style={{ margin: 0, fontSize: 13, color: '#0891b2', fontWeight: 700 }}>↩️ Retour traité — Stock remis à jour</p>
               </div>
+            )}
+            {(commandeDetail.statut === 'nouveau' || commandeDetail.statut === 'en_preparation') && (
+              <button onClick={() => annulerCommande(commandeDetail)} disabled={savingCommande} style={{ width: '100%', padding: '12px', borderRadius: 10, border: '1.5px solid #fecaca', background: '#fff0f0', color: '#E24B4A', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 10 }}>{savingCommande ? '...' : 'Annuler la commande'}</button>
             )}
             <button onClick={() => setCommandeDetail(null)} style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', color: '#888', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Fermer</button>
           </div>
