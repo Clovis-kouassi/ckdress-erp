@@ -129,7 +129,10 @@ export default function GestionnaireStockPage() {
     setProdForm(p => ({ ...p, reference: `${prefix}-${catCode}-${timestamp}` }))
   }, [prodForm.activite, prodForm.categorie])
 
+  const fetchEnCours = useRef(false);
   const fetchData = async (u?: any) => {
+    if (fetchEnCours.current) return;
+    fetchEnCours.current = true;
     const currentUser = u || user || JSON.parse(localStorage.getItem('ck_user') || '{}')
     const isSuperAdminOrGlobal = currentUser?.activite === 'ck_dress' || currentUser?.role === 'super_admin'
     const activite = currentUser?.activite
@@ -198,6 +201,7 @@ export default function GestionnaireStockPage() {
     })()
     setHistorique(histData || [])
     setLoading(false)
+    fetchEnCours.current = false
   }
 
   const ouvrirCommande = async (cmd: any) => { setCommandeDetail(cmd); setCommandeVariantesImages([]); const isUUID2 = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s); const ids = (cmd.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean).filter(isUUID2); if (ids.length === 0) return; try { const { data: stockItems } = await supabase.from('stock').select('*').in('id', ids); const prod = produits.find((p: any) => p.reference === cmd.produit_ref); const items = (stockItems || []).map((s: any) => ({ ...s, image_url: s.image_url || prod?.image_url || null })); setCommandeVariantesImages(items) } catch (e) { console.error('Erreur images variantes', e) } }; const changerStatutCommande = async (id: string, statut: string) => {
