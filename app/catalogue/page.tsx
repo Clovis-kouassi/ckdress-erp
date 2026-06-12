@@ -143,6 +143,21 @@ export default function CataloguePage() {
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px' }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: '0 0 20px', textAlign: 'center' }}>Trouvez votre article</h1>
 
+        <div style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', marginBottom: 24, border: '1px solid #ece9e3' }}>
+          <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: 0.5 }}>Comment commander ?</p>
+          {[
+            { n: '1', t: 'Choisis ta taille et ta categorie' },
+            { n: '2', t: 'Selectionne ton modele' },
+            { n: '3', t: 'Renseigne tes infos de livraison (contact + adresse)' },
+            { n: '4', t: 'Confirme via le bouton noir ou via WhatsApp' },
+          ].map(e => (
+            <div key={e.n} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+              <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: '50%', background: '#1a1a1a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{e.n}</span>
+              <span style={{ fontSize: 13, color: '#444' }}>{e.t}</span>
+            </div>
+          ))}
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>1. Votre taille</label>
