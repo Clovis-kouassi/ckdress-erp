@@ -28,6 +28,7 @@ function CommandeContent() {
   const variantesRaw = (searchParams.get('variantes') || '').split(',').filter(Boolean); const variantesIds = variantesRaw.map(v => v.split(':')[0])
 
   const [produit, setProduit] = useState<any>(null)
+  const [produitsMap, setProduitsMap] = useState<Record<string, any>>({})
   const [variantes, setVariantes] = useState<any[]>([])
   const [telephone, setTelephone] = useState('')
   const [adresse, setAdresse] = useState('')
@@ -51,25 +52,52 @@ function CommandeContent() {
     fetchData()
   }, [])
 
-  const quantiteParVariante = Object.fromEntries(variantesRaw.map(v => { const [id, qte] = v.split(':'); return [id, Number(qte) || 1] })); const quantiteTotale = variantes.reduce((sum, v) => sum + (quantiteParVariante[v.id] || 1), 0); const prixUnitaire = produit ? calculerPrixReduit(produit, quantiteTotale) : 0; const sousTotal = produit ? variantes.reduce((sum, v) => sum + prixUnitaire * (quantiteParVariante[v.id] || 1), 0) : 0
+  const quantiteParVariante = Object.fromEntries(variantesRaw.map(v => { const [id, qte] = v.split(':'); return [id, Number(qte) || 1] }))
+  // Quantite par categorie (pour reductions quantite groupees)
+  const qteParCategorie: Record<string, number> = {}
+  variantes.forEach((v: any) => { const p = produitsMap[v.produit_id]; const cat = p?.categorie || ''; qteParCategorie[cat] = (qteParCategorie[cat] || 0) + (quantiteParVariante[v.id] || 1) })
+  // Prix unitaire reduit par variante (selon son produit et sa categorie)
+  const prixVariante = (v: any) => {
+    const p = produitsMap[v.produit_id]
+    if (!p) return 0
+    const qteCat = qteParCategorie[p.categorie || ''] || 0
+    return calculerPrixReduit(p, qteCat)
+  }
+  const sousTotal = variantes.reduce((sum: number, v: any) => sum + prixVariante(v) * (quantiteParVariante[v.id] || 1), 0)
   const total = sousTotal + fraisLivraison
 
   async function enregistrerCommande(via: 'whatsapp' | 'formulaire') {
     const ref = Math.random().toString(36).slice(2, 10).toUpperCase()
-    const { data, error } = await supabase.from('commandes_catalogue').insert({
-      telephone,
-      adresse: typeCommande === 'expedition' ? `Ville: ${ville}` : adresse,
-      produit_ref: produitRef,
-      taille,
-      variantes: variantes.map(v => v.id).join(','),
-      montant_total: total,
-      frais_livraison: fraisLivraison,
-      statut: 'nouveau', activite: 'succes_design',
-      source: via,
-      note: `REF: ${ref} | SUCCES DESIGN | Couleurs: ${variantes.map(v => v.couleur).join(', ')} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
-    }).select().single()
+    // Grouper les variantes par produit (option B: une ligne de commande par produit)
+    const variantesParProduit: Record<string, any[]> = {}
+    variantes.forEach((v: any) => {
+      if (!variantesParProduit[v.produit_id]) variantesParProduit[v.produit_id] = []
+      variantesParProduit[v.produit_id].push(v)
+    })
+    let firstError: any = null
+    for (const prodId of Object.keys(variantesParProduit)) {
+      const prodVariantes = variantesParProduit[prodId]
+      const p = produitsMap[prodId]
+      const sousTotalProduit = prodVariantes.reduce((s: number, v: any) => s + prixVariante(v) * (quantiteParVariante[v.id] || 1), 0)
+      const taillesProduit = Array.from(new Set(prodVariantes.map((v: any) => v.taille))).join(', ')
+      const { error } = await supabase.from('commandes_catalogue').insert({
+        telephone,
+        adresse: typeCommande === 'expedition' ? `Ville: ${ville}` : adresse,
+        produit_ref: p?.reference || produitRef,
+        taille: taillesProduit,
+        variantes: prodVariantes.map((v: any) => v.id).join(','),
+        montant_total: sousTotalProduit,
+        frais_livraison: 0,
+        statut: 'nouveau', activite: 'succes_design',
+        source: via,
+        note: `REF: ${ref} | SUCCES DESIGN | Couleurs: ${prodVariantes.map((v: any) => v.couleur).join(', ')} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
+      })
+      if (error && !firstError) firstError = error
+    }
+    const error = firstError
+    const data = firstError ? null : true
 
-    // ✅ Déduire le stock via RPC sécurisé
+    // Déduire le stock via RPC sécurisé
     if (data && !error) {
       for (const variante of variantes) {
         await supabase.rpc('deduire_stock', { stock_id: variante.id })
@@ -80,7 +108,7 @@ function CommandeContent() {
   }
 
   function getWhatsappUrl(ref: string) {
-    const lignes = variantes.map(v => `• ${produit?.nom} — Taille ${v.taille} — ${v.couleur}`)
+    const lignes = variantes.map(v => `• ${produitsMap[v.produit_id]?.nom || produit?.nom} — Taille ${v.taille} — ${v.couleur}`)
     const moyenLabel = MOYENS_PAIEMENT.find(m => m.id === moyenPaiement)?.label || moyenPaiement
     if (typeCommande === 'expedition') {
       const msg = `Bonjour Succès Design 👋\n\n✨ COMMANDE #${ref}\n📦 EXPÉDITION vers ${ville}\n\n${lignes.join('\n')}\n\nSous-total : ${sousTotal.toLocaleString('fr-FR')} F\nFrais : ${fraisLivraison.toLocaleString('fr-FR')} F\n💰 TOTAL : ${total.toLocaleString('fr-FR')} F\n\n💳 Paiement : ${moyenLabel}\n📞 Téléphone : ${telephone}\n📍 Ville : ${ville}\n\n⚠️ Paiement requis avant expédition.`
@@ -159,10 +187,10 @@ function CommandeContent() {
           {variantes.map(v => (
             <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
               <div>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{produit?.nom}</p>
-                <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Taille {v.taille} — {v.couleur}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>Quantite : {quantiteParVariante[v.id] || 1} x {prixUnitaire.toLocaleString('fr-FR')} F</p>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{produitsMap[v.produit_id]?.nom || produit?.nom}</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Taille {v.taille} — {v.couleur}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>Quantite : {quantiteParVariante[v.id] || 1} x {prixVariante(v).toLocaleString('fr-FR')} F</p>
               </div>
-              <span style={{ fontSize: 14, fontWeight: 600, color: '#d4a853' }}>{(prixUnitaire * (quantiteParVariante[v.id] || 1)).toLocaleString('fr-FR')} F</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#d4a853' }}>{(prixVariante(v) * (quantiteParVariante[v.id] || 1)).toLocaleString('fr-FR')} F</span>
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, paddingBottom: 6 }}>
