@@ -1081,7 +1081,7 @@ export default function GestionnaireStockPage() {
                   <label style={labelStyle}>COULEURS & TAILLES</label>
                   <button onClick={() => setCouleurs(prev => [...prev, nouvelleCouleur(tailles)])} style={{ background: '#f0f9ff', color: '#0891b2', border: '1px solid #0891b244', borderRadius: '8px', padding: '5px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>+ Couleur</button>
                 </div>
-                {tailles.length > 0 && (
+                {false && (
                   <div style={{ marginBottom: 12 }}>
                     {taillesAdulte.length > 0 && <div style={{ marginBottom: 6 }}><span style={{ fontSize: 11, color: '#888', fontWeight: 600, marginRight: 8 }}>👕 Adulte :</span>{taillesAdulte.map(t => <span key={t} style={{ fontSize: 11, background: '#e0f7fa', color: '#0891b2', padding: '2px 8px', borderRadius: 20, marginRight: 4, fontWeight: 600 }}>{t}</span>)}</div>}
                     {taillesEnfant.length > 0 && <div><span style={{ fontSize: 11, color: '#888', fontWeight: 600, marginRight: 8 }}>👶 Enfant :</span>{taillesEnfant.map(t => <span key={t} style={{ fontSize: 11, background: '#f0fdf4', color: '#1D9E75', padding: '2px 8px', borderRadius: 20, marginRight: 4, fontWeight: 600 }}>{t}</span>)}</div>}
