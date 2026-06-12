@@ -276,7 +276,7 @@ function CommandeContent() {
 }
 
 function calculerPrixReduit(produit: any, quantiteTotale: number): number {
-  const prix = produit.prix_vente
+  const prix = Number(produit.prix_vente) || 0
   if (!produit.reduction_type) return prix
   if (produit.reduction_type === 'fixe') return Math.max(0, prix - (produit.reduction_valeur || 0))
   if (produit.reduction_type === 'pourcentage') return Math.round(prix * (1 - (produit.reduction_valeur || 0) / 100))
