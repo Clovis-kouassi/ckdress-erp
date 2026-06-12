@@ -11,6 +11,9 @@ type Produit = {
   prix_vente: number
   image_url?: string
   categorie?: string
+  reduction_type?: string | null
+  reduction_valeur?: number
+  reduction_quantite_min?: number
 }
 
 type StockItem = {
@@ -86,6 +89,9 @@ export default function CataloguePage() {
         quantite: 1,
         maxQuantite: stockItem.quantite,
         prixUnitaire: produit.prix_vente,
+        reduction_type: produit.reduction_type || null,
+        reduction_valeur: produit.reduction_valeur || 0,
+        reduction_quantite_min: produit.reduction_quantite_min || 1,
       }])
     }
   }
