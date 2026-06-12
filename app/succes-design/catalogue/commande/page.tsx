@@ -46,7 +46,7 @@ function CommandeContent() {
       if (prodData) setProduit(prodData)
       if (variantesIds.length > 0) {
         const { data: stockData } = await supabase.from('stock').select('*').in('id', variantesIds)
-        if (stockData) setVariantes(stockData)
+        if (stockData) { setVariantes(stockData); const prodIds = Array.from(new Set(stockData.map((s: any) => s.produit_id))); const r = await supabase.from('produits').select('*').in('id', prodIds); if (r.data) { const map: Record<string, any> = {}; r.data.forEach((p: any) => { map[p.id] = p }); setProduitsMap(map) } }
       }
     }
     fetchData()
