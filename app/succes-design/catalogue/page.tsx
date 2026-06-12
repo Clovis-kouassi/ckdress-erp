@@ -120,13 +120,12 @@ export default function CatalogueSuccesDesignPage() {
   }
 
   const totalArticles = selection.reduce((s, i) => s + i.quantite, 0)
-  const qteParProduit: Record<string, number> = {}
-  selection.forEach((i: any) => { qteParProduit[i.produitId] = (qteParProduit[i.produitId] || 0) + i.quantite })
+  const qteTotaleCategorie = selection.reduce((s, i: any) => s + i.quantite, 0)
   const totalPrix = selection.reduce((s, i: any) => {
     let pu = i.prixUnitaire
     if (i.reduction_type === 'pourcentage') pu = Math.round(i.prixUnitaire * (1 - (i.reduction_valeur || 0) / 100))
     else if (i.reduction_type === 'fixe') pu = Math.max(0, i.prixUnitaire - (i.reduction_valeur || 0))
-    else if (i.reduction_type === 'quantite' && qteParProduit[i.produitId] >= (i.reduction_quantite_min || 1)) pu = Math.max(0, i.reduction_valeur || i.prixUnitaire)
+    else if (i.reduction_type === 'quantite' && qteTotaleCategorie >= (i.reduction_quantite_min || 1)) pu = Math.max(0, i.reduction_valeur || i.prixUnitaire)
     return s + i.quantite * pu
   }, 0)
 
