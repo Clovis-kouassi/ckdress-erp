@@ -395,6 +395,12 @@ export default function GestionnaireStockPage() {
 
   const publierProduit = async () => {
     if (!prodForm.nom || !prodForm.reference || !prodForm.prix_vente) { alert('Remplissez le nom, la référence et le prix.'); return }
+    // Verification anti-doublon (avertissement, pas blocage)
+    const { data: doublons } = await supabase.from('produits').select('reference, nom').eq('activite', prodForm.activite).eq('categorie', prodForm.categorie).ilike('nom', prodForm.nom.trim())
+    if (doublons && doublons.length > 0) {
+      const refs = doublons.map((d: any) => d.reference).join(', ')
+      if (!confirm('Un produit similaire existe deja : ' + prodForm.nom.trim() + ' (' + refs + ').\n\nVoulez-vous quand meme publier ce nouveau produit ?')) return
+    }
     setSaving(true)
     setSavingProgress('⏳ Upload image principale...')
     let imageUrl = ''
