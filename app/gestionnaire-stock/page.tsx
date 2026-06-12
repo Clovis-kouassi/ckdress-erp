@@ -399,6 +399,13 @@ export default function GestionnaireStockPage() {
     setSavingProgress('⏳ Upload image principale...')
     let imageUrl = ''
     if (prodForm.image_file) imageUrl = await uploadImage(prodForm.image_file, `produits/${Date.now()}-${prodForm.image_file.name}`) || ''
+    // Fallback: si pas d'image principale, utiliser la 1ere image de couleur
+    if (!imageUrl) {
+      const premiereCouleurAvecImage = couleurs.find(c => c.couleur && c.image_file)
+      if (premiereCouleurAvecImage && premiereCouleurAvecImage.image_file) {
+        imageUrl = await uploadImage(premiereCouleurAvecImage.image_file, `produits/${Date.now()}-${premiereCouleurAvecImage.image_file.name}`) || ''
+      }
+    }
     setSavingProgress('⏳ Création du produit...')
     const { data: prodData, error } = await supabase.from('produits').insert({
       reference: prodForm.reference, nom: prodForm.nom, categorie: prodForm.categorie,
