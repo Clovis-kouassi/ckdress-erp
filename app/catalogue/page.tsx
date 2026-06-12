@@ -46,7 +46,7 @@ export default function CataloguePage() {
     supabase.from('categories').select('*').eq('activite', 'ck_design').order('ordre').then(({ data }) => {
       if (data) setCategories(data)
     })
-    supabase.from('produits').select('*').eq('disponible', true).eq('activite', 'ck_design').order('nom').then(({ data }) => {
+    supabase.from('produits').select('*').eq('disponible', true).eq('activite', 'ck_design').order('created_at', { ascending: false }).then(({ data }) => {
       if (data) setProduits(data)
     })
     // ✅ Tailles dynamiques depuis Supabase
@@ -177,6 +177,24 @@ export default function CataloguePage() {
           </div>
         </div>
 
+        {(!taille || !categorie) && produits.length > 0 && (
+          <div style={{ marginBottom: 28 }}>
+            <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ background: '#d4a853', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: 0.5 }}>Nouveaute</span> Nos derniers articles</p>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+              {produits.slice(0, 10).map(p => (
+                <div key={p.id} style={{ flexShrink: 0, width: 140, background: '#fff', borderRadius: 12, border: '1px solid #ece9e3', overflow: 'hidden' }}>
+                  <div style={{ width: '100%', height: 140, background: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {p.image_url ? <img src={p.image_url} alt={p.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 32 }}>👕</span>}
+                  </div>
+                  <div style={{ padding: '8px 10px' }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nom}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 12, fontWeight: 600, color: '#d4a853' }}>{p.prix_vente?.toLocaleString('fr-FR')} F</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {!taille || !categorie ? (
           <div style={{ textAlign: 'center', padding: '48px 20px', color: '#bbb' }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>👗</div>
