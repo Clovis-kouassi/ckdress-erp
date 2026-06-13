@@ -505,6 +505,38 @@ export default function GestionnaireStockPage() {
   const taillesAdulte = tailles.filter(t => !t.includes('mois') && !t.includes('an') && !t.includes('ans'))
   const commandesNouvelles = commandes.filter(c => c.statut === 'nouveau')
   const commandesEnPrep = commandes.filter(c => c.statut === 'en_preparation')
+  // Extraire le REF client de la note (REF: XXXX)
+  const extraireRef = (cmd: any): string => {
+    const m = (cmd.note || '').match(/REF:\s*([A-Z0-9]+)/i)
+    return m ? m[1] : ('SOLO-' + cmd.id.slice(0, 6))
+  }
+  // Regrouper une liste de commandes par REF client
+  const regrouperParRef = (liste: any[]) => {
+    const groupes: Record<string, any> = {}
+    liste.forEach((cmd: any) => {
+      const ref = extraireRef(cmd)
+      if (!groupes[ref]) groupes[ref] = { ref, lignes: [], total: 0, telephone: cmd.telephone, created_at: cmd.created_at }
+      groupes[ref].lignes.push(cmd)
+      groupes[ref].total += (cmd.montant_total || 0)
+    })
+    return Object.values(groupes).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }
+  // Changer le statut de TOUTES les lignes d'un groupe REF
+  const changerStatutGroupe = async (lignes: any[], statut: string) => {
+    setSavingCommande(true)
+    for (const ligne of lignes) {
+      await supabase.from('commandes_catalogue').update({ statut }).eq('id', ligne.id)
+    }
+    const msgs: Record<string, string> = {
+      en_preparation: '✅ Commande en préparation !',
+      en_livraison: '✅ Commande envoyée en livraison !',
+    }
+    setSuccess(msgs[statut] || '✅ Statut mis à jour !')
+    setTimeout(() => setSuccess(''), 2000)
+    setCommandeDetail(null)
+    await fetchData()
+    setSavingCommande(false)
+  }
   const historiqueFiltree = filtreHistorique === 'tous' ? historique : historique.filter(c => c.statut === filtreHistorique)
 
   const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: '9px', background: '#f8f9fa', border: '1.5px solid #e5e5e5', color: '#1a1a1a', fontSize: '13px', boxSizing: 'border-box' as const, outline: 'none' }
@@ -923,17 +955,23 @@ export default function GestionnaireStockPage() {
                 <div style={{ background: '#fff', borderRadius: 12, padding: '24px', textAlign: 'center', color: '#ccc', fontSize: 13, border: '1px solid #e5e7eb' }}>✅ Aucune nouvelle commande</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {commandesNouvelles.map(cmd => (
-                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #fecaca', boxShadow: '0 2px 8px rgba(226,75,74,0.1)', cursor: 'pointer' }} onClick={() => ouvrirCommande(cmd)}>
+                  {regrouperParRef(commandesNouvelles).map((groupe: any) => (
+                    <div key={groupe.ref} style={{ background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #fecaca', boxShadow: '0 2px 8px rgba(226,75,74,0.1)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                        <div><span style={{ fontSize: 13, fontWeight: 700, color: '#E24B4A', background: '#fff0f0', padding: '3px 10px', borderRadius: 20 }}>#{cmd.id.slice(0, 6).toUpperCase()}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
-                        <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
+                        <div><span style={{ fontSize: 13, fontWeight: 700, color: '#E24B4A', background: '#fff0f0', padding: '3px 10px', borderRadius: 20 }}>#{groupe.ref}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(groupe.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-                        <div><p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>{cmd.nom_client || '—'}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>📱 {cmd.telephone}</p></div>
-                        <div><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p><div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div><p style={{ display: 'none' }}></p></div>
+                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                        {groupe.lignes.map((cmd: any) => (
+                          <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: '#faf9f7', borderRadius: 10, cursor: 'pointer' }}>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div>
+                            <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p></div>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
+                          </div>
+                        ))}
                       </div>
-                      <button onClick={e => { e.stopPropagation(); changerStatutCommande(cmd.id, 'en_preparation') }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>📦 Prendre en charge</button>
+                      <button onClick={() => changerStatutGroupe(groupe.lignes, 'en_preparation')} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>📦 Prendre en charge</button>
                     </div>
                   ))}
                 </div>
@@ -948,17 +986,23 @@ export default function GestionnaireStockPage() {
                 <div style={{ background: '#fff', borderRadius: 12, padding: '24px', textAlign: 'center', color: '#ccc', fontSize: 13, border: '1px solid #e5e7eb' }}>Aucune commande en préparation</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {commandesEnPrep.map(cmd => (
-                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #ddd6fe', cursor: 'pointer' }} onClick={() => ouvrirCommande(cmd)}>
+                  {regrouperParRef(commandesEnPrep).map((groupe: any) => (
+                    <div key={groupe.ref} style={{ background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #ddd6fe' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                        <div><span style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 20 }}>#{cmd.id.slice(0, 6).toUpperCase()}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
-                        <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
+                        <div><span style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 20 }}>#{groupe.ref}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(groupe.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-                        <div><p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>{cmd.nom_client || '—'}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>📱 {cmd.telephone}</p></div>
-                        <div><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p><div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div><p style={{ display: 'none' }}></p></div>
+                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                        {groupe.lignes.map((cmd: any) => (
+                          <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: '#faf9f7', borderRadius: 10, cursor: 'pointer' }}>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div>
+                            <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p></div>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
+                          </div>
+                        ))}
                       </div>
-                      <button onClick={e => { e.stopPropagation(); changerStatutCommande(cmd.id, 'en_livraison') }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#BA7517', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>🚚 Prête — Envoyer en livraison</button>
+                      <button onClick={() => changerStatutGroupe(groupe.lignes, 'en_livraison')} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#BA7517', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>🚚 Prête — Envoyer en livraison</button>
                     </div>
                   ))}
                 </div>
