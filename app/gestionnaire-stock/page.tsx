@@ -515,7 +515,7 @@ export default function GestionnaireStockPage() {
     const groupes: Record<string, any> = {}
     liste.forEach((cmd: any) => {
       const ref = extraireRef(cmd)
-      if (!groupes[ref]) groupes[ref] = { ref, lignes: [], total: 0, telephone: cmd.telephone, created_at: cmd.created_at }
+      if (!groupes[ref]) groupes[ref] = { ref, lignes: [], total: 0, telephone: cmd.telephone, adresse: cmd.adresse, created_at: cmd.created_at }
       groupes[ref].lignes.push(cmd)
       groupes[ref].total += (cmd.montant_total || 0)
     })
@@ -961,7 +961,7 @@ export default function GestionnaireStockPage() {
                         <div><span style={{ fontSize: 13, fontWeight: 700, color: '#E24B4A', background: '#fff0f0', padding: '3px 10px', borderRadius: 20 }}>#{groupe.ref}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(groupe.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
-                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p>
+                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p><p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📍 {groupe.adresse || '—'}</p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                         {groupe.lignes.map((cmd: any) => (
                           <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: '#faf9f7', borderRadius: 10, cursor: 'pointer' }}>
@@ -992,7 +992,7 @@ export default function GestionnaireStockPage() {
                         <div><span style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 20 }}>#{groupe.ref}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(groupe.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
-                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p>
+                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p><p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📍 {groupe.adresse || '—'}</p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                         {groupe.lignes.map((cmd: any) => (
                           <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: '#faf9f7', borderRadius: 10, cursor: 'pointer' }}>
