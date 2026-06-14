@@ -170,7 +170,7 @@ function CommandeContent() {
       },
       () => {
         setGpsStatut('error')
-        alert("Impossible d'obtenir votre position. Verifiez que vous avez autorise la localisation.")
+        alert("Position non captee — pas de souci ! Ecrivez simplement votre adresse ci-dessus.")
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
@@ -256,11 +256,11 @@ function CommandeContent() {
           </div>
           {typeCommande === 'abidjan' ? (
             <div>
-              <label style={{ fontSize: 13, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>Adresse *</label>
+              <label style={{ fontSize: 13, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>Adresse *</label><p style={{ margin: '0 0 8px', fontSize: 11, color: '#999' }}>Ecrivez votre adresse et/ou partagez votre position GPS (recommande pour faciliter la livraison)</p>
               <textarea value={adresse} onChange={e => setAdresse(e.target.value)} placeholder="Quartier, rue..." rows={3}
                 style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #e5e2dc', fontSize: 14, color: '#1a1a1a', background: '#faf9f7', outline: 'none', resize: 'vertical' }} />
               <button type="button" onClick={capturerPosition} style={{ marginTop: 10, width: '100%', padding: '11px', borderRadius: 10, border: gpsStatut === 'ok' ? '1.5px solid #1D9E75' : '1.5px solid #e5e2dc', background: gpsStatut === 'ok' ? '#f0faf7' : '#fff', color: gpsStatut === 'ok' ? '#1D9E75' : '#555', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                {gpsStatut === 'loading' ? '⏳ Localisation en cours...' : gpsStatut === 'ok' ? '✅ Position partagée' : '📍 Partager ma position (recommandé)'}
+                {gpsStatut === 'loading' ? '⏳ Localisation en cours...' : gpsStatut === 'ok' ? '✅ Position partagée' : '📍 Partager ma position (optionnel, recommandé)'}
               </button>
               {gpsStatut === 'ok' && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#1D9E75', textAlign: 'center' }}>{positionTexte ? ('Position : ' + positionTexte) : 'Le livreur pourra vous localiser facilement'}</p>}
             </div>
