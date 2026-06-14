@@ -1078,7 +1078,7 @@ export default function GestionnaireStockPage() {
                         <span style={{ fontSize: 15, fontWeight: 800, color: premiere.statut === 'annule' ? '#aaa' : '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
                       <p style={{ margin: '0 0 4px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone}</p>
-                      <p style={{ margin: '0 0 4px', fontSize: 11, color: '#aaa' }}>📍 {groupe.adresse}</p>
+                      <p style={{ margin: '0 0 4px', fontSize: 11, color: '#aaa' }}>📍 {groupe.adresse || groupe.position_texte || '—'}</p>
                       <p style={{ margin: '0 0 10px', fontSize: 11, color: '#aaa' }}>{new Date(groupe.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                         {groupe.lignes.map((cmd: any) => {
