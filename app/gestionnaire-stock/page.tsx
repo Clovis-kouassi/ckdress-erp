@@ -967,7 +967,7 @@ export default function GestionnaireStockPage() {
                           const img = (variantesImagesMap[cmd.id] || [])[0]
                           return (
                             <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} title={'Réf: ' + cmd.produit_ref + ' — ' + cmd.taille} style={{ position: 'relative', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f8f9fa', flexShrink: 0 }}>
-                              {img && img.image_url ? <img src={img.image_url} alt={cmd.produit_ref} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👕</div>}
+                              {img && img.image_url ? <img src={img.image_url} alt={cmd.produit_ref} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👕</div>}
                               <span style={{ position: 'absolute', bottom: 0, right: 0, background: 'rgba(26,26,26,0.85)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderTopLeftRadius: 6 }}>{cmd.taille}</span>
                             </div>
                           )
@@ -1000,7 +1000,7 @@ export default function GestionnaireStockPage() {
                           const img = (variantesImagesMap[cmd.id] || [])[0]
                           return (
                             <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} title={'Réf: ' + cmd.produit_ref + ' — ' + cmd.taille} style={{ position: 'relative', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f8f9fa', flexShrink: 0 }}>
-                              {img && img.image_url ? <img src={img.image_url} alt={cmd.produit_ref} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👕</div>}
+                              {img && img.image_url ? <img src={img.image_url} alt={cmd.produit_ref} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👕</div>}
                               <span style={{ position: 'absolute', bottom: 0, right: 0, background: 'rgba(26,26,26,0.85)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderTopLeftRadius: 6 }}>{cmd.taille}</span>
                             </div>
                           )
