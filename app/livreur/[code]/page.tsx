@@ -8,6 +8,9 @@ type Commande = {
   id: string
   telephone: string
   adresse: string
+  latitude?: number
+  longitude?: number
+  position_texte?: string
   produit_ref: string
   taille: string
   variantes: string
@@ -425,6 +428,13 @@ export default function LivreurPage() {
                       </div>
 
                       <p style={{ margin: '0 0 12px', fontSize: 12, color: '#555' }}>📍 {cmd.adresse}</p>
+                      {cmd.latitude && cmd.longitude && (
+                        <div style={{ margin: '0 0 12px', padding: 10, background: '#f0faf7', borderRadius: 10, border: '1px solid #bbf0dd' }}>
+                          <p style={{ margin: '0 0 8px', fontSize: 12, color: '#1D9E75', fontWeight: 700 }}>📍 Position GPS{cmd.position_texte ? ' — ' + cmd.position_texte : ''}</p>
+                          <iframe title="carte" width="100%" height="150" style={{ border: 0, borderRadius: 8, marginBottom: 8 }} loading="lazy" src={`https://www.openstreetmap.org/export/embed.html?bbox=${cmd.longitude-0.003}%2C${cmd.latitude-0.003}%2C${cmd.longitude+0.003}%2C${cmd.latitude+0.003}&layer=mapnik&marker=${cmd.latitude}%2C${cmd.longitude}`} />
+                          <a href={`https://www.google.com/maps?q=${cmd.latitude},${cmd.longitude}`} target="_blank" rel="noopener noreferrer" style={{ display: 'block', textAlign: 'center', padding: '10px', borderRadius: 8, background: '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>🗺️ Ouvrir dans Google Maps</a>
+                        </div>
+                      )}
 
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => confirmerLivraison(cmd)} disabled={saving === cmd.id}
