@@ -45,7 +45,10 @@ export default function Dashboard() {
   const [showNotifs, setShowNotifs] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const [filtrePeriode, setFiltrePeriode] = useState<'tous' | 'jour' | 'semaine' | 'mois' | 'annee'>('tous')
+  const [filtrePeriode, setFiltrePeriode] = useState<'tous' | 'jour' | 'semaine' | 'mois' | 'annee' | 'date' | 'periode'>('tous')
+  const [datePrecise, setDatePrecise] = useState('')
+  const [dateDebut, setDateDebut] = useState('')
+  const [dateFin, setDateFin] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -70,6 +73,17 @@ export default function Dashboard() {
     if (filtrePeriode === 'semaine') return (now.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 7
     if (filtrePeriode === 'mois') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
     if (filtrePeriode === 'annee') return d.getFullYear() === now.getFullYear()
+    if (filtrePeriode === 'date') {
+      if (!datePrecise) return true
+      return d.toDateString() === new Date(datePrecise + 'T12:00:00').toDateString()
+    }
+    if (filtrePeriode === 'periode') {
+      if (!dateDebut || !dateFin) return true
+      const debut = new Date(dateDebut + 'T00:00:00').getTime()
+      const fin = new Date(dateFin + 'T23:59:59').getTime()
+      const t = d.getTime()
+      return t >= debut && t <= fin
+    }
     return true
   }
 
@@ -255,7 +269,23 @@ export default function Dashboard() {
                   {p.label}
                 </button>
               ))}
+              <button onClick={() => setFiltrePeriode('date')} style={{ padding: '7px 16px', borderRadius: 20, border: `1.5px solid ${filtrePeriode === 'date' ? '#1D9E75' : '#e5e7eb'}`, background: filtrePeriode === 'date' ? '#1D9E75' : '#fff', color: filtrePeriode === 'date' ? '#fff' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📅 Date précise</button>
+              <button onClick={() => setFiltrePeriode('periode')} style={{ padding: '7px 16px', borderRadius: 20, border: `1.5px solid ${filtrePeriode === 'periode' ? '#1D9E75' : '#e5e7eb'}`, background: filtrePeriode === 'periode' ? '#1D9E75' : '#fff', color: filtrePeriode === 'periode' ? '#fff' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗓️ Période</button>
             </div>
+            {filtrePeriode === 'date' && (
+              <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ fontSize: 13, color: '#555', fontWeight: 600 }}>Jour :</label>
+                <input type="date" value={datePrecise} onChange={e => setDatePrecise(e.target.value)} style={{ padding: '8px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 13 }} />
+              </div>
+            )}
+            {filtrePeriode === 'periode' && (
+              <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ fontSize: 13, color: '#555', fontWeight: 600 }}>Du :</label>
+                <input type="date" value={dateDebut} onChange={e => setDateDebut(e.target.value)} style={{ padding: '8px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 13 }} />
+                <label style={{ fontSize: 13, color: '#555', fontWeight: 600 }}>au :</label>
+                <input type="date" value={dateFin} onChange={e => setDateFin(e.target.value)} style={{ padding: '8px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 13 }} />
+              </div>
+            )}
 
             {/* KPIs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '20px' }}>
