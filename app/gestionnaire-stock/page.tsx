@@ -524,6 +524,7 @@ export default function GestionnaireStockPage() {
   const nbCommandesNouvelles = regrouperParRef(commandesNouvelles).length
   const nbCommandesEnPrep = regrouperParRef(commandesEnPrep).length
   const nbCommandesTotal = regrouperParRef(commandes).length
+  const nbHistoriqueGroupe = regrouperParRef(historique).length
   const traiterRetourGroupe = async (lignes: any[], ref: string) => {
     if (!confirm('Confirmer le retour de la commande #' + ref + ' ?\nTous les articles seront remis en stock.')) return
     setSavingCommande(true)
@@ -638,7 +639,7 @@ export default function GestionnaireStockPage() {
               <h4 style={{ margin: '0 0 8px', fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 600 }}>Produit</h4>
               <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#0891b2' }}>Réf: {commandeDetail.produit_ref}</p>
               <p style={{ margin: '0 0 4px', fontSize: 13, color: '#555' }}>📐 Taille : <strong>{commandeDetail.taille}</strong></p>
-              <div style={{ marginBottom: 8 }}><p style={{ margin: '0 0 8px', fontSize: 13, color: '#555', fontWeight: 600 }}>Images variantes :</p><div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{commandeVariantesImages.length > 0 ? commandeVariantesImages.map((v: any) => { const imgUrl = v.image_url || produits.find((p: any) => p.id === v.produit_id)?.image_url; return (<div key={v.id} style={{ textAlign: 'center' }}>{imgUrl ? <img src={imgUrl} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, border: '2px solid #e5e7eb' }} /> : <div style={{ width: 80, height: 80, borderRadius: 10, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>??</div>}<p style={{ margin: '4px 0 0', fontSize: 11, color: '#555', fontWeight: 600 }}>{v.couleur}</p></div>) }) : <p style={{ fontSize: 12, color: '#aaa' }}>{commandeDetail.variantes || 'Aucune variante'}</p>}</div></div>
+              <div style={{ marginBottom: 8 }}><p style={{ margin: '0 0 8px', fontSize: 13, color: '#555', fontWeight: 600 }}>Images variantes :</p><div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{commandeVariantesImages.length > 0 ? commandeVariantesImages.map((v: any) => { const imgUrl = v.image_url || produits.find((p: any) => p.id === v.produit_id)?.image_url; return (<div key={v.id} style={{ textAlign: 'center' }}>{imgUrl ? <img src={imgUrl} style={{ width: 80, height: 80, objectFit: 'contain', borderRadius: 10, border: '2px solid #e5e7eb', background: '#f8f9fa' }} /> : <div style={{ width: 80, height: 80, borderRadius: 10, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>??</div>}<p style={{ margin: '4px 0 0', fontSize: 11, color: '#555', fontWeight: 600 }}>{v.couleur}</p></div>) }) : <p style={{ fontSize: 12, color: '#aaa' }}>{commandeDetail.variantes || 'Aucune variante'}</p>}</div></div>
               {commandeDetail.note && (
                 <div style={{ marginTop: 8, background: '#fff8e6', borderRadius: 8, padding: '8px 10px', border: '1px solid #fde68a' }}>
                   <p style={{ margin: 0, fontSize: 12, color: '#92400e' }}>📝 {commandeDetail.note}</p>
@@ -946,7 +947,7 @@ export default function GestionnaireStockPage() {
       <div style={{ display: 'flex', background: '#fff', margin: '16px 16px 0', borderRadius: '12px', padding: '4px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflowX: 'auto', gap: '2px' }}>
         {[
           { key: 'commandes', label: `🔴 Commandes${nbCommandesTotal > 0 ? ` (${nbCommandesTotal})` : ''}` },
-          { key: 'historique', label: `📋 Historique${historique.length > 0 ? ` (${historique.length})` : ''}` },
+          { key: 'historique', label: `📋 Historique${nbHistoriqueGroupe > 0 ? ` (${nbHistoriqueGroupe})` : ''}` },
           { key: 'produits', label: '🏷️ Produits' },
           { key: 'nouveau_produit', label: '➕ Publier' },
           { key: 'approvisionner', label: '🏪 Appro.' },
