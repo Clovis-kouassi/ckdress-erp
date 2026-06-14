@@ -521,6 +521,26 @@ export default function GestionnaireStockPage() {
     })
     return Object.values(groupes).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   }
+  const nbCommandesNouvelles = regrouperParRef(commandesNouvelles).length
+  const nbCommandesEnPrep = regrouperParRef(commandesEnPrep).length
+  const nbCommandesTotal = regrouperParRef(commandes).length
+  const traiterRetourGroupe = async (lignes: any[], ref: string) => {
+    if (!confirm('Confirmer le retour de la commande #' + ref + ' ?\nTous les articles seront remis en stock.')) return
+    setSavingCommande(true)
+    const isUUIDr = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+    for (const cmd of lignes) {
+      await supabase.from('commandes_catalogue').update({ statut: 'retour' }).eq('id', cmd.id)
+      const ids = (cmd.variantes || '').split(',').map((v: string) => v.trim().split(':')[0]).filter(Boolean).filter(isUUIDr)
+      for (const id of ids) {
+        const { data: stockItem } = await supabase.from('stock').select('*').eq('id', id).single()
+        if (stockItem) await supabase.from('stock').update({ quantite: stockItem.quantite + 1 }).eq('id', id)
+      }
+    }
+    setSuccess('↩️ Retour traité ! Stock remis à jour.')
+    setTimeout(() => setSuccess(''), 3000)
+    await fetchData()
+    setSavingCommande(false)
+  }
   // Changer le statut de TOUTES les lignes d'un groupe REF
   const changerStatutGroupe = async (lignes: any[], statut: string) => {
     setSavingCommande(true)
@@ -857,8 +877,8 @@ export default function GestionnaireStockPage() {
         {[
           { label: 'Total articles', value: totalArticles, color: '#0891b2', bg: '#e0f7fa' },
           { label: 'Références', value: produits.length, color: '#6366f1', bg: '#ede9fe' },
-          { label: '🔴 À préparer', value: commandesNouvelles.length, color: commandesNouvelles.length > 0 ? '#E24B4A' : '#1D9E75', bg: commandesNouvelles.length > 0 ? '#fff0f0' : '#f0fdf4' },
-          { label: '📦 En préparation', value: commandesEnPrep.length, color: '#7c3aed', bg: '#f5f3ff' },
+          { label: '🔴 À préparer', value: nbCommandesNouvelles, color: commandesNouvelles.length > 0 ? '#E24B4A' : '#1D9E75', bg: commandesNouvelles.length > 0 ? '#fff0f0' : '#f0fdf4' },
+          { label: '📦 En préparation', value: nbCommandesEnPrep, color: '#7c3aed', bg: '#f5f3ff' },
         ].map((k, i) => (
           <div key={i} style={{ background: k.bg, border: `1px solid ${k.color}22`, borderRadius: '12px', padding: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: '10px', color: '#888', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 600, letterSpacing: 0.5 }}>{k.label}</div>
@@ -925,7 +945,7 @@ export default function GestionnaireStockPage() {
       {/* TABS */}
       <div style={{ display: 'flex', background: '#fff', margin: '16px 16px 0', borderRadius: '12px', padding: '4px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflowX: 'auto', gap: '2px' }}>
         {[
-          { key: 'commandes', label: `🔴 Commandes${commandes.length > 0 ? ` (${commandes.length})` : ''}` },
+          { key: 'commandes', label: `🔴 Commandes${nbCommandesTotal > 0 ? ` (${nbCommandesTotal})` : ''}` },
           { key: 'historique', label: `📋 Historique${historique.length > 0 ? ` (${historique.length})` : ''}` },
           { key: 'produits', label: '🏷️ Produits' },
           { key: 'nouveau_produit', label: '➕ Publier' },
@@ -949,7 +969,7 @@ export default function GestionnaireStockPage() {
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#E24B4A' }}>🔴 Nouvelles commandes</span>
-                <span style={{ background: '#fff0f0', border: '1px solid #fecaca', color: '#E24B4A', fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }}>{commandesNouvelles.length}</span><button onClick={genererPDFCommandes} style={{ marginLeft: 'auto', padding: '7px 16px', borderRadius: 8, border: 'none', background: '#1D9E75', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Telecharger PDF</button>
+                <span style={{ background: '#fff0f0', border: '1px solid #fecaca', color: '#E24B4A', fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }}>{nbCommandesNouvelles}</span><button onClick={genererPDFCommandes} style={{ marginLeft: 'auto', padding: '7px 16px', borderRadius: 8, border: 'none', background: '#1D9E75', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Telecharger PDF</button>
               </div>
               {commandesNouvelles.length === 0 ? (
                 <div style={{ background: '#fff', borderRadius: 12, padding: '24px', textAlign: 'center', color: '#ccc', fontSize: 13, border: '1px solid #e5e7eb' }}>✅ Aucune nouvelle commande</div>
@@ -982,7 +1002,7 @@ export default function GestionnaireStockPage() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#7c3aed' }}>📦 En préparation</span>
-                <span style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#7c3aed', fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }}>{commandesEnPrep.length}</span>
+                <span style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#7c3aed', fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }}>{nbCommandesEnPrep}</span>
               </div>
               {commandesEnPrep.length === 0 ? (
                 <div style={{ background: '#fff', borderRadius: 12, padding: '24px', textAlign: 'center', color: '#ccc', fontSize: 13, border: '1px solid #e5e7eb' }}>Aucune commande en préparation</div>
@@ -1036,31 +1056,35 @@ export default function GestionnaireStockPage() {
               <div style={{ background: '#fff', borderRadius: 12, padding: '40px', textAlign: 'center', color: '#ccc', fontSize: 13, border: '1px solid #e5e7eb' }}>Aucune commande dans cet historique</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {historiqueFiltree.map(cmd => {
-                  const sc = STATUT_CONFIG[cmd.statut] || STATUT_CONFIG['annule']
+                {regrouperParRef(historiqueFiltree).map((groupe: any) => {
+                  const premiere = groupe.lignes[0]
+                  const sc = STATUT_CONFIG[premiere.statut] || STATUT_CONFIG['annule']
+                  const peutRetour = groupe.lignes.some((c: any) => c.statut === 'livre' || c.statut === 'en_livraison')
                   return (
-                    <div key={cmd.id} style={{ background: '#fff', borderRadius: 14, padding: 16, border: `1.5px solid ${sc.border}`, cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }} onClick={() => ouvrirCommande(cmd)}>
+                    <div key={groupe.ref} style={{ background: '#fff', borderRadius: 14, padding: 16, border: `1.5px solid ${sc.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: sc.color, background: sc.bg, padding: '3px 10px', borderRadius: 20 }}>#{cmd.id.slice(0, 6).toUpperCase()}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: sc.color, background: sc.bg, padding: '3px 10px', borderRadius: 20 }}>#{groupe.ref}</span>
                           <span style={{ fontSize: 11, fontWeight: 700, color: sc.color }}>{sc.label}</span>
                         </div>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: cmd.statut === 'annule' ? '#aaa' : '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: premiere.statut === 'annule' ? '#aaa' : '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                        <div>
-                          <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>{cmd.nom_client || '—'}</p>
-                          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>📱 {cmd.telephone}</p>
-                          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#aaa' }}>📍 {cmd.adresse}</p>
-                        </div>
-                        <div>
-                          <p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p>
-                          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p><div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div><p style={{ display: 'none' }}></p>
-                          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#aaa' }}>{new Date(cmd.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
+                      <p style={{ margin: '0 0 4px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone}</p>
+                      <p style={{ margin: '0 0 4px', fontSize: 11, color: '#aaa' }}>📍 {groupe.adresse}</p>
+                      <p style={{ margin: '0 0 10px', fontSize: 11, color: '#aaa' }}>{new Date(groupe.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                        {groupe.lignes.map((cmd: any) => {
+                          const img = (variantesImagesMap[cmd.id] || [])[0]
+                          return (
+                            <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} title={'Réf: ' + cmd.produit_ref + ' — ' + cmd.taille} style={{ position: 'relative', width: 52, height: 52, borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f8f9fa', flexShrink: 0 }}>
+                              {img && img.image_url ? <img src={img.image_url} alt={cmd.produit_ref} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>👕</div>}
+                              <span style={{ position: 'absolute', bottom: 0, right: 0, background: 'rgba(26,26,26,0.85)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderTopLeftRadius: 6 }}>{cmd.taille}</span>
+                            </div>
+                          )
+                        })}
                       </div>
-                      {(cmd.statut === 'livre' || cmd.statut === 'en_livraison') && (
-                        <button onClick={e => { e.stopPropagation(); traiterRetour(cmd) }}
+                      {peutRetour && (
+                        <button onClick={() => traiterRetourGroupe(groupe.lignes, groupe.ref)}
                           style={{ width: '100%', padding: '9px', borderRadius: 9, border: '1.5px solid #bae6fd', background: '#e0f7fa', color: '#0891b2', fontWeight: 700, fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
                           ↩️ Traiter un retour — Remettre en stock
                         </button>
