@@ -39,7 +39,7 @@ export default function CataloguePage() {
   const [taille, setTaille] = useState('')
   const [categorie, setCategorie] = useState('')
   const [produitsAffiches, setProduitsAffiches] = useState<{produit: Produit, stock: StockItem[]}[]>([])
-  const [selection, setSelection] = useState<{stockId: string, produitId: string, produitRef: string, couleur: string, quantite: number, maxQuantite: number, prixUnitaire: number, reduction_type?: string | null, reduction_valeur?: number, reduction_quantite_min?: number}[]>([])
+  const [selection, setSelection] = useState<{stockId: string, produitId: string, produitRef: string, couleur: string, taille?: string, categorie?: string, quantite: number, maxQuantite: number, prixUnitaire: number, reduction_type?: string | null, reduction_valeur?: number, reduction_quantite_min?: number}[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function CataloguePage() {
   useEffect(() => {
     if (!taille || !categorie) { setProduitsAffiches([]); return }
     setLoading(true)
-    setSelection([])
+    // panier conserve au changement (multi-categories)
 
     async function chargerProduits() {
       const produitsFiltres = produits.filter(p => p.categorie?.toLowerCase() === categorie.toLowerCase())
@@ -86,6 +86,8 @@ export default function CataloguePage() {
         produitId: produit.id,
         produitRef: produit.reference,
         couleur: stockItem.couleur,
+        taille: stockItem.taille,
+        categorie: produit.categorie,
         quantite: 1,
         maxQuantite: stockItem.quantite,
         prixUnitaire: produit.prix_vente,
@@ -121,12 +123,13 @@ export default function CataloguePage() {
   }
 
   const totalArticles = selection.reduce((s, i) => s + i.quantite, 0)
-  const qteTotaleCategorie = selection.reduce((s, i: any) => s + i.quantite, 0)
+  const qteParCategorie: Record<string, number> = {}
+  selection.forEach((i: any) => { const cat = i.categorie || ''; qteParCategorie[cat] = (qteParCategorie[cat] || 0) + i.quantite })
   const totalPrix = selection.reduce((s, i: any) => {
     let pu = i.prixUnitaire
     if (i.reduction_type === 'pourcentage') pu = Math.round(i.prixUnitaire * (1 - (i.reduction_valeur || 0) / 100))
     else if (i.reduction_type === 'fixe') pu = Math.max(0, i.prixUnitaire - (i.reduction_valeur || 0))
-    else if (i.reduction_type === 'quantite' && qteTotaleCategorie >= (i.reduction_quantite_min || 1)) pu = Math.max(0, i.reduction_valeur || i.prixUnitaire)
+    else if (i.reduction_type === 'quantite' && (qteParCategorie[i.categorie || ''] || 0) >= (i.reduction_quantite_min || 1)) pu = Math.max(0, i.reduction_valeur || i.prixUnitaire)
     return s + i.quantite * pu
   }, 0)
 
