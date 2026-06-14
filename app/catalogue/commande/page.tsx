@@ -47,6 +47,7 @@ function CommandeContent() {
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
   const [gpsStatut, setGpsStatut] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
+  const [positionTexte, setPositionTexte] = useState('')
   const [moyenPaiement, setMoyenPaiement] = useState('')
   const [typeCommande, setTypeCommande] = useState<'abidjan' | 'expedition'>('abidjan')
   const [loading, setLoading] = useState(false)
@@ -95,7 +96,7 @@ function CommandeContent() {
         taille: taillesProduit,
         variantes: prodVariantes.map((v: any) => v.id).join(','),
         montant_total: sousTotalProduit,
-        frais_livraison: 0, latitude, longitude,
+        frais_livraison: 0, latitude, longitude, position_texte: positionTexte,
         statut: 'nouveau', activite: 'ck_design',
         source: via,
         note: `REF: ${ref} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
@@ -175,7 +176,17 @@ function CommandeContent() {
     if (!navigator.geolocation) { alert("La geolocalisation n'est pas supportee par votre navigateur."); return }
     setGpsStatut('loading')
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setGpsStatut('ok') },
+      async (pos) => {
+        const lat = pos.coords.latitude; const lng = pos.coords.longitude
+        setLatitude(lat); setLongitude(lng); setGpsStatut('ok')
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`, { headers: { 'Accept-Language': 'fr' } })
+          const data = await r.json()
+          const a = data.address || {}
+          const parts = [a.suburb || a.neighbourhood || a.quarter, a.city_district || a.municipality || a.town || a.city].filter(Boolean)
+          setPositionTexte(parts.join(', ') || data.display_name || '')
+        } catch (e) { console.log('Geocodage indisponible') }
+      },
       () => { setGpsStatut('error'); alert("Impossible d'obtenir votre position. Verifiez que vous avez autorise la localisation.") },
       { enableHighAccuracy: true, timeout: 10000 }
     )
@@ -292,7 +303,7 @@ function CommandeContent() {
               <button type="button" onClick={capturerPosition} style={{ marginTop: 10, width: '100%', padding: '11px', borderRadius: 10, border: gpsStatut === 'ok' ? '1.5px solid #1D9E75' : '1.5px solid #e5e2dc', background: gpsStatut === 'ok' ? '#f0faf7' : '#fff', color: gpsStatut === 'ok' ? '#1D9E75' : '#555', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 {gpsStatut === 'loading' ? '⏳ Localisation en cours...' : gpsStatut === 'ok' ? '✅ Position partagée' : '📍 Partager ma position (recommandé)'}
               </button>
-              {gpsStatut === 'ok' && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#1D9E75', textAlign: 'center' }}>Le livreur pourra vous localiser facilement</p>}
+              {gpsStatut === 'ok' && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#1D9E75', textAlign: 'center' }}>{positionTexte ? ('Position : ' + positionTexte) : 'Le livreur pourra vous localiser facilement'}</p>}
             </div>
           ) : (
             <div>
