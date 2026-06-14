@@ -44,6 +44,9 @@ function CommandeContent() {
   const [telephone, setTelephone] = useState('')
   const [adresse, setAdresse] = useState('')
   const [ville, setVille] = useState('')
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [gpsStatut, setGpsStatut] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
   const [moyenPaiement, setMoyenPaiement] = useState('')
   const [typeCommande, setTypeCommande] = useState<'abidjan' | 'expedition'>('abidjan')
   const [loading, setLoading] = useState(false)
@@ -92,7 +95,7 @@ function CommandeContent() {
         taille: taillesProduit,
         variantes: prodVariantes.map((v: any) => v.id).join(','),
         montant_total: sousTotalProduit,
-        frais_livraison: 0,
+        frais_livraison: 0, latitude, longitude,
         statut: 'nouveau', activite: 'ck_design',
         source: via,
         note: `REF: ${ref} | ${typeCommande === 'expedition' ? `EXPÉDITION ${ville} | Paiement: ${moyenPaiement}` : 'ABIDJAN'}`,
@@ -167,6 +170,16 @@ function CommandeContent() {
 
   const canSubmit = telephone &&
     (typeCommande === 'abidjan' ? adresse : (ville && moyenPaiement))
+
+  const capturerPosition = () => {
+    if (!navigator.geolocation) { alert("La geolocalisation n'est pas supportee par votre navigateur."); return }
+    setGpsStatut('loading')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setGpsStatut('ok') },
+      () => { setGpsStatut('error'); alert("Impossible d'obtenir votre position. Verifiez que vous avez autorise la localisation.") },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
 
   if (succes) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif", padding: 32, textAlign: 'center', background: '#faf9f7' }}>
@@ -276,6 +289,10 @@ function CommandeContent() {
               <label style={{ fontSize: 13, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>Adresse de livraison *</label>
               <textarea value={adresse} onChange={e => setAdresse(e.target.value)} placeholder="Quartier, rue, description..." rows={3}
                 style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #e5e2dc', fontSize: 14, color: '#1a1a1a', background: '#faf9f7', outline: 'none', resize: 'vertical' }} />
+              <button type="button" onClick={capturerPosition} style={{ marginTop: 10, width: '100%', padding: '11px', borderRadius: 10, border: gpsStatut === 'ok' ? '1.5px solid #1D9E75' : '1.5px solid #e5e2dc', background: gpsStatut === 'ok' ? '#f0faf7' : '#fff', color: gpsStatut === 'ok' ? '#1D9E75' : '#555', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {gpsStatut === 'loading' ? '⏳ Localisation en cours...' : gpsStatut === 'ok' ? '✅ Position partagée' : '📍 Partager ma position (recommandé)'}
+              </button>
+              {gpsStatut === 'ok' && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#1D9E75', textAlign: 'center' }}>Le livreur pourra vous localiser facilement</p>}
             </div>
           ) : (
             <div>
