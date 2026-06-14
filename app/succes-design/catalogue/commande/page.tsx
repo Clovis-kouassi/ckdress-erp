@@ -125,7 +125,7 @@ function CommandeContent() {
 
   async function handleWhatsApp() {
     if (!telephone) { alert('Renseignez votre téléphone.'); return }
-    if (typeCommande === 'abidjan' && !adresse) { alert('Renseignez votre adresse.'); return }
+    if (typeCommande === 'abidjan' && !adresse && !latitude) { alert('Renseignez votre adresse ou partagez votre position.'); return }
     if (typeCommande === 'expedition' && !ville) { alert('Renseignez votre ville.'); return }
     if (typeCommande === 'expedition' && !moyenPaiement) { alert('Choisissez un moyen de paiement.'); return }
     setLoading(true)
@@ -138,7 +138,7 @@ function CommandeContent() {
 
   async function handleValider() {
     if (!telephone) return
-    if (typeCommande === 'abidjan' && !adresse) return
+    if (typeCommande === 'abidjan' && !adresse && !latitude) return
     if (typeCommande === 'expedition' && (!ville || !moyenPaiement)) return
     setLoading(true)
     const { error } = await enregistrerCommande('formulaire')
@@ -147,7 +147,7 @@ function CommandeContent() {
     setLoading(false)
   }
 
-  const canSubmit = telephone && (typeCommande === 'abidjan' ? adresse : (ville && moyenPaiement))
+  const canSubmit = telephone && (typeCommande === 'abidjan' ? (adresse || latitude) : (ville && moyenPaiement))
 
   const capturerPosition = () => {
     if (!navigator.geolocation) { alert("La geolocalisation n'est pas supportee par votre navigateur."); return }
