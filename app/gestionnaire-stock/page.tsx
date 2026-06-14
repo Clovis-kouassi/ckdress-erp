@@ -515,7 +515,7 @@ export default function GestionnaireStockPage() {
     const groupes: Record<string, any> = {}
     liste.forEach((cmd: any) => {
       const ref = extraireRef(cmd)
-      if (!groupes[ref]) groupes[ref] = { ref, lignes: [], total: 0, telephone: cmd.telephone, adresse: cmd.adresse, created_at: cmd.created_at }
+      if (!groupes[ref]) groupes[ref] = { ref, lignes: [], total: 0, telephone: cmd.telephone, adresse: cmd.adresse, position_texte: cmd.position_texte, created_at: cmd.created_at }
       groupes[ref].lignes.push(cmd)
       groupes[ref].total += (cmd.montant_total || 0)
     })
@@ -637,7 +637,7 @@ export default function GestionnaireStockPage() {
               {commandeDetail.latitude && commandeDetail.longitude && (
                 <div style={{ marginTop: 10, padding: 10, background: '#f0faf7', borderRadius: 10, border: '1px solid #bbf0dd' }}>
                   <p style={{ margin: '0 0 8px', fontSize: 13, color: '#1D9E75', fontWeight: 700 }}>📍 Position GPS partagée{commandeDetail.position_texte ? ' — ' + commandeDetail.position_texte : ''}</p>
-                  <iframe title="carte" width="100%" height="160" style={{ border: 0, borderRadius: 8, marginBottom: 8 }} loading="lazy" src={`https://www.openstreetmap.org/export/embed.html?bbox=${commandeDetail.longitude-0.003}%2C${commandeDetail.latitude-0.003}%2C${commandeDetail.longitude+0.003}%2C${commandeDetail.latitude+0.003}&layer=mapnik&marker=${commandeDetail.latitude}%2C${commandeDetail.longitude}`} />
+                  <iframe title="carte" width="100%" height="220" style={{ border: 0, borderRadius: 8, marginBottom: 8 }} loading="lazy" src={`https://www.openstreetmap.org/export/embed.html?bbox=${commandeDetail.longitude-0.003}%2C${commandeDetail.latitude-0.003}%2C${commandeDetail.longitude+0.003}%2C${commandeDetail.latitude+0.003}&layer=mapnik&marker=${commandeDetail.latitude}%2C${commandeDetail.longitude}`} />
                   <a href={`https://www.google.com/maps?q=${commandeDetail.latitude},${commandeDetail.longitude}`} target="_blank" rel="noopener noreferrer" style={{ display: 'block', textAlign: 'center', padding: '10px', borderRadius: 8, background: '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>🗺️ Ouvrir dans Google Maps</a>
                 </div>
               )}
@@ -989,7 +989,7 @@ export default function GestionnaireStockPage() {
                         <div><span style={{ fontSize: 13, fontWeight: 700, color: '#E24B4A', background: '#fff0f0', padding: '3px 10px', borderRadius: 20 }}>#{groupe.ref}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(groupe.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
-                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p><p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📍 {groupe.adresse || '—'}</p>
+                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p><p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📍 {groupe.adresse || groupe.position_texte || '—'}</p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                         {groupe.lignes.map((cmd: any) => {
                           const img = (variantesImagesMap[cmd.id] || [])[0]
@@ -1022,7 +1022,7 @@ export default function GestionnaireStockPage() {
                         <div><span style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 20 }}>#{groupe.ref}</span><span style={{ marginLeft: 8, fontSize: 12, color: '#aaa' }}>{new Date(groupe.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
-                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p><p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📍 {groupe.adresse || '—'}</p>
+                      <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p><p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📍 {groupe.adresse || groupe.position_texte || '—'}</p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                         {groupe.lignes.map((cmd: any) => {
                           const img = (variantesImagesMap[cmd.id] || [])[0]
