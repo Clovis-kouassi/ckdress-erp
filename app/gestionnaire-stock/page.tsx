@@ -962,14 +962,16 @@ export default function GestionnaireStockPage() {
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
                       <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p><p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📍 {groupe.adresse || '—'}</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                        {groupe.lignes.map((cmd: any) => (
-                          <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: '#faf9f7', borderRadius: 10, cursor: 'pointer' }}>
-                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div>
-                            <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p></div>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
-                          </div>
-                        ))}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                        {groupe.lignes.map((cmd: any) => {
+                          const img = (variantesImagesMap[cmd.id] || [])[0]
+                          return (
+                            <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} title={'Réf: ' + cmd.produit_ref + ' — ' + cmd.taille} style={{ position: 'relative', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f8f9fa', flexShrink: 0 }}>
+                              {img && img.image_url ? <img src={img.image_url} alt={cmd.produit_ref} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👕</div>}
+                              <span style={{ position: 'absolute', bottom: 0, right: 0, background: 'rgba(26,26,26,0.85)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderTopLeftRadius: 6 }}>{cmd.taille}</span>
+                            </div>
+                          )
+                        })}
                       </div>
                       <button onClick={() => changerStatutGroupe(groupe.lignes, 'en_preparation')} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>📦 Prendre en charge</button>
                     </div>
@@ -993,14 +995,16 @@ export default function GestionnaireStockPage() {
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#1D9E75' }}>{groupe.total?.toLocaleString('fr-FR')} F</span>
                       </div>
                       <p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📱 {groupe.telephone} • {groupe.lignes.length} article{groupe.lignes.length > 1 ? 's' : ''}</p><p style={{ margin: '0 0 10px', fontSize: 12, color: '#888' }}>📍 {groupe.adresse || '—'}</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                        {groupe.lignes.map((cmd: any) => (
-                          <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: '#faf9f7', borderRadius: 10, cursor: 'pointer' }}>
-                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{(variantesImagesMap[cmd.id] || []).map((v: any) => v.image_url ? <img key={v.id} src={v.image_url} title={v.couleur} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb' }} /> : null)}</div>
-                            <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: 12, color: '#0891b2', fontWeight: 600 }}>Réf: {cmd.produit_ref}</p><p style={{ margin: '2px 0 0', fontSize: 12, color: '#555' }}>📐 {cmd.taille}</p></div>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>{cmd.montant_total?.toLocaleString('fr-FR')} F</span>
-                          </div>
-                        ))}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                        {groupe.lignes.map((cmd: any) => {
+                          const img = (variantesImagesMap[cmd.id] || [])[0]
+                          return (
+                            <div key={cmd.id} onClick={() => ouvrirCommande(cmd)} title={'Réf: ' + cmd.produit_ref + ' — ' + cmd.taille} style={{ position: 'relative', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f8f9fa', flexShrink: 0 }}>
+                              {img && img.image_url ? <img src={img.image_url} alt={cmd.produit_ref} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👕</div>}
+                              <span style={{ position: 'absolute', bottom: 0, right: 0, background: 'rgba(26,26,26,0.85)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderTopLeftRadius: 6 }}>{cmd.taille}</span>
+                            </div>
+                          )
+                        })}
                       </div>
                       <button onClick={() => changerStatutGroupe(groupe.lignes, 'en_livraison')} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#BA7517', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>🚚 Prête — Envoyer en livraison</button>
                     </div>
