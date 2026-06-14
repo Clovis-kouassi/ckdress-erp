@@ -634,6 +634,13 @@ export default function GestionnaireStockPage() {
               <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>{commandeDetail.nom_client || '—'}</p>
               <p style={{ margin: '0 0 3px', fontSize: 13, color: '#555' }}>📱 {commandeDetail.telephone}</p>
               <p style={{ margin: 0, fontSize: 13, color: '#555' }}>📍 {commandeDetail.adresse}</p>
+              {commandeDetail.latitude && commandeDetail.longitude && (
+                <div style={{ marginTop: 10, padding: 10, background: '#f0faf7', borderRadius: 10, border: '1px solid #bbf0dd' }}>
+                  <p style={{ margin: '0 0 8px', fontSize: 13, color: '#1D9E75', fontWeight: 700 }}>📍 Position GPS partagée{commandeDetail.position_texte ? ' — ' + commandeDetail.position_texte : ''}</p>
+                  <iframe title="carte" width="100%" height="160" style={{ border: 0, borderRadius: 8, marginBottom: 8 }} loading="lazy" src={`https://www.openstreetmap.org/export/embed.html?bbox=${commandeDetail.longitude-0.003}%2C${commandeDetail.latitude-0.003}%2C${commandeDetail.longitude+0.003}%2C${commandeDetail.latitude+0.003}&layer=mapnik&marker=${commandeDetail.latitude}%2C${commandeDetail.longitude}`} />
+                  <a href={`https://www.google.com/maps?q=${commandeDetail.latitude},${commandeDetail.longitude}`} target="_blank" rel="noopener noreferrer" style={{ display: 'block', textAlign: 'center', padding: '10px', borderRadius: 8, background: '#1D9E75', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>🗺️ Ouvrir dans Google Maps</a>
+                </div>
+              )}
             </div>
             <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 14, marginBottom: 12 }}>
               <h4 style={{ margin: '0 0 8px', fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 600 }}>Produit</h4>
