@@ -1040,11 +1040,11 @@ export default function GestionnaireStockPage() {
           <div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
               {[
-                { key: 'tous', label: 'Toutes', count: historique.length },
-                { key: 'livre', label: '✅ Livrées', count: historique.filter(c => c.statut === 'livre').length },
-                { key: 'en_livraison', label: '🚚 En livraison', count: historique.filter(c => c.statut === 'en_livraison').length },
-                { key: 'retour', label: '↩️ Retours', count: historique.filter(c => c.statut === 'retour').length },
-                { key: 'annule', label: '❌ Annulées', count: historique.filter(c => c.statut === 'annule').length },
+                { key: 'tous', label: 'Toutes', count: regrouperParRef(historique).length },
+                { key: 'livre', label: '✅ Livrées', count: regrouperParRef(historique.filter(c => c.statut === 'livre')).length },
+                { key: 'en_livraison', label: '🚚 En livraison', count: regrouperParRef(historique.filter(c => c.statut === 'en_livraison')).length },
+                { key: 'retour', label: '↩️ Retours', count: regrouperParRef(historique.filter(c => c.statut === 'retour')).length },
+                { key: 'annule', label: '❌ Annulées', count: regrouperParRef(historique.filter(c => c.statut === 'annule')).length },
               ].map(f => (
                 <button key={f.key} onClick={() => setFiltreHistorique(f.key as any)}
                   style={{ padding: '7px 16px', borderRadius: 20, border: `1.5px solid ${filtreHistorique === f.key ? '#0891b2' : '#e5e7eb'}`, background: filtreHistorique === f.key ? '#0891b2' : '#fff', color: filtreHistorique === f.key ? '#fff' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
